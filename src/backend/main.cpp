@@ -1,0 +1,71 @@
+#include "core/logger.h"
+#include "core/engine.h"
+#include "core/config.h"
+
+#include <csignal>
+#include <cstring>
+#include <iostream>
+#include <string>
+
+static ais::Engine* g_engine = nullptr;
+
+static void signal_handler(int sig) {
+    if (g_engine) {
+        LOG_INFO("Received signal " + std::to_string(sig) + ", shutting down...");
+        g_engine->stop();
+    }
+}
+
+static void print_usage(const char* argv0) {
+    std::cerr << "Usage: " << argv0 << " [options]\n"
+              << "Options:\n"
+              << "  --port <port>         WebSocket port (default: 9876)\n"
+              << "  --api-key <key>       Deepgram API key\n"
+              << "  --model <model>       Deepgram model (default: nova-3)\n"
+              << "  --language <lang>     Language code: ja, en, zh, auto, etc. (default: auto)\n"
+              << "  --help                Show this help\n";
+}
+
+int main(int argc, char* argv[]) {
+    ais::Config config;
+
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--port") == 0 && i + 1 < argc) {
+            config.ws_port = std::stoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--api-key") == 0 && i + 1 < argc) {
+            config.deepgram_api_key = argv[++i];
+        } else if (std::strcmp(argv[i], "--model") == 0 && i + 1 < argc) {
+            config.deepgram_model = argv[++i];
+        } else if (std::strcmp(argv[i], "--extra-params") == 0 && i + 1 < argc) {
+            config.deepgram_extra_params = argv[++i];
+        } else if (std::strcmp(argv[i], "--language") == 0 && i + 1 < argc) {
+            config.language = argv[++i];
+        } else if (std::strcmp(argv[i], "--help") == 0) {
+            print_usage(argv[0]);
+            return 0;
+        } else {
+            std::cerr << "Unknown option: " << argv[i] << "\n";
+            print_usage(argv[0]);
+            return 1;
+        }
+    }
+
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+
+    LOG_INFO("SubFlow backend starting (Deepgram)...");
+    LOG_INFO("WebSocket port: " + std::to_string(config.ws_port));
+    if (!config.deepgram_api_key.empty())
+        LOG_INFO("Deepgram API key: configured");
+    else
+        LOG_WARN("Deepgram API key: NOT SET — transcription disabled until key is provided");
+
+    ais::Engine engine(config);
+    g_engine = &engine;
+
+    engine.run();
+
+    g_engine = nullptr;
+    LOG_INFO("Shutdown complete.");
+    return 0;
+}

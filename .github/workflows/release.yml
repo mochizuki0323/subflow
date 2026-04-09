@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Install system dependencies
+        run: |
+          dnf install -y \
+            git gcc-c++ clang cmake ninja-build \
+            openssl-devel pipewire-devel \
+            nodejs npm \
+            mingw64-gcc-c++ mingw64-openssl mingw64-openssl-static mingw64-winpthreads-static mingw64-zlib-static \
+            libxcrypt-compat \
+            rpm-build dpkg fuse fuse-libs \
+            binutils objdump \
+            libXScrnSaver nss atk at-spi2-atk cups-libs gtk3 libdrm mesa-libgbm alsa-lib
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build C++ backend (Linux)
+        run: |
+          CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel "$(nproc)"
+
+      - name: Download cacert.pem
+        run: |
+          if [[ ! -f data/cacert.pem ]]; then
+            mkdir -p data
+            curl -fSL -o data/cacert.pem https://curl.se/ca/cacert.pem
+          fi
+
+      - name: Build C++ backend (MinGW / Windows)
+        run: OPENSSL_STATIC=1 bash scripts/build-backend-mingw.sh
+
+      - name: Sync MinGW artifacts
+        run: bash scripts/sync-mingw-exe-to-build-bin.sh
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Package Linux (AppImage + deb + rpm)
+        run: npx electron-builder --linux AppImage deb rpm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Windows (portable + zip)
+        run: CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --win portable zip --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rename release artifacts
+        run: node scripts/rename-release-artifacts.js || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-packages
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.exe
+            release/*.zip
+
+      - name: Create Draft Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.exe
+            release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

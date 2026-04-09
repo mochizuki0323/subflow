@@ -1,0 +1,45 @@
+appId: com.subflow.app
+productName: SubFlow
+# Executable name without spaces (matches install dir / shortcuts)
+executableName: subflow
+# Linux uses SVG (icon set); Windows uses ICO — see https://www.electron.build/icons.html
+# No code signing / Wine required when packaging Windows builds on Linux (see dist:win:linux)
+forceCodeSigning: false
+directories:
+  output: release
+files:
+  - dist/main/**/*
+  - dist/preload/**/*
+  - dist/renderer/**/*
+  - node_modules/**/*
+extraResources:
+  - from: build/bin
+    to: bin
+    filter:
+      - subflow-backend*
+      - cacert.pem
+      # When MinGW dynamically links OpenSSL/zlib, DLLs must sit next to the exe; not needed for static builds
+      - "*.dll"
+# portable artifactName lives in top-level `portable:` (eb 25+: not inside win.target[])
+# zip uses win.artifactName when no `zip:` block is set
+portable:
+  artifactName: subflow-${version}-windows-amd64-portable.${ext}
+win:
+  icon: resources/icon.ico
+  # portable: single exe; zip: folder archive (no NSIS/Wine when building on Linux)
+  target:
+    - portable
+    - zip
+  artifactName: subflow-${version}-windows-amd64.${ext}
+  signAndEditExecutable: false
+linux:
+  icon: resources/icon.svg
+  target:
+    - AppImage
+    - deb
+    - rpm
+  category: Utility
+  artifactName: subflow-${version}-linux-${arch}.${ext}
+# Plain xz avoids legacy fpm default xzmt on older toolchains; harmless with electron-builder 26+ fpm.
+rpm:
+  compression: xz

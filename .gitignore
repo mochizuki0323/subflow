@@ -1,0 +1,30 @@
+# Build outputs
+build/
+build-mingw/
+dist/
+release/
+
+# Dependencies
+node_modules/
+
+# Cache / build info
+.cache/
+tsconfig.tsbuildinfo
+
+# Runtime configuration (user-specific)
+app-settings.json
+deepgram-config.json
+translator-config.json
+ui-preferences.json
+window-positions.json
+
+# Personal scripts
+claude_code.sh
+claude_code_openrouter.sh
+
+# Optional local script to rebuild resources/icon.ico from icon.svg (Linux uses SVG only)
+scripts/generate-icon.sh
+
+# ML models (large binaries, download separately)
+models/
+

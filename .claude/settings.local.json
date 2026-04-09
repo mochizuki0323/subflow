@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__tavily__tavily_search",
+      "mcp__tavily__tavily_extract",
+      "Bash(ldconfig -p)",
+      "Bash(xargs cat:*)",
+      "mcp__tavily__tavily_research",
+      "Bash(openssl version:*)",
+      "Bash(pkg-config --exists openssl)",
+      "Bash(rpm -q openssl-devel)",
+      "Bash(dnf list:*)",
+      "Bash(CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake -B build)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

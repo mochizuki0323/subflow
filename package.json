@@ -1,0 +1,38 @@
+{
+  "name": "subflow",
+  "version": "0.0.1",
+  "description": "SubFlow — real-time speech captions with optional translation (Deepgram + LLM).",
+  "homepage": "https://github.com/mochizuki0323/subflow",
+  "author": "mochizuki0323 <motiduki0323@gmail.com>",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build:backend": "cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel --config Release",
+    "build:backend:mingw": "bash scripts/build-backend-mingw.sh",
+    "sync:mingw-exe": "bash scripts/sync-mingw-exe-to-build-bin.sh",
+    "dist:win:linux": "OPENSSL_STATIC=1 npm run build:backend:mingw && npm run sync:mingw-exe && npm run build:frontend && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win portable zip --x64 && node scripts/rename-release-artifacts.js",
+    "build:frontend": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && vite build",
+    "start": "npm run build:frontend && electron .",
+    "dev": "concurrently \"tsc -p tsconfig.main.json --watch\" \"tsc -p tsconfig.preload.json --watch\" \"vite build --watch\" \"electron .\"",
+    "dist": "npm run build:backend && npm run build:frontend && electron-builder && node scripts/rename-release-artifacts.js",
+    "dist:linux": "bash scripts/dist-linux.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.2",
+    "electron": "^33.0.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^5.3.0",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "@fontsource/outfit": "^5.2.5",
+    "@fontsource/zen-maru-gothic": "^5.2.8",
+    "@types/ws": "^8.5.10",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ws": "^8.16.0"
+  }
+}
