@@ -1,10 +1,18 @@
-# SubFlow
+# 🎙️ SubFlow — 实时语音字幕
 
-[English](README.md)
+<p align="center">
+    <img src="resources/icon.svg" alt="SubFlow" width="360">
+</p>
 
-实时语音字幕，支持 LLM 翻译，基于 Deepgram 语音识别。
+<p align="center">
+  <a href="https://github.com/mochizuki0323/subflow/actions/workflows/release.yml?branch=master"><img src="https://img.shields.io/github/actions/workflow/status/mochizuki0323/subflow/release.yml?branch=master&style=for-the-badge&label=Release%20CI" alt="Release CI 状态"></a>
+  <a href="https://github.com/mochizuki0323/subflow/releases"><img src="https://img.shields.io/github/v/release/mochizuki0323/subflow?include_prereleases&style=for-the-badge" alt="GitHub 发行版"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT 许可证"></a>
+</p>
 
-SubFlow 捕获系统音频，通过 Deepgram 语音转文字 API 实时转录，并在半透明叠层窗口中显示字幕。可选的翻译功能将字幕片段发送到 OpenAI 兼容的 LLM 接口进行实时翻译。
+SubFlow 是一款基于 Deepgram 与 LLM 开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容或 Anthropic 等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
+
+[English](README.md) · [发行版](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
 
 ## 预览
 
@@ -18,7 +26,7 @@ SubFlow 捕获系统音频，通过 Deepgram 语音转文字 API 实时转录，
 
 - **实时转录** — Deepgram Nova-3 流式语音转文字
 - **系统音频捕获** — 支持 PipeWire (Linux) 和 WASAPI (Windows)
-- **实时翻译** — 可选 LLM 翻译，支持任意 OpenAI 兼容接口
+- **可选 LLM 层** — OpenAI 兼容与 Anthropic 等接口：翻译与后处理（场景提示词、历史上下文及相关选项）
 - **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板
 - **多种字幕模式** — 原文、翻译或双语显示
 - **深色 / 浅色 / 跟随系统** — 跟随桌面外观，支持壁纸取色

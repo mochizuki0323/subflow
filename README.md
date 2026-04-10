@@ -1,10 +1,18 @@
-# SubFlow
+# 🎙️ SubFlow — Real-Time Speech Captions
 
-[中文](README.zh.md)
+<p align="center">
+    <img src="resources/icon.svg" alt="SubFlow" width="360">
+</p>
 
-Real-time speech captions with optional translation, powered by Deepgram and LLMs.
+<p align="center">
+  <a href="https://github.com/mochizuki0323/subflow/actions/workflows/release.yml?branch=master"><img src="https://img.shields.io/github/actions/workflow/status/mochizuki0323/subflow/release.yml?branch=master&style=for-the-badge&label=Release%20CI" alt="Release CI status"></a>
+  <a href="https://github.com/mochizuki0323/subflow/releases"><img src="https://img.shields.io/github/v/release/mochizuki0323/subflow?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
+</p>
 
-SubFlow captures system audio, transcribes it in real time via Deepgram's speech-to-text API, and displays captions in a translucent overlay window. An optional translation layer forwards transcript segments to an OpenAI-compatible LLM endpoint for live translation.
+SubFlow is a real-time speech captioning tool built with Deepgram and LLMs. It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible and Anthropic APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
+
+[中文](README.zh.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [License](LICENSE)
 
 ## Preview
 
@@ -17,17 +25,17 @@ SubFlow captures system audio, transcribes it in real time via Deepgram's speech
 ## Features
 
 - **Real-time transcription** — Deepgram Nova-3 streaming speech-to-text
-- **System audio capture** — PipeWire (Linux) and WASAPI (Windows)
-- **Live translation** — Optional LLM-powered translation via any OpenAI-compatible API
+- **System audio capture** — Supports PipeWire (Linux) and WASAPI (Windows)
+- **Optional LLM layer** — OpenAI-compatible and Anthropic APIs: translation and post-processing (scene prompts, historical context, and related options)
 - **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel
 - **Multiple subtitle modes** — Original, translated, or bilingual display
-- **Dark / light / system theme** — Follows desktop appearance with wallpaper accent color support
+- **Dark / light / system theme** — Follows desktop appearance; supports wallpaper accent colors
 
 ## Installation
 
 ### Linux
 
-Download the latest release from [Releases](../../releases):
+Download the latest version from [Releases](../../releases):
 
 - AppImage — `subflow-*-linux-x86_64.AppImage`
 - Debian/Ubuntu — `subflow-*-linux-amd64.deb`
@@ -49,7 +57,7 @@ sudo dnf install subflow-*-linux-x86_64.rpm
 
 Download from [Releases](../../releases).
 
-## Building from source
+## Build from source
 
 ### Prerequisites
 
@@ -83,13 +91,13 @@ bash scripts/build.sh
 npm start
 ```
 
-### Package
+### Packaging
 
 ```bash
 # Linux (AppImage + deb + rpm)
 bash scripts/dist-linux.sh
 
-# Windows cross-compilation from Linux (portable exe)
+# Cross-compile Windows portable build from Linux
 # Requires: mingw64-gcc-c++ mingw64-openssl mingw64-winpthreads-static
 bash scripts/dist-windows.sh
 ```
@@ -97,7 +105,7 @@ bash scripts/dist-windows.sh
 ## Config files
 
 - **Linux** (AppImage / deb / rpm): `~/.config/subflow_settings`
-- **Windows** (portable): next to the executable
+- **Windows**: next to the executable
 
 ## License
 
