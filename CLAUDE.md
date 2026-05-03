@@ -36,7 +36,7 @@ No test framework is configured.
 
 Three-process model:
 
-1. **C++ Backend** (`src/backend/`) — Standalone executable (`subflow-backend`). Captures system audio (PipeWire on Linux, WASAPI on Windows), streams to Deepgram via WebSocket, broadcasts transcripts over a local WebSocket server on port 9876.
+1. **C++ Backend** (`src/backend/`) — Standalone executable (`subflow-backend`). Captures audio (PipeWire on Linux, WASAPI on Windows) at per-application or device level, streams to Deepgram via WebSocket, broadcasts transcripts over a local WebSocket server on port 9876. Per-app capture uses PipeWire node targeting on Linux and `AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK` on Windows (requires Build 20348+).
 
 2. **Electron Main Process** (`src/frontend/main/`) — Spawns the C++ backend, connects to it via WebSocket (`WsClient`), manages three Electron windows, handles config persistence, and runs LLM translation.
 

@@ -22,14 +22,18 @@ public:
     void on_source_list_changed(SourceChangeCallback cb) override;
 
 private:
-    struct DeviceEntry {
-        std::wstring id;
+    struct SourceEntry {
+        std::wstring device_id;
         bool loopback;
+        bool is_process;
+        uint32_t process_id;
         std::string description;
         std::string media_class;
     };
 
     void capture_thread_main(uint32_t source_id);
+    void capture_device(const SourceEntry& entry);
+    bool capture_process(const SourceEntry& entry);
     void push_resampled_mono(const float* interleaved, size_t frame_count,
                              uint32_t channels, uint32_t sample_rate);
 
@@ -37,14 +41,13 @@ private:
     SourceChangeCallback source_change_cb_;
 
     std::mutex list_mutex_;
-    std::vector<DeviceEntry> devices_;
+    std::vector<SourceEntry> sources_;
 
     std::atomic<bool> capturing_{false};
     std::thread capture_thread_;
 
     bool com_inited_{false};
 
-    // Resampler state: mono float at native rate → 16 kHz float (Deepgram path)
     std::vector<float> resample_pending_;
     double resample_phase_{0};
 };

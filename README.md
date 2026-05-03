@@ -25,7 +25,7 @@ SubFlow is a real-time speech captioning tool built with Deepgram and LLMs. It s
 ## Features
 
 - **Real-time transcription** — Deepgram Nova-3 streaming speech-to-text
-- **System audio capture** — Supports PipeWire (Linux) and WASAPI (Windows)
+- **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
 - **Optional LLM layer** — OpenAI-compatible and Anthropic APIs: translation and post-processing (scene prompts, historical context, and related options)
 - **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel
 - **Multiple subtitle modes** — Original, translated, or bilingual display
@@ -104,8 +104,8 @@ bash scripts/dist-windows.sh
 
 ## Config files
 
-- **Linux** (AppImage / deb / rpm): `~/.config/subflow_settings`
-- **Windows**: next to the executable
+- **Linux** (AppImage / deb / rpm): `~/.config/subflow_settings/config/`
+- **Windows**: `config/` folder next to the executable
 
 ## License
 

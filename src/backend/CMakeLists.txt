@@ -82,7 +82,7 @@ target_link_libraries(subflow-backend PRIVATE
 
 if(WIN32)
     # ole32/propsys/uuid/avrt: WASAPI/COM (MSVC often picks these up via #pragma; MinGW needs explicit libs)
-    target_link_libraries(subflow-backend PRIVATE ws2_32 crypt32 ole32 propsys uuid avrt)
+    target_link_libraries(subflow-backend PRIVATE ws2_32 crypt32 ole32 propsys uuid avrt mmdevapi)
     if(MINGW)
         # Avoid runtime crashes from missing MinGW DLLs on target Windows hosts.
         # Exit code 0xC0000135 indicates STATUS_DLL_NOT_FOUND at process startup.

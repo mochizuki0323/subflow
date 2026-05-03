@@ -25,7 +25,7 @@ SubFlow 是一款基于 Deepgram 与 LLM 开发的实时语音字幕工具，支
 ## 功能特性
 
 - **实时转录** — Deepgram Nova-3 流式语音转文字
-- **系统音频捕获** — 支持 PipeWire (Linux) 和 WASAPI (Windows)
+- **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
 - **可选 LLM 层** — OpenAI 兼容与 Anthropic 等接口：翻译与后处理（场景提示词、历史上下文及相关选项）
 - **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板
 - **多种字幕模式** — 原文、翻译或双语显示
@@ -104,8 +104,8 @@ bash scripts/dist-windows.sh
 
 ## 配置文件
 
-- **Linux**（AppImage / deb / rpm）：`~/.config/subflow_settings`
-- **Windows**：与 exe 同目录
+- **Linux**（AppImage / deb / rpm）：`~/.config/subflow_settings/config/`
+- **Windows**：exe 同目录下的 `config/` 文件夹
 
 ## 许可证
 
