@@ -148,10 +148,17 @@ void Engine::pipeline_loop() {
     constexpr size_t CHUNK_SIZE = 16000; // 1 second of audio
     std::vector<float> chunk(CHUNK_SIZE);
     auto last_level_broadcast = std::chrono::steady_clock::now();
+    bool was_connected = transcriber_->is_model_loaded();
 
     while (running_) {
         auto& buffer = audio_source_->get_buffer();
         size_t read = buffer.read(chunk.data(), CHUNK_SIZE);
+
+        bool now_connected = transcriber_->is_model_loaded();
+        if (now_connected != was_connected) {
+            was_connected = now_connected;
+            send_status();
+        }
 
         if (read > 0) {
             // Calculate audio level (RMS)
@@ -159,7 +166,7 @@ void Engine::pipeline_loop() {
             for (size_t i = 0; i < read; ++i) sum_sq += chunk[i] * chunk[i];
             audio_level_.store(std::sqrt(sum_sq / read));
 
-            if (transcriber_->is_model_loaded()) {
+            if (now_connected) {
                 transcriber_->feed_audio(chunk.data(), read);
 
                 auto segments = transcriber_->process();

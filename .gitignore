@@ -12,6 +12,7 @@ node_modules/
 tsconfig.tsbuildinfo
 
 # Runtime configuration (user-specific)
+config/
 app-settings.json
 deepgram-config.json
 translator-config.json

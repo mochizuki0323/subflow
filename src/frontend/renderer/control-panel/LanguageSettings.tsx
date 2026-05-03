@@ -18,8 +18,15 @@ interface Props {
 
 type TestState = null | 'testing' | 'success' | 'error';
 
-export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }: Props) {
-  const [language, setLanguage] = useState(status?.language || 'auto');
+interface VerifyResult {
+  language: { ui: string; backend: string; match: boolean };
+  subtitleMode: { ui: string; backend: string; match: boolean };
+  modelLoaded: boolean;
+}
+
+export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitleModeChange }: Props) {
+  const [language, setLanguage] = useState('auto');
+  const [localMode, setLocalMode] = useState<SubtitleMode>(initialMode);
   const [showApiKey, setShowApiKey] = useState(false);
   const [translatorConfig, setTranslatorConfig] = useState<TranslatorConfig>({
     baseUrl: 'https://openrouter.ai/api',
@@ -37,48 +44,88 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
   const [testState, setTestState] = useState<TestState>(null);
   const [testError, setTestError] = useState('');
 
+  // Deferred save state
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
+
+  // Verify state
+  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+
+  // Snapshot of saved values for dirty tracking
+  const [savedLanguage, setSavedLanguage] = useState('auto');
+  const [savedMode, setSavedMode] = useState<SubtitleMode>(initialMode);
+  const [savedTranslatorConfig, setSavedTranslatorConfig] = useState<TranslatorConfig | null>(null);
+
   useEffect(() => {
     window.electronAPI.getTranslatorConfig().then((config) => {
       setTranslatorConfig(config);
+      setSavedTranslatorConfig(config);
     });
     window.electronAPI.getAppSettings().then((s: AppSettings) => {
       setLanguage(s.sourceLanguage);
+      setSavedLanguage(s.sourceLanguage);
+      setLocalMode(s.subtitleMode);
+      setSavedMode(s.subtitleMode);
     });
   }, []);
 
   useEffect(() => {
-    if (status?.language) {
-      setLanguage(status.language);
-    }
-  }, [status?.language]);
+    setLocalMode(initialMode);
+  }, [initialMode]);
 
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
-    window.electronAPI.setLanguage(lang);
+    setDirty(true);
+    setSaveMsg('');
   };
 
   const handleModeChange = (mode: SubtitleMode) => {
-    onSubtitleModeChange(mode);
-    window.electronAPI.setTranslate(false);
-    window.electronAPI.setSubtitleMode(mode);
+    setLocalMode(mode);
+    setDirty(true);
+    setSaveMsg('');
   };
 
   const updateTranslatorConfig = (partial: Partial<TranslatorConfig>) => {
     const updated = { ...translatorConfig, ...partial };
     setTranslatorConfig(updated);
-    window.electronAPI.setTranslatorConfig(partial);
-    // Reset test state when config changes
+    setDirty(true);
+    setSaveMsg('');
     if (testState === 'success' || testState === 'error') {
       setTestState(null);
       setTestError('');
     }
   };
 
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      if (language !== savedLanguage) {
+        window.electronAPI.setLanguage(language);
+      }
+      if (localMode !== savedMode) {
+        window.electronAPI.setSubtitleMode(localMode);
+        window.electronAPI.setTranslate(false);
+        onSubtitleModeChange(localMode);
+      }
+      window.electronAPI.setTranslatorConfig(translatorConfig);
+      setSavedLanguage(language);
+      setSavedMode(localMode);
+      setSavedTranslatorConfig({ ...translatorConfig });
+      setDirty(false);
+      setSaveMsg('success');
+    } catch {
+      setSaveMsg('error');
+    }
+    setSaving(false);
+  };
+
   const handleTestConnection = async () => {
     setTestState('testing');
     setTestError('');
     try {
-      const result = await window.electronAPI.testTranslator();
+      const result = await (window.electronAPI as any).testTranslatorWithConfig(translatorConfig);
       if (result.success) {
         setTestState('success');
       } else {
@@ -89,6 +136,27 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
       setTestState('error');
       setTestError(err?.message || t('lang.translator.connFailed'));
     }
+  };
+
+  const handleVerify = async () => {
+    const saved = await window.electronAPI.getAppSettings();
+    if (!status) {
+      setVerifyResult(null);
+      return;
+    }
+    setVerifyResult({
+      language: {
+        ui: saved.sourceLanguage,
+        backend: status.language || 'auto',
+        match: saved.sourceLanguage === (status.language || 'auto'),
+      },
+      subtitleMode: {
+        ui: saved.subtitleMode,
+        backend: status.subtitle_mode || 'original',
+        match: saved.subtitleMode === (status.subtitle_mode || 'original'),
+      },
+      modelLoaded: !!status.model_loaded,
+    });
   };
 
   const canTest = translatorConfig.enabled && translatorConfig.apiKey && translatorConfig.baseUrl;
@@ -124,7 +192,7 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
           ]).map(({ value, labelKey }) => (
             <label
               key={value}
-              className={subtitleMode === value ? 'active' : ''}
+              className={localMode === value ? 'active' : ''}
               onClick={() => handleModeChange(value)}
             >
               <span>{t(labelKey as any)}</span>
@@ -132,9 +200,9 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
           ))}
         </div>
         <p className="hint">
-          {subtitleMode === 'original' && t('lang.mode.original.desc')}
-          {subtitleMode === 'translated' && t('lang.mode.translated.desc')}
-          {subtitleMode === 'bilingual' && t('lang.mode.bilingual.desc')}
+          {localMode === 'original' && t('lang.mode.original.desc')}
+          {localMode === 'translated' && t('lang.mode.translated.desc')}
+          {localMode === 'bilingual' && t('lang.mode.bilingual.desc')}
         </p>
       </div>
 
@@ -324,7 +392,15 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
         </>
       )}
 
-      <div className="form-group" style={{ marginTop: 16 }}>
+      <div className="form-group" style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={handleSave}
+          disabled={!dirty || saving}
+          className="btn-primary"
+        >
+          {saving ? t('lang.saving') : t('lang.save')}
+        </button>
+
         <button
           onClick={handleTestConnection}
           disabled={!canTest || testState === 'testing'}
@@ -333,20 +409,48 @@ export function LanguageSettings({ status, subtitleMode, onSubtitleModeChange }:
           {testState === 'testing' ? t('lang.translator.testing') : t('lang.translator.testConnection')}
         </button>
 
-        {testState === 'success' && (
-          <div className="test-result test-success">{t('lang.translator.testSuccess')}</div>
-        )}
-        {testState === 'error' && (
-          <div className="test-result test-error">
-            {t('lang.translator.testFail')} {testError}
-          </div>
-        )}
-        {!canTest && translatorConfig.enabled && (
-          <p className="hint" style={{ marginTop: 6, color: 'var(--warning)' }}>
-            {t('lang.translator.fillRequired')}
-          </p>
-        )}
+        <button
+          onClick={handleVerify}
+          className="btn-secondary"
+        >
+          {t('lang.verify')}
+        </button>
       </div>
+
+      {saveMsg === 'success' && (
+        <div className="test-result test-success">{t('lang.saved')}</div>
+      )}
+      {saveMsg === 'error' && (
+        <div className="test-result test-error">{t('lang.saveFailed')}</div>
+      )}
+
+      {testState === 'success' && (
+        <div className="test-result test-success">{t('lang.translator.testSuccess')}</div>
+      )}
+      {testState === 'error' && (
+        <div className="test-result test-error">
+          {t('lang.translator.testFail')} {testError}
+        </div>
+      )}
+      {!canTest && translatorConfig.enabled && (
+        <p className="hint" style={{ marginTop: 6, color: 'var(--warning)' }}>
+          {t('lang.translator.fillRequired')}
+        </p>
+      )}
+
+      {verifyResult && (
+        <div className="verify-result" style={{ marginTop: 12 }}>
+          <div className={verifyResult.language.match ? 'test-result test-success' : 'test-result test-error'}>
+            {t('lang.verify.language')}: {verifyResult.language.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.language.ui}, ${t('lang.verify.backend')}: ${verifyResult.language.backend})`}
+          </div>
+          <div className={verifyResult.subtitleMode.match ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
+            {t('lang.verify.subtitleMode')}: {verifyResult.subtitleMode.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.subtitleMode.ui}, ${t('lang.verify.backend')}: ${verifyResult.subtitleMode.backend})`}
+          </div>
+          <div className={verifyResult.modelLoaded ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
+            {t('lang.verify.deepgram')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('start-window-resize', { direction, startX, startY }),
   stopWindowResize: () => ipcRenderer.send('stop-window-resize'),
   testTranslator: () => ipcRenderer.invoke('test-translator'),
+  testTranslatorWithConfig: (config: any) => ipcRenderer.invoke('test-translator-with-config', config),
 
   // Deepgram config
   getDeepgramConfig: () => ipcRenderer.invoke('get-deepgram-config'),
@@ -36,6 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUiTheme: () => ipcRenderer.invoke('get-ui-theme'),
   setUiTheme: (partial: { appearance?: string; accentSource?: string }) =>
     ipcRenderer.invoke('set-ui-theme', partial),
+  previewUiTheme: (partial: { appearance?: string; accentSource?: string }) =>
+    ipcRenderer.invoke('preview-ui-theme', partial),
   refreshWallpaperColors: () => ipcRenderer.invoke('refresh-wallpaper-colors'),
   onUiTheme: (callback: (data: unknown) => void) => {
     ipcRenderer.on('ui-theme', (_event, data) => callback(data));

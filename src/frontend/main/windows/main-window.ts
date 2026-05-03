@@ -1,13 +1,15 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, app } from 'electron';
 import path from 'path';
 import { PRODUCT_NAME } from '../app-metadata';
 import { getRendererPage } from '../paths';
+import { getWindowIcon } from '../window-icon';
 
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 800,
     height: 600,
     title: PRODUCT_NAME,
+    icon: getWindowIcon(),
     webPreferences: {
       preload: path.join(__dirname, '../../preload/preload.js'),
       contextIsolation: true,

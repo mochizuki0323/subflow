@@ -5,6 +5,7 @@ executableName: subflow
 # Linux uses SVG (icon set); Windows uses ICO — see https://www.electron.build/icons.html
 # No code signing / Wine required when packaging Windows builds on Linux (see dist:win:linux)
 forceCodeSigning: false
+afterPack: scripts/after-pack.js
 directories:
   output: release
 files:

@@ -61,11 +61,11 @@ cmake -S "$ROOT" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release
 
 # Limit parallel jobs to avoid OOM when MinGW/libuv/host compile concurrently. Override with BUILD_JOBS=4
-: "${BUILD_JOBS:=2}"
-if ! [[ "${BUILD_JOBS}" =~ ^[0-9]+$ ]] || [[ "${BUILD_JOBS}" -lt 1 ]]; then
-    BUILD_JOBS=2
-fi
 NPROC="$(nproc 2>/dev/null || echo 4)"
+: "${BUILD_JOBS:=$(( NPROC / 2 > 1 ? NPROC / 2 : 1 ))}"
+if ! [[ "${BUILD_JOBS}" =~ ^[0-9]+$ ]] || [[ "${BUILD_JOBS}" -lt 1 ]]; then
+    BUILD_JOBS=$(( NPROC / 2 > 1 ? NPROC / 2 : 1 ))
+fi
 if [[ "${BUILD_JOBS}" -gt "${NPROC}" ]]; then
     BUILD_JOBS="${NPROC}"
 fi

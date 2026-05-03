@@ -252,6 +252,17 @@ body::before {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
+.sidebar-save {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.sidebar-save .btn-primary {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
 .main-column {
   flex: 1;
   display: flex;

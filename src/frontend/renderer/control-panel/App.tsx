@@ -47,12 +47,16 @@ export function App() {
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
   const [uiLang, setUiLang] = useState<UiLanguage>('zh');
+  const [localAppearance, setLocalAppearance] = useState<AppearanceMode>('system');
+  const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
+  const [localUiLang, setLocalUiLang] = useState<UiLanguage>('zh');
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
       const lang: UiLanguage = s.uiLanguage === 'en' ? 'en' : 'zh';
       setLang(lang);
       setUiLang(lang);
+      setLocalUiLang(lang);
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setSubtitleMode(s.subtitleMode);
       }
@@ -60,6 +64,7 @@ export function App() {
     window.electronAPI.onUiLanguage((lang) => {
       setLang(lang);
       setUiLang(lang);
+      setLocalUiLang(lang);
     });
   }, []);
 
@@ -67,6 +72,8 @@ export function App() {
     window.electronAPI.getUiTheme().then((payload) => {
       applyUiThemePayload(payload);
       setThemeInfo(payload);
+      setLocalAppearance(payload.appearance);
+      setLocalAccentSource(payload.accentSource);
     });
     window.electronAPI.onUiTheme((payload) => {
       applyUiThemePayload(payload);
@@ -127,12 +134,14 @@ export function App() {
   const errorCount = logs.filter((l) => l.level === 'error').length;
 
   const setAppearance = async (appearance: AppearanceMode) => {
+    setLocalAppearance(appearance);
     const payload = await window.electronAPI.setUiTheme({ appearance });
     applyUiThemePayload(payload);
     setThemeInfo(payload);
   };
 
   const setAccentSource = async (accentSource: AccentSource) => {
+    setLocalAccentSource(accentSource);
     const payload = await window.electronAPI.setUiTheme({ accentSource });
     applyUiThemePayload(payload);
     setThemeInfo(payload);
@@ -146,6 +155,7 @@ export function App() {
 
   const changeUiLanguage = async (lang: UiLanguage) => {
     setLang(lang);
+    setLocalUiLang(lang);
     setUiLang(lang);
     await window.electronAPI.setUiLanguage(lang);
   };
@@ -184,14 +194,14 @@ export function App() {
           <div className="segmented-inline" style={{ marginBottom: 12 }}>
             <button
               type="button"
-              className={`segment-btn ${uiLang === 'zh' ? 'active' : ''}`}
+              className={`segment-btn ${localUiLang === 'zh' ? 'active' : ''}`}
               onClick={() => changeUiLanguage('zh')}
             >
               中文
             </button>
             <button
               type="button"
-              className={`segment-btn ${uiLang === 'en' ? 'active' : ''}`}
+              className={`segment-btn ${localUiLang === 'en' ? 'active' : ''}`}
               onClick={() => changeUiLanguage('en')}
             >
               English
@@ -204,7 +214,7 @@ export function App() {
                 <button
                   key={m}
                   type="button"
-                  className={`segment-btn ${themeInfo?.appearance === m ? 'active' : ''}`}
+                  className={`segment-btn ${localAppearance === m ? 'active' : ''}`}
                   onClick={() => setAppearance(m)}
                 >
                   {t(`theme.${m}` as any)}
@@ -216,14 +226,14 @@ export function App() {
           <div className="segmented-inline">
             <button
               type="button"
-              className={`segment-btn ${themeInfo?.accentSource === 'default' ? 'active' : ''}`}
+              className={`segment-btn ${localAccentSource === 'default' ? 'active' : ''}`}
               onClick={() => setAccentSource('default')}
             >
               {t('theme.default')}
             </button>
             <button
               type="button"
-              className={`segment-btn ${themeInfo?.accentSource === 'wallpaper' ? 'active' : ''}`}
+              className={`segment-btn ${localAccentSource === 'wallpaper' ? 'active' : ''}`}
               onClick={() => setAccentSource('wallpaper')}
               title={t('theme.wallpaper.title')}
             >
