@@ -180,8 +180,8 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img src={new URL('../../../../resources/icon.svg', import.meta.url).href} alt="SubFlow" style={{ width: 28, height: 28 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img src={new URL('../../../../resources/icon.svg', import.meta.url).href} alt="SubFlow" style={{ width: 96, height: 96, flexShrink: 0 }} />
             <div className="sidebar-brand-title">SubFlow</div>
           </div>
         </div>
