@@ -25,6 +25,7 @@ SubFlow is a real-time speech captioning tool built with Deepgram and LLMs. It s
 ## Features
 
 - **Real-time transcription** — Deepgram Nova-3 streaming speech-to-text
+- **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription for cleaner results
 - **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
 - **Optional LLM layer** — OpenAI-compatible and Anthropic APIs: translation and post-processing (scene prompts, historical context, and related options)
 - **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel
@@ -83,6 +84,9 @@ sudo apt install build-essential clang cmake ninja-build \
 git clone --recursive https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
+
+# Download pre-built sherpa-onnx libraries (required for denoising)
+bash scripts/setup-sherpa-onnx.sh
 
 # Build everything (backend + frontend)
 bash scripts/build.sh

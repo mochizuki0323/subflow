@@ -25,6 +25,7 @@ SubFlow 是一款基于 Deepgram 与 LLM 开发的实时语音字幕工具，支
 ## 功能特性
 
 - **实时转录** — Deepgram Nova-3 流式语音转文字
+- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音，提升识别准确率
 - **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
 - **可选 LLM 层** — OpenAI 兼容与 Anthropic 等接口：翻译与后处理（场景提示词、历史上下文及相关选项）
 - **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板
@@ -83,6 +84,9 @@ sudo apt install build-essential clang cmake ninja-build \
 git clone --recursive https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
+
+# 下载预编译的 sherpa-onnx 库（降噪功能所需）
+bash scripts/setup-sherpa-onnx.sh
 
 # 构建全部（后端 + 前端）
 bash scripts/build.sh
