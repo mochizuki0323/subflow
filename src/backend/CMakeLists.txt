@@ -42,6 +42,7 @@ set(BACKEND_SOURCES
     audio/create_audio_source.cpp
     audio/denoiser.cpp
     transcriber/deepgram_transcriber.cpp
+    transcriber/gladia_transcriber.cpp
     ipc/ws_server.cpp
 )
 

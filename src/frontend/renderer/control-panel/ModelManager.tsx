@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { DeepgramConfig, DeepgramFeatures } from '../shared/types';
+import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures, SttProvider } from '../shared/types';
 import { t } from '../shared/i18n';
 
 const DEFAULT_FEATURES: DeepgramFeatures = {
@@ -29,7 +29,7 @@ const FEATURE_DEFS: Array<{
   { key: 'numerals', labelKey: 'feature.numerals', type: 'bool', descKey: 'feature.numerals.desc' },
 ];
 
-export function ModelManager() {
+function DeepgramSettings() {
   const [config, setConfig] = useState<DeepgramConfig>({
     apiKey: '',
     model: 'nova-3',
@@ -95,7 +95,7 @@ export function ModelManager() {
   };
 
   return (
-    <div className="panel">
+    <>
       <h2>{t('model.title')}</h2>
       <p className="hint">
         {t('model.hint')}{' '}
@@ -239,6 +239,345 @@ export function ModelManager() {
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+const DEFAULT_GLADIA_FEATURES: GladiaFeatures = {
+  code_switching: false,
+  speech_threshold: 0.8,
+  audio_enhancer: false,
+  endpointing: 0.01,
+  max_duration_without_endpointing: 5,
+  partial_transcripts: true,
+  sentiment_analysis: false,
+  named_entity_recognition: false,
+  words_accurate_timestamps: false,
+  custom_vocabulary: false,
+  custom_spelling: false,
+  translation: false,
+  translation_target_languages: [],
+};
+
+const GLADIA_BOOL_FEATURES: Array<{
+  key: keyof GladiaFeatures;
+  labelKey: string;
+  descKey: string;
+}> = [
+  { key: 'partial_transcripts', labelKey: 'gladia.partial_transcripts', descKey: 'gladia.partial_transcripts.desc' },
+  { key: 'code_switching', labelKey: 'gladia.code_switching', descKey: 'gladia.code_switching.desc' },
+  { key: 'audio_enhancer', labelKey: 'gladia.audio_enhancer', descKey: 'gladia.audio_enhancer.desc' },
+  { key: 'sentiment_analysis', labelKey: 'gladia.sentiment_analysis', descKey: 'gladia.sentiment_analysis.desc' },
+  { key: 'named_entity_recognition', labelKey: 'gladia.named_entity_recognition', descKey: 'gladia.named_entity_recognition.desc' },
+  { key: 'words_accurate_timestamps', labelKey: 'gladia.words_accurate_timestamps', descKey: 'gladia.words_accurate_timestamps.desc' },
+  { key: 'custom_vocabulary', labelKey: 'gladia.custom_vocabulary', descKey: 'gladia.custom_vocabulary.desc' },
+  { key: 'custom_spelling', labelKey: 'gladia.custom_spelling', descKey: 'gladia.custom_spelling.desc' },
+  { key: 'translation', labelKey: 'gladia.translation', descKey: 'gladia.translation.desc' },
+];
+
+function GladiaSettings() {
+  const [config, setConfig] = useState<GladiaConfig>({
+    apiKey: '',
+    model: 'solaria-1',
+    features: { ...DEFAULT_GLADIA_FEATURES },
+  });
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  const [modelOptions, setModelOptions] = useState<Array<{ name: string; description: string }>>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [fetchError, setFetchError] = useState('');
+
+  useEffect(() => {
+    window.electronAPI.getGladiaConfig().then((cfg) => {
+      setConfig({
+        ...cfg,
+        features: { ...DEFAULT_GLADIA_FEATURES, ...(cfg.features || {}) },
+      });
+    });
+  }, []);
+
+  const update = (partial: Partial<GladiaConfig>) => {
+    setConfig(prev => ({ ...prev, ...partial }));
+    setDirty(true);
+    setSaveMsg(null);
+  };
+
+  const updateFeature = (key: keyof GladiaFeatures, value: any) => {
+    setConfig(prev => ({
+      ...prev,
+      features: { ...prev.features, [key]: value },
+    }));
+    setDirty(true);
+    setSaveMsg(null);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      await window.electronAPI.setGladiaConfig(config);
+      setSaveMsg({ ok: true, text: t('gladia.saved') });
+      setDirty(false);
+    } catch {
+      setSaveMsg({ ok: false, text: t('gladia.saveFailed') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <h2>{t('gladia.title')}</h2>
+      <p className="hint">
+        {t('gladia.hint')}{' '}
+        <a href="https://app.gladia.io/" target="_blank" rel="noreferrer">
+          app.gladia.io
+        </a>{' '}
+        {t('gladia.hint.suffix')}
+      </p>
+
+      {/* API Key */}
+      <div className="form-row">
+        <label>API Key</label>
+        <div className="input-with-action">
+          <input
+            type={showKey ? 'text' : 'password'}
+            className="input input-password"
+            value={config.apiKey}
+            onChange={(e) => update({ apiKey: e.target.value })}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          />
+          <button type="button" className="btn-icon" onClick={() => setShowKey(!showKey)}>
+            {showKey ? t('model.hide') : t('model.show')}
+          </button>
+        </div>
+        {!config.apiKey && (
+          <p className="hint" style={{ color: 'var(--warning)', marginTop: 4 }}>
+            {t('gladia.noKey')}
+          </p>
+        )}
+      </div>
+
+      {/* Model */}
+      <div className="form-row">
+        <label>{t('gladia.model')}</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {modelOptions.length > 0 ? (
+            <select
+              className="select"
+              style={{ flex: 1 }}
+              value={config.model}
+              onChange={(e) => update({ model: e.target.value })}
+            >
+              {modelOptions.map(m => (
+                <option key={m.name} value={m.name}>
+                  {m.name}{m.description ? ` — ${m.description}` : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              className="input"
+              style={{ flex: 1 }}
+              value={config.model}
+              onChange={(e) => update({ model: e.target.value })}
+              placeholder="solaria-1"
+            />
+          )}
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={async () => {
+              setFetchingModels(true);
+              setFetchError('');
+              const result = await window.electronAPI.fetchGladiaModels();
+              setFetchingModels(false);
+              if (result.success && result.models) {
+                setModelOptions(result.models);
+              } else {
+                setFetchError(result.error || t('gladia.fetchFailed'));
+              }
+            }}
+            disabled={fetchingModels || !config.apiKey}
+            title={t('gladia.fetchModels.title')}
+          >
+            {fetchingModels ? t('gladia.fetchingModels') : t('gladia.fetchModels')}
+          </button>
+        </div>
+        {fetchError && (
+          <p className="hint" style={{ color: 'var(--error)', marginTop: 4 }}>{fetchError}</p>
+        )}
+        <p className="hint">{t('gladia.modelHint')}</p>
+      </div>
+
+      <div className="divider" />
+      <h3 style={{ marginBottom: 12 }}>{t('gladia.features')}</h3>
+
+      {/* Speech threshold */}
+      <div className="form-row">
+        <label>{t('gladia.speech_threshold')}</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="number"
+            className="input"
+            style={{ width: 80 }}
+            min={0}
+            max={1}
+            step={0.01}
+            value={config.features.speech_threshold}
+            onChange={(e) => updateFeature('speech_threshold', parseFloat(e.target.value) || 0.8)}
+          />
+        </div>
+        <p className="hint">{t('gladia.speech_threshold.desc')}</p>
+      </div>
+
+      {/* Endpointing */}
+      <div className="form-row">
+        <label>{t('gladia.endpointing')}</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="number"
+            className="input"
+            style={{ width: 80 }}
+            min={0.01}
+            max={10}
+            step={0.01}
+            value={config.features.endpointing}
+            onChange={(e) => updateFeature('endpointing', parseFloat(e.target.value) || 0.01)}
+          />
+          <span className="hint" style={{ marginTop: 0 }}>s</span>
+        </div>
+        <p className="hint">{t('gladia.endpointing.desc')}</p>
+      </div>
+
+      {/* Max duration */}
+      <div className="form-row">
+        <label>{t('gladia.max_duration')}</label>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="number"
+            className="input"
+            style={{ width: 80 }}
+            min={1}
+            max={60}
+            step={1}
+            value={config.features.max_duration_without_endpointing}
+            onChange={(e) => updateFeature('max_duration_without_endpointing', parseFloat(e.target.value) || 5)}
+          />
+          <span className="hint" style={{ marginTop: 0 }}>s</span>
+        </div>
+        <p className="hint">{t('gladia.max_duration.desc')}</p>
+      </div>
+
+      {/* Boolean feature toggles */}
+      {GLADIA_BOOL_FEATURES.map(({ key, labelKey, descKey }) => {
+        const checked = config.features[key] as boolean;
+        return (
+          <div key={key} className="toggle-row" style={{ marginBottom: 8 }}>
+            <div>
+              <div className="toggle-label">{t(labelKey as any)}</div>
+              <div className="toggle-desc">{t(descKey as any)}</div>
+            </div>
+            <label className="switch">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => updateFeature(key, e.target.checked)}
+              />
+              <span className="switch-slider" />
+            </label>
+          </div>
+        );
+      })}
+
+      {/* Translation target languages */}
+      {config.features.translation && (
+        <div className="form-row" style={{ marginTop: 8 }}>
+          <label>{t('gladia.translation.langs')}</label>
+          <input
+            type="text"
+            className="input"
+            value={config.features.translation_target_languages.join(', ')}
+            onChange={(e) => {
+              const langs = e.target.value.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
+              updateFeature('translation_target_languages', langs);
+            }}
+            placeholder={t('gladia.translation.langs.placeholder')}
+          />
+          <p className="hint">{t('gladia.translation.langs.hint')}</p>
+        </div>
+      )}
+
+      <div className="form-group" style={{ marginTop: 16 }}>
+        <button
+          className="btn-primary"
+          onClick={handleSave}
+          disabled={saving || !dirty}
+        >
+          {saving ? t('gladia.saving') : t('gladia.save')}
+        </button>
+        {saveMsg && (
+          <div className={`test-result ${saveMsg.ok ? 'test-success' : 'test-error'}`} style={{ marginTop: 8 }}>
+            {saveMsg.text}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttProvider) => void }) {
+  const [provider, setProvider] = useState<SttProvider>('deepgram');
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    window.electronAPI.getSttProvider().then(setProvider);
+  }, []);
+
+  const handleProviderChange = async (newProvider: SttProvider) => {
+    if (newProvider === provider) return;
+    setSwitching(true);
+    try {
+      await window.electronAPI.setSttProvider(newProvider);
+      setProvider(newProvider);
+      onProviderChange?.(newProvider);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  return (
+    <div className="panel">
+      {/* Provider selector */}
+      <div className="form-row" style={{ marginBottom: 16 }}>
+        <label>{t('provider.title')}</label>
+        <div className="segmented-inline">
+          <button
+            type="button"
+            className={`segment-btn ${provider === 'deepgram' ? 'active' : ''}`}
+            onClick={() => handleProviderChange('deepgram')}
+            disabled={switching}
+          >
+            {t('provider.deepgram')}
+          </button>
+          <button
+            type="button"
+            className={`segment-btn ${provider === 'gladia' ? 'active' : ''}`}
+            onClick={() => handleProviderChange('gladia')}
+            disabled={switching}
+          >
+            {t('provider.gladia')}
+          </button>
+        </div>
+      </div>
+
+      <div className="divider" />
+
+      {provider === 'deepgram' ? <DeepgramSettings /> : <GladiaSettings />}
     </div>
   );
 }

@@ -46,6 +46,7 @@ export function App() {
   const [historyVisible, setHistoryVisible] = useState(false);
   const [dragMode, setDragMode] = useState(false);
   const [deepgramConnected, setDeepgramConnected] = useState(false);
+  const [sttProvider, setSttProvider] = useState<string>('deepgram');
   const [history, setHistory] = useState<Array<{ text: string; translated?: string; speaker?: number; ts: string; partial: boolean }>>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
@@ -53,6 +54,10 @@ export function App() {
   const [localAppearance, setLocalAppearance] = useState<AppearanceMode>('system');
   const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
   const [localUiLang, setLocalUiLang] = useState<UiLanguage>('zh');
+
+  useEffect(() => {
+    window.electronAPI.getSttProvider().then(setSttProvider);
+  }, []);
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
@@ -175,7 +180,10 @@ export function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="sidebar-brand-title">SubFlow</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <img src={new URL('../../../../resources/icon.svg', import.meta.url).href} alt="SubFlow" style={{ width: 28, height: 28 }} />
+            <div className="sidebar-brand-title">SubFlow</div>
+          </div>
         </div>
         <nav className="sidebar-nav" aria-label={t('nav.label')}>
           {tabs.map((id) => (
@@ -269,7 +277,11 @@ export function App() {
                 <span className={`status-dot ${status.state}`} />
                 <span className="status-text">{t((STATUS_KEY[status.state] || status.state) as any)}</span>
                 {deepgramConnected ? (
-                  <span className="badge badge-success" title={t('deepgram.connected.title')}>{t('deepgram.connected')}</span>
+                  <span className="badge badge-success" title={
+                    sttProvider === 'gladia' ? t('gladia.connected.title') : t('deepgram.connected.title')
+                  }>
+                    {sttProvider === 'gladia' ? t('gladia.connected') : t('deepgram.connected')}
+                  </span>
                 ) : (
                   <span className="badge" title={t('deepgram.disconnected.title')}>{t('deepgram.disconnected')}</span>
                 )}
@@ -293,7 +305,7 @@ export function App() {
               onToggleDragMode={setDragMode}
             />
           )}
-          {tab === 'deepgram' && <ModelManager />}
+          {tab === 'deepgram' && <ModelManager onProviderChange={setSttProvider} />}
           {tab === 'denoise' && <DenoiserSettings />}
           {tab === 'language' && (
             <LanguageSettings

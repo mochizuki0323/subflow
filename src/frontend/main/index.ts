@@ -1,7 +1,7 @@
 import { app, ipcMain, BrowserWindow, screen, nativeTheme, Menu, shell } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
-import { buildExtraParams } from './model-manager';
+import { buildExtraParams, buildGladiaConfig } from './model-manager';
 import { Translator } from './translator';
 import { createMainWindow } from './windows/main-window';
 import { createOverlayWindow } from './windows/overlay-window';
@@ -131,17 +131,21 @@ if (!gotSingleInstanceLock) {
   uiPrefs = configManager.getUi();
   translator.setConfig(configManager.getTranslator());
 
+  const provider = configManager.getProvider();
   const dgConfig = configManager.getDeepgram();
+  const gdConfig = configManager.getGladia();
   const extraParams = buildExtraParams(dgConfig.features);
 
-  backendManager = new BackendManager(
-    backendPath,
-    WS_PORT,
-    dgConfig.apiKey || undefined,
-    dgConfig.model || 'nova-3',
-    extraParams || undefined,
-    appSettings.sourceLanguage,
-  );
+  backendManager = new BackendManager(backendPath, WS_PORT, {
+    provider,
+    apiKey: dgConfig.apiKey || undefined,
+    model: dgConfig.model || 'nova-3',
+    extraParams: extraParams || undefined,
+    language: appSettings.sourceLanguage,
+    gladiaApiKey: gdConfig.apiKey || undefined,
+    gladiaModel: gdConfig.model || 'solaria-1',
+    gladiaConfig: buildGladiaConfig(gdConfig.features),
+  });
 
   // Set up denoiser if configured
   const denoiserConfig = configManager.getDenoiser();
@@ -270,7 +274,10 @@ if (!gotSingleInstanceLock) {
       const updated = configManager.getDeepgram();
       const newExtra = buildExtraParams(updated.features);
       wsClient.disconnect();
-      backendManager.restart(updated.apiKey || '', updated.model || 'nova-3', newExtra || undefined, appSettings.sourceLanguage);
+      backendManager.restart({
+        apiKey: updated.apiKey || '', model: updated.model || 'nova-3',
+        extraParams: newExtra || undefined, language: appSettings.sourceLanguage,
+      });
       setTimeout(() => wsClient.connect(), 2000);
       return { success: true };
     });
@@ -308,6 +315,107 @@ if (!gotSingleInstanceLock) {
         });
       } catch (err: any) {
         return { success: false, error: err?.message || String(err) };
+      }
+    });
+
+    // ---- IPC: STT provider ----
+    ipcMain.handle('get-stt-provider', () => configManager.getProvider());
+
+    ipcMain.handle('set-stt-provider', (_event, provider: string) => {
+      if (provider !== 'deepgram' && provider !== 'gladia') return { success: false };
+      configManager.updateProvider(provider);
+      wsClient.disconnect();
+      const dg = configManager.getDeepgram();
+      const gd = configManager.getGladia();
+      backendManager.restart({
+        provider,
+        apiKey: dg.apiKey || '', model: dg.model || 'nova-3',
+        extraParams: buildExtraParams(dg.features) || undefined,
+        language: appSettings.sourceLanguage,
+        gladiaApiKey: gd.apiKey || '', gladiaModel: gd.model || 'solaria-1',
+        gladiaConfig: buildGladiaConfig(gd.features),
+      });
+      setTimeout(() => wsClient.connect(), 2000);
+      return { success: true };
+    });
+
+    // ---- IPC: Gladia config ----
+    ipcMain.handle('get-gladia-config', () => configManager.getGladia());
+
+    ipcMain.handle('set-gladia-config', (_event, config: any) => {
+      configManager.updateGladia(config);
+      const updated = configManager.getGladia();
+      wsClient.disconnect();
+      backendManager.restart({
+        gladiaApiKey: updated.apiKey || '', gladiaModel: updated.model || 'solaria-1',
+        gladiaConfig: buildGladiaConfig(updated.features),
+        language: appSettings.sourceLanguage,
+      });
+      setTimeout(() => wsClient.connect(), 2000);
+      return { success: true };
+    });
+
+    ipcMain.handle('fetch-gladia-models', async () => {
+      const apiKey = configManager.getGladia().apiKey;
+      if (!apiKey) return { success: false, error: 'No API key configured' };
+      try {
+        const { default: https } = await import('https');
+        return await new Promise((resolve) => {
+          const req = https.request({
+            hostname: 'api.gladia.io',
+            path: '/v2/models',
+            method: 'GET',
+            headers: { 'x-gladia-key': apiKey, 'Content-Type': 'application/json' },
+          }, (res) => {
+            let body = '';
+            res.on('data', (chunk: string) => { body += chunk; });
+            res.on('end', () => {
+              try {
+                const data = JSON.parse(body);
+                if (Array.isArray(data)) {
+                  const models = data.map((m: any) => ({
+                    name: m.name || m.id || '',
+                    description: m.description || '',
+                  }));
+                  resolve({ success: true, models });
+                  return;
+                }
+              } catch { /* fall through */ }
+              // API didn't return a usable list — return known models
+              resolve({
+                success: true,
+                models: [
+                  { name: 'solaria-1', description: 'Latest and most powerful model' },
+                ],
+              });
+            });
+          });
+          req.on('error', () => {
+            resolve({
+              success: true,
+              models: [
+                { name: 'solaria-1', description: 'Latest and most powerful model' },
+              ],
+            });
+          });
+          req.setTimeout(10000, () => {
+            req.destroy();
+            resolve({
+              success: true,
+              models: [
+                { name: 'solaria-1', description: 'Latest and most powerful model' },
+              ],
+            });
+          });
+          req.end();
+        });
+      } catch {
+        return {
+          success: true,
+          models: [
+            { name: 'solaria-1', description: 'Latest and most powerful model' },
+          ],
+        };
       }
     });
 

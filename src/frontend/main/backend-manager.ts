@@ -7,10 +7,14 @@ export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
   private binaryPath: string;
   private port: number;
+  private provider: string;
   private apiKey: string;
   private model: string;
   private extraParams: string;
   private language: string;
+  private gladiaApiKey: string;
+  private gladiaModel: string;
+  private gladiaConfig: string;
   private denoiseEnabled = false;
   private denoiseModelPath = '';
   private denoiseArch = '';
@@ -41,14 +45,21 @@ export class BackendManager extends EventEmitter {
     return undefined;
   }
 
-  constructor(binaryPath: string, port: number, apiKey?: string, model?: string, extraParams?: string, language?: string) {
+  constructor(binaryPath: string, port: number, options?: {
+    provider?: string; apiKey?: string; model?: string; extraParams?: string;
+    language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+  }) {
     super();
     this.binaryPath = binaryPath;
     this.port = port;
-    this.apiKey = apiKey || '';
-    this.model = model || 'nova-3';
-    this.extraParams = extraParams || '';
-    this.language = language || 'auto';
+    this.provider = options?.provider || 'deepgram';
+    this.apiKey = options?.apiKey || '';
+    this.model = options?.model || 'nova-3';
+    this.extraParams = options?.extraParams || '';
+    this.language = options?.language || 'auto';
+    this.gladiaApiKey = options?.gladiaApiKey || '';
+    this.gladiaModel = options?.gladiaModel || 'solaria-1';
+    this.gladiaConfig = options?.gladiaConfig || '';
   }
 
   spawn(): void {
@@ -56,15 +67,15 @@ export class BackendManager extends EventEmitter {
 
     this.shuttingDown = false;
 
-    const args = ['--port', String(this.port)];
-    if (this.apiKey) {
-      args.push('--api-key', this.apiKey);
-    }
-    if (this.model) {
-      args.push('--model', this.model);
-    }
-    if (this.extraParams) {
-      args.push('--extra-params', this.extraParams);
+    const args = ['--port', String(this.port), '--provider', this.provider];
+    if (this.provider === 'gladia') {
+      if (this.gladiaApiKey) args.push('--gladia-api-key', this.gladiaApiKey);
+      if (this.gladiaModel) args.push('--gladia-model', this.gladiaModel);
+      if (this.gladiaConfig) args.push('--gladia-config', this.gladiaConfig);
+    } else {
+      if (this.apiKey) args.push('--api-key', this.apiKey);
+      if (this.model) args.push('--model', this.model);
+      if (this.extraParams) args.push('--extra-params', this.extraParams);
     }
     if (this.language && this.language !== 'auto') {
       args.push('--language', this.language);
@@ -138,13 +149,20 @@ export class BackendManager extends EventEmitter {
     this.modelsDir = modelsDir;
   }
 
-  restart(apiKey: string, model?: string, extraParams?: string, language?: string): void {
-    this.apiKey = apiKey;
-    if (model) this.model = model;
-    if (extraParams !== undefined) this.extraParams = extraParams;
-    if (language) this.language = language;
+  restart(opts: {
+    provider?: string; apiKey?: string; model?: string; extraParams?: string;
+    language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+  }): void {
+    if (opts.provider) this.provider = opts.provider;
+    if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
+    if (opts.model) this.model = opts.model;
+    if (opts.extraParams !== undefined) this.extraParams = opts.extraParams;
+    if (opts.language) this.language = opts.language;
+    if (opts.gladiaApiKey !== undefined) this.gladiaApiKey = opts.gladiaApiKey;
+    if (opts.gladiaModel) this.gladiaModel = opts.gladiaModel;
+    if (opts.gladiaConfig !== undefined) this.gladiaConfig = opts.gladiaConfig;
     this.kill();
-    this.shouldRestart = true; // re-enable auto-restart for the new process
+    this.shouldRestart = true;
     setTimeout(() => this.spawn(), 500);
   }
 

@@ -59,6 +59,54 @@ export function buildExtraParams(features: DeepgramFeatures): string {
   return parts.join('&');
 }
 
+export interface GladiaFeatures {
+  code_switching: boolean;
+  speech_threshold: number;
+  audio_enhancer: boolean;
+  endpointing: number;
+  max_duration_without_endpointing: number;
+  partial_transcripts: boolean;
+  sentiment_analysis: boolean;
+  named_entity_recognition: boolean;
+  words_accurate_timestamps: boolean;
+  custom_vocabulary: boolean;
+  custom_spelling: boolean;
+  translation: boolean;
+  translation_target_languages: string[];
+}
+
+export interface GladiaConfig {
+  apiKey: string;
+  model: string;
+  features: GladiaFeatures;
+}
+
+export const DEFAULT_GLADIA_FEATURES: GladiaFeatures = {
+  code_switching: false,
+  speech_threshold: 0.8,
+  audio_enhancer: false,
+  endpointing: 0.01,
+  max_duration_without_endpointing: 5,
+  partial_transcripts: true,
+  sentiment_analysis: false,
+  named_entity_recognition: false,
+  words_accurate_timestamps: false,
+  custom_vocabulary: false,
+  custom_spelling: false,
+  translation: false,
+  translation_target_languages: [],
+};
+
+export const DEFAULT_GLADIA: GladiaConfig = {
+  apiKey: '',
+  model: 'solaria-1',
+  features: { ...DEFAULT_GLADIA_FEATURES },
+};
+
+export function buildGladiaConfig(features: GladiaFeatures): string {
+  return JSON.stringify(features);
+}
+
 export class DeepgramConfigManager {
   private configPath: string;
   private config: DeepgramConfig;

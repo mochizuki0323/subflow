@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { BackendStatus, TranslatorConfig, SubtitleMode, ApiFormat, AppSettings } from '../shared/types';
+import type { BackendStatus, TranslatorConfig, SubtitleMode, ApiFormat, AppSettings, SttProvider } from '../shared/types';
 import { BUILTIN_HISTORY_SYSTEM_HINT_BODY } from '../../main/translator-defaults';
 import { t } from '../shared/i18n';
 
@@ -25,6 +25,7 @@ interface VerifyResult {
 }
 
 export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitleModeChange }: Props) {
+  const [sttProvider, setSttProvider] = useState<SttProvider>('deepgram');
   const [language, setLanguage] = useState('auto');
   const [localMode, setLocalMode] = useState<SubtitleMode>(initialMode);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -68,6 +69,7 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
       setLocalMode(s.subtitleMode);
       setSavedMode(s.subtitleMode);
     });
+    window.electronAPI.getSttProvider().then(setSttProvider);
   }, []);
 
   useEffect(() => {
@@ -447,7 +449,7 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
             {t('lang.verify.subtitleMode')}: {verifyResult.subtitleMode.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.subtitleMode.ui}, ${t('lang.verify.backend')}: ${verifyResult.subtitleMode.backend})`}
           </div>
           <div className={verifyResult.modelLoaded ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
-            {t('lang.verify.deepgram')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
+            {t(sttProvider === 'gladia' ? 'lang.verify.gladia' : 'lang.verify.deepgram')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
           </div>
         </div>
       )}

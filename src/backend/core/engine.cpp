@@ -3,6 +3,7 @@
 #include "ipc/protocol.h"
 #include "audio/audio_buffer.h"
 #include "transcriber/deepgram_transcriber.h"
+#include "transcriber/gladia_transcriber.h"
 #include <chrono>
 #include <cstring>
 
@@ -11,8 +12,13 @@ namespace ais {
 Engine::Engine(const Config& config)
     : config_(config), ws_server_(config.ws_port) {
     audio_source_ = create_audio_source();
-    transcriber_ = std::make_unique<DeepgramTranscriber>(
-        config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
+    if (config_.provider == "gladia") {
+        transcriber_ = std::make_unique<GladiaTranscriber>(
+            config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
+    } else {
+        transcriber_ = std::make_unique<DeepgramTranscriber>(
+            config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
+    }
 
     // Forward log messages to WebSocket clients
     Logger::instance().set_callback([this](Logger::Level level, const std::string& message) {
@@ -36,9 +42,8 @@ Engine::~Engine() {
 void Engine::run() {
     running_ = true;
 
-    // Always attempt to connect to Deepgram on startup.
     transcriber_->set_language(config_.language);
-    transcriber_->load_model(""); // path unused by DeepgramTranscriber
+    transcriber_->load_model("");
 
     setup_command_handlers();
 
@@ -93,15 +98,18 @@ void Engine::setup_command_handlers() {
         }
     });
 
-    // Repurposed: frontend sends this when the user updates the Deepgram API
-    // key and the backend needs to reconnect with the new key.
     ws_server_.on_command(cmd::LOAD_MODEL, [this](const json& data) {
         std::string key = data.value("api_key", "");
         if (!key.empty()) {
-            config_.deepgram_api_key = key;
-            // Re-create transcriber with the new key and reconnect.
-            transcriber_ = std::make_unique<DeepgramTranscriber>(
-        config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
+            if (config_.provider == "gladia") {
+                config_.gladia_api_key = key;
+                transcriber_ = std::make_unique<GladiaTranscriber>(
+                    config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
+            } else {
+                config_.deepgram_api_key = key;
+                transcriber_ = std::make_unique<DeepgramTranscriber>(
+                    config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
+            }
             transcriber_->set_language(config_.language);
             if (transcriber_->load_model("")) {
                 ws_server_.broadcast(make_message(msg::MODEL_LOADED, {
@@ -110,7 +118,7 @@ void Engine::setup_command_handlers() {
                 }));
             } else {
                 ws_server_.broadcast(make_message(msg::ERR, {
-                    {"message", "Failed to start Deepgram connection (check API key)"}
+                    {"message", "Failed to start " + config_.provider + " connection (check API key)"}
                 }));
             }
             send_status();

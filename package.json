@@ -1,6 +1,6 @@
 {
   "name": "subflow",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "SubFlow — real-time speech captions with optional translation (Deepgram + LLM).",
   "homepage": "https://github.com/mochizuki0323/subflow",
   "author": "mochizuki0323 <motiduki0323@gmail.com>",

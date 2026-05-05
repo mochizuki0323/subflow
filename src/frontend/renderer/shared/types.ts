@@ -48,6 +48,30 @@ export interface DeepgramConfig {
   features: DeepgramFeatures;
 }
 
+export type SttProvider = 'deepgram' | 'gladia';
+
+export interface GladiaFeatures {
+  code_switching: boolean;
+  speech_threshold: number;
+  audio_enhancer: boolean;
+  endpointing: number;
+  max_duration_without_endpointing: number;
+  partial_transcripts: boolean;
+  sentiment_analysis: boolean;
+  named_entity_recognition: boolean;
+  words_accurate_timestamps: boolean;
+  custom_vocabulary: boolean;
+  custom_spelling: boolean;
+  translation: boolean;
+  translation_target_languages: string[];
+}
+
+export interface GladiaConfig {
+  apiKey: string;
+  model: string;
+  features: GladiaFeatures;
+}
+
 export type SubtitleMode = 'original' | 'translated' | 'bilingual';
 
 export type AppearanceMode = 'light' | 'dark' | 'system';
@@ -129,9 +153,14 @@ export interface ElectronAPI {
   downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
+  getSttProvider: () => Promise<SttProvider>;
+  setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;
   getDeepgramConfig: () => Promise<DeepgramConfig>;
   setDeepgramConfig: (config: Partial<DeepgramConfig>) => Promise<{ success: boolean }>;
-  fetchDeepgramModels: () => Promise<{ success: boolean; models?: Array<{ name: string; version: string; languages: string[] }>; error?: string }>;
+  fetchDeepgramModels: () => Promise<{ success: boolean; models?: Array<{ name: string; canonical_name: string; version: string; languages: string[] }>; error?: string }>;
+  getGladiaConfig: () => Promise<GladiaConfig>;
+  setGladiaConfig: (config: Partial<GladiaConfig>) => Promise<{ success: boolean }>;
+  fetchGladiaModels: () => Promise<{ success: boolean; models?: Array<{ name: string; description: string }>; error?: string }>;
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;

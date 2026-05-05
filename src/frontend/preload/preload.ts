@@ -37,10 +37,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('denoiser-download-progress', (_event, data) => callback(data));
   },
 
+  // STT provider
+  getSttProvider: () => ipcRenderer.invoke('get-stt-provider'),
+  setSttProvider: (provider: string) => ipcRenderer.invoke('set-stt-provider', provider),
+
   // Deepgram config
   getDeepgramConfig: () => ipcRenderer.invoke('get-deepgram-config'),
   setDeepgramConfig: (config: any) => ipcRenderer.invoke('set-deepgram-config', config),
   fetchDeepgramModels: () => ipcRenderer.invoke('fetch-deepgram-models'),
+
+  // Gladia config
+  getGladiaConfig: () => ipcRenderer.invoke('get-gladia-config'),
+  setGladiaConfig: (config: any) => ipcRenderer.invoke('set-gladia-config', config),
+  fetchGladiaModels: () => ipcRenderer.invoke('fetch-gladia-models'),
   getTranslatorConfig: () => ipcRenderer.invoke('get-translator-config'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   setUiLanguage: (lang: 'en' | 'zh') => ipcRenderer.invoke('set-ui-language', lang),

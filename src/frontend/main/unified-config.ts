@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import type { DeepgramConfig, DeepgramFeatures } from './model-manager';
-import { DEFAULT_FEATURES } from './model-manager';
+import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures } from './model-manager';
+import { DEFAULT_FEATURES, DEFAULT_GLADIA, DEFAULT_GLADIA_FEATURES } from './model-manager';
 import type { AppSettings, SubtitleMode, UiLanguage } from './app-settings';
 import type { UiPreferences, AppearanceMode, AccentSource } from './ui-theme';
 import type { TranslatorConfig, ApiFormat } from './translator';
@@ -23,8 +23,12 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
+export type SttProvider = 'deepgram' | 'gladia';
+
 export interface UnifiedConfig {
+  provider: SttProvider;
   deepgram: DeepgramConfig;
+  gladia: GladiaConfig;
   translator: TranslatorConfig;
   app: AppSettings;
   ui: UiPreferences;
@@ -102,9 +106,26 @@ function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): 
   };
 }
 
+function normalizeProvider(value: unknown): SttProvider {
+  if (value === 'deepgram' || value === 'gladia') return value;
+  return 'deepgram';
+}
+
+function mergeGladia(base: GladiaConfig, partial: Partial<GladiaConfig>): GladiaConfig {
+  return {
+    ...base,
+    ...partial,
+    apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : base.apiKey,
+    model: typeof partial.model === 'string' && partial.model ? partial.model : base.model,
+    features: { ...base.features, ...((partial as any).features || {}) } as GladiaFeatures,
+  };
+}
+
 function buildDefaults(): UnifiedConfig {
   return {
+    provider: 'deepgram',
     deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
+    gladia: { ...DEFAULT_GLADIA },
     translator: { ...DEFAULT_TRANSLATOR },
     app: { ...DEFAULT_APP },
     ui: { ...DEFAULT_UI },
@@ -179,7 +200,9 @@ export class UnifiedConfigManager {
   private normalize(parsed: any): UnifiedConfig {
     const defaults = buildDefaults();
     return {
+      provider: normalizeProvider(parsed.provider),
       deepgram: mergeDeepgram(defaults.deepgram, parsed.deepgram || {}),
+      gladia: mergeGladia(defaults.gladia, parsed.gladia || {}),
       translator: mergeTranslator(defaults.translator, parsed.translator || {}),
       app: mergeApp(defaults.app, parsed.app || {}),
       ui: mergeUi(defaults.ui, parsed.ui || {}),
@@ -191,7 +214,9 @@ export class UnifiedConfigManager {
   private migrate(): UnifiedConfig {
     const defaults = buildDefaults();
     const config: UnifiedConfig = {
+      provider: 'deepgram',
       deepgram: mergeDeepgram(defaults.deepgram, this.readLegacy('deepgram-config.json')),
+      gladia: { ...DEFAULT_GLADIA },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
       ui: mergeUi(defaults.ui, this.readLegacy('ui-preferences.json')),
@@ -221,15 +246,27 @@ export class UnifiedConfigManager {
 
   get(): UnifiedConfig { return this.config; }
 
+  getProvider(): SttProvider { return this.config.provider; }
   getDeepgram(): DeepgramConfig { return this.config.deepgram; }
+  getGladia(): GladiaConfig { return this.config.gladia; }
   getTranslator(): TranslatorConfig { return this.config.translator; }
   getApp(): AppSettings { return this.config.app; }
   getUi(): UiPreferences { return this.config.ui; }
   getWindowPositions(): WindowPositions { return this.config.windowPositions; }
   getDenoiser(): DenoiserConfig { return this.config.denoiser; }
 
+  updateProvider(provider: SttProvider): void {
+    this.config.provider = normalizeProvider(provider);
+    this.save();
+  }
+
   updateDeepgram(partial: Partial<DeepgramConfig>): void {
     this.config.deepgram = mergeDeepgram(this.config.deepgram, partial);
+    this.save();
+  }
+
+  updateGladia(partial: Partial<GladiaConfig>): void {
+    this.config.gladia = mergeGladia(this.config.gladia, partial);
     this.save();
   }
 
