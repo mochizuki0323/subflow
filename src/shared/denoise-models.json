@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "download_base_url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-models",
+  "models": [
+    {
+      "id": "dpdfnet8",
+      "filename": "dpdfnet8.onnx",
+      "architecture": "dpdfnet",
+      "sample_rate": 16000,
+      "size_bytes": 14623619,
+      "description_en": "DPDFNet-8 — Best quality",
+      "description_zh": "DPDFNet-8 — 最佳质量"
+    },
+    {
+      "id": "dpdfnet4",
+      "filename": "dpdfnet4.onnx",
+      "architecture": "dpdfnet",
+      "sample_rate": 16000,
+      "size_bytes": 11707436,
+      "description_en": "DPDFNet-4 — Balanced",
+      "description_zh": "DPDFNet-4 — 均衡"
+    },
+    {
+      "id": "dpdfnet2",
+      "filename": "dpdfnet2.onnx",
+      "architecture": "dpdfnet",
+      "sample_rate": 16000,
+      "size_bytes": 10249356,
+      "description_en": "DPDFNet-2 — Real-time / embedded",
+      "description_zh": "DPDFNet-2 — 实时/嵌入式"
+    },
+    {
+      "id": "dpdfnet_baseline",
+      "filename": "dpdfnet_baseline.onnx",
+      "architecture": "dpdfnet",
+      "sample_rate": 16000,
+      "size_bytes": 8791035,
+      "description_en": "DPDFNet Baseline — Fastest",
+      "description_zh": "DPDFNet Baseline — 最快"
+    },
+    {
+      "id": "gtcrn_simple",
+      "filename": "gtcrn_simple.onnx",
+      "architecture": "gtcrn",
+      "sample_rate": 16000,
+      "size_bytes": 535638,
+      "description_en": "GTCRN Simple — Ultra-light",
+      "description_zh": "GTCRN Simple — 超轻量"
+    }
+  ]
+}

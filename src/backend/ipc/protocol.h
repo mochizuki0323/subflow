@@ -31,6 +31,7 @@ namespace cmd {
     constexpr const char* SET_SUBTITLE_MODE = "set_subtitle_mode";
     constexpr const char* START         = "start";
     constexpr const char* STOP          = "stop";
+    constexpr const char* SET_DENOISE   = "set_denoise";
 }
 
 inline json make_message(const std::string& type, const json& data) {

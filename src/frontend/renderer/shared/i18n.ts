@@ -137,6 +137,33 @@ const translations = {
   'lang.uk': { en: 'Ukrainian', zh: '乌克兰语' },
   'lang.sv': { en: 'Swedish', zh: '瑞典语' },
 
+  // ---- About ----
+  'tab.about': { en: 'About', zh: '关于' },
+  'tab.about.nav': { en: 'About', zh: '关于' },
+  'about.title': { en: 'About SubFlow', zh: '关于 SubFlow' },
+  'about.version': { en: 'Version', zh: '版本' },
+  'about.project': { en: 'Project Homepage', zh: '项目主页' },
+
+  // ---- DenoiserSettings.tsx ----
+  'denoise.title': { en: 'Speech Enhancement', zh: '语音增强' },
+  'denoise.hint': { en: 'Remove background noise while preserving speech clarity. Powered by sherpa-onnx.', zh: '去除背景噪音，保留清晰人声。基于 sherpa-onnx。' },
+  'denoise.enable': { en: 'Enable Denoising', zh: '启用降噪' },
+  'denoise.enabled': { en: 'Enabled — background noise will be suppressed', zh: '已开启 — 背景噪音将被抑制' },
+  'denoise.disabled': { en: 'Disabled', zh: '已关闭' },
+  'denoise.model': { en: 'Denoise Model', zh: '降噪模型' },
+  'denoise.model.hint': { en: 'Higher quality models produce better results but require more CPU.', zh: '更高质量的模型效果更好，但需要更多 CPU。' },
+  'denoise.download': { en: 'Download', zh: '下载' },
+  'denoise.downloading': { en: 'Downloading...', zh: '下载中...' },
+  'denoise.downloaded': { en: 'Downloaded', zh: '已下载' },
+  'denoise.downloadFailed': { en: 'Download failed', zh: '下载失败' },
+  'denoise.save': { en: 'Save Configuration', zh: '保存配置' },
+  'denoise.saving': { en: 'Saving...', zh: '保存中...' },
+  'denoise.saved': { en: 'Settings saved', zh: '设置已保存' },
+  'denoise.saveFailed': { en: 'Save failed', zh: '保存失败' },
+  'denoise.needDownload': { en: 'Model not downloaded — please download first', zh: '模型未下载 — 请先下载' },
+  'tab.denoise': { en: 'Denoise', zh: '降噪' },
+  'tab.denoise.nav': { en: 'Denoise', zh: '降噪' },
+
   // ---- ModelManager.tsx ----
   'model.title': { en: 'Deepgram Speech Recognition', zh: 'Deepgram 语音识别' },
   'model.hint': { en: 'Configure the Deepgram cloud API. Get your API Key at', zh: '配置 Deepgram 云端 API。在' },

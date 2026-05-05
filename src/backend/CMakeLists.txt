@@ -40,6 +40,7 @@ set(BACKEND_SOURCES
     audio/audio_buffer.cpp
     audio/audio_source.cpp
     audio/create_audio_source.cpp
+    audio/denoiser.cpp
     transcriber/deepgram_transcriber.cpp
     ipc/ws_server.cpp
 )
@@ -78,6 +79,7 @@ target_link_libraries(subflow-backend PRIVATE
     OpenSSL::Crypto
     uSockets
     Threads::Threads
+    sherpa_onnx::c_api
 )
 
 if(WIN32)

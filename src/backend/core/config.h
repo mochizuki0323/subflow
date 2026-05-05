@@ -18,6 +18,12 @@ struct Config {
     bool translate = false;  // kept for API compat; translation is done by the LLM frontend
     std::string subtitle_mode = "original"; // "original", "translated", "bilingual"
     uint32_t audio_source_id = 0;
+
+    // Speech enhancement / denoising
+    bool denoise_enabled = false;
+    std::string denoise_model_path;       // full path to .onnx model file
+    std::string denoise_architecture;     // "gtcrn" or "dpdfnet"
+    std::string models_dir;               // directory for downloaded models
 };
 
 } // namespace ais

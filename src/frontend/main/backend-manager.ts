@@ -11,6 +11,10 @@ export class BackendManager extends EventEmitter {
   private model: string;
   private extraParams: string;
   private language: string;
+  private denoiseEnabled = false;
+  private denoiseModelPath = '';
+  private denoiseArch = '';
+  private modelsDir = '';
   private shouldRestart = true;
   /** When true, child stderr/exit must not emit `log` (windows may already be destroyed). */
   private shuttingDown = false;
@@ -64,6 +68,12 @@ export class BackendManager extends EventEmitter {
     }
     if (this.language && this.language !== 'auto') {
       args.push('--language', this.language);
+    }
+    if (this.denoiseEnabled && this.denoiseModelPath) {
+      args.push('--denoise', '--denoise-model', this.denoiseModelPath, '--denoise-arch', this.denoiseArch);
+    }
+    if (this.modelsDir) {
+      args.push('--models-dir', this.modelsDir);
     }
 
     console.log(`Spawning backend: ${this.binaryPath} ${args.join(' ')}`);
@@ -119,6 +129,13 @@ export class BackendManager extends EventEmitter {
       }
       this.process = null;
     });
+  }
+
+  setDenoiseParams(enabled: boolean, modelPath: string, arch: string, modelsDir: string): void {
+    this.denoiseEnabled = enabled;
+    this.denoiseModelPath = modelPath;
+    this.denoiseArch = arch;
+    this.modelsDir = modelsDir;
   }
 
   restart(apiKey: string, model?: string, extraParams?: string, language?: string): void {

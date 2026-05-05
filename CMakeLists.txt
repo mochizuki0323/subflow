@@ -18,5 +18,8 @@ if(WIN32)
     FetchContent_MakeAvailable(libuv)
 endif()
 
+# sherpa-onnx speech enhancement
+include(cmake/SherpaOnnx.cmake)
+
 # Backend executable
 add_subdirectory(src/backend)

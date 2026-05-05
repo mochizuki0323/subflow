@@ -114,3 +114,14 @@ if [[ -n "$MINGW_SYSROOT" ]]; then
 else
     echo "MINGW_SYSROOT not set, skipping DLL dependency copy (dynamically-linked OpenSSL may cause 0xC0000135 on Windows)."
 fi
+
+# Copy sherpa-onnx DLLs (not from MinGW sysroot — pre-built from upstream)
+SHERPA_DLL_DIR="${ROOT}/extern/sherpa-onnx/lib/win-x64"
+if [[ -d "$SHERPA_DLL_DIR" ]]; then
+    for dll in "${SHERPA_DLL_DIR}"/*.dll; do
+        [[ -f "$dll" ]] || continue
+        base=$(basename "$dll")
+        cp -f "$dll" "${DST_DIR}/${base}"
+        echo "Copied sherpa-onnx runtime: ${base}"
+    done
+fi

@@ -76,6 +76,23 @@ export interface TranslatorConfig {
   historySystemHint: string;
 }
 
+export interface DenoiserConfig {
+  enabled: boolean;
+  modelId: string;
+}
+
+export interface DenoiseModelInfo {
+  id: string;
+  filename: string;
+  architecture: string;
+  sample_rate: number;
+  size_bytes: number;
+  description_en: string;
+  description_zh: string;
+  downloaded: boolean;
+  localPath: string;
+}
+
 export type UiLanguage = 'en' | 'zh';
 
 export interface AppSettings {
@@ -102,6 +119,15 @@ export interface ElectronAPI {
   startWindowResize: (direction: string, startX: number, startY: number) => void;
   stopWindowResize: () => void;
   testTranslator: () => Promise<{ success: boolean; error?: string }>;
+
+  getAppVersion: () => Promise<string>;
+  openExternal: (url: string) => Promise<void>;
+
+  getDenoiserConfig: () => Promise<DenoiserConfig>;
+  setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean }>;
+  getDenoiserModels: () => Promise<DenoiseModelInfo[]>;
+  downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
+  onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
   getDeepgramConfig: () => Promise<DeepgramConfig>;
   setDeepgramConfig: (config: Partial<DeepgramConfig>) => Promise<{ success: boolean }>;

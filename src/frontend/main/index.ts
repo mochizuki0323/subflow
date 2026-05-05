@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, screen, nativeTheme, Menu } from 'electron';
+import { app, ipcMain, BrowserWindow, screen, nativeTheme, Menu, shell } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
 import { buildExtraParams } from './model-manager';
@@ -17,6 +17,15 @@ import {
 } from './app-config-dir';
 import type { AppSettings, UiLanguage } from './app-settings';
 import { UnifiedConfigManager } from './unified-config';
+import {
+  getDenoiseModels,
+  findDenoiseModel,
+  getModelStatus,
+  getModelPath,
+  isModelDownloaded,
+  downloadModel,
+  getModelsDir,
+} from './denoiser-manager';
 import path from 'path';
 
 if (process.platform === 'linux') {
@@ -133,6 +142,16 @@ if (!gotSingleInstanceLock) {
     extraParams || undefined,
     appSettings.sourceLanguage,
   );
+
+  // Set up denoiser if configured
+  const denoiserConfig = configManager.getDenoiser();
+  if (denoiserConfig.enabled) {
+    const model = findDenoiseModel(denoiserConfig.modelId);
+    if (model && isModelDownloaded(configDir, model)) {
+      backendManager.setDenoiseParams(true, getModelPath(configDir, model), model.architecture, getModelsDir(configDir));
+    }
+  }
+
   backendManager.spawn();
 
   wsClient = new WsClient(`ws://127.0.0.1:${WS_PORT}`);
@@ -310,6 +329,47 @@ if (!gotSingleInstanceLock) {
       try {
         const result = await tempTranslator.translate('Hello, this is a test.');
         return result ? { success: true } : { success: false, error: 'Empty response' };
+      } catch (err: any) {
+        return { success: false, error: err?.message || String(err) };
+      }
+    });
+
+    // ---- IPC: App info ----
+    ipcMain.handle('get-app-version', () => app.getVersion());
+    ipcMain.handle('open-external', (_event, url: string) => {
+      if (url.startsWith('https://')) shell.openExternal(url);
+    });
+
+    // ---- IPC: Denoiser ----
+    ipcMain.handle('get-denoiser-config', () => configManager.getDenoiser());
+
+    ipcMain.handle('get-denoiser-models', () => getModelStatus(configDir));
+
+    ipcMain.handle('set-denoiser-config', (_event, config: { enabled?: boolean; modelId?: string }) => {
+      configManager.updateDenoiser(config);
+      const updated = configManager.getDenoiser();
+      const model = findDenoiseModel(updated.modelId);
+
+      if (updated.enabled && model && isModelDownloaded(configDir, model)) {
+        wsClient.send({
+          type: 'set_denoise',
+          data: { enabled: true, model_path: getModelPath(configDir, model), architecture: model.architecture },
+        });
+        backendManager.setDenoiseParams(true, getModelPath(configDir, model), model.architecture, getModelsDir(configDir));
+      } else {
+        wsClient.send({ type: 'set_denoise', data: { enabled: false, model_path: '', architecture: '' } });
+        backendManager.setDenoiseParams(false, '', '', getModelsDir(configDir));
+      }
+      return { success: true };
+    });
+
+    ipcMain.handle('download-denoiser-model', async (_event, modelId: string) => {
+      try {
+        const localPath = await downloadModel(configDir, modelId, (percent) => {
+          safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent });
+        });
+        safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent: 100 });
+        return { success: true, localPath };
       } catch (err: any) {
         return { success: false, error: err?.message || String(err) };
       }

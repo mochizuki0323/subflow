@@ -19,11 +19,16 @@ static void signal_handler(int sig) {
 static void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options]\n"
               << "Options:\n"
-              << "  --port <port>         WebSocket port (default: 9876)\n"
-              << "  --api-key <key>       Deepgram API key\n"
-              << "  --model <model>       Deepgram model (default: nova-3)\n"
-              << "  --language <lang>     Language code: ja, en, zh, auto, etc. (default: auto)\n"
-              << "  --help                Show this help\n";
+              << "  --port <port>              WebSocket port (default: 9876)\n"
+              << "  --api-key <key>            Deepgram API key\n"
+              << "  --model <model>            Deepgram model (default: nova-3)\n"
+              << "  --language <lang>          Language code: ja, en, zh, auto, etc. (default: auto)\n"
+              << "  --extra-params <params>    Extra Deepgram URL params\n"
+              << "  --denoise                  Enable speech denoising\n"
+              << "  --denoise-model <path>     Path to denoise ONNX model\n"
+              << "  --denoise-arch <arch>      Denoise architecture: gtcrn or dpdfnet\n"
+              << "  --models-dir <dir>         Directory for downloaded models\n"
+              << "  --help                     Show this help\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -40,6 +45,14 @@ int main(int argc, char* argv[]) {
             config.deepgram_extra_params = argv[++i];
         } else if (std::strcmp(argv[i], "--language") == 0 && i + 1 < argc) {
             config.language = argv[++i];
+        } else if (std::strcmp(argv[i], "--denoise") == 0) {
+            config.denoise_enabled = true;
+        } else if (std::strcmp(argv[i], "--denoise-model") == 0 && i + 1 < argc) {
+            config.denoise_model_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--denoise-arch") == 0 && i + 1 < argc) {
+            config.denoise_architecture = argv[++i];
+        } else if (std::strcmp(argv[i], "--models-dir") == 0 && i + 1 < argc) {
+            config.models_dir = argv[++i];
         } else if (std::strcmp(argv[i], "--help") == 0) {
             print_usage(argv[0]);
             return 0;

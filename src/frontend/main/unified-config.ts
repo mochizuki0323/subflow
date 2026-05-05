@@ -18,12 +18,18 @@ export interface WindowPositions {
   history?: WindowBounds;
 }
 
+export interface DenoiserConfig {
+  enabled: boolean;
+  modelId: string;
+}
+
 export interface UnifiedConfig {
   deepgram: DeepgramConfig;
   translator: TranslatorConfig;
   app: AppSettings;
   ui: UiPreferences;
   windowPositions: WindowPositions;
+  denoiser: DenoiserConfig;
 }
 
 const DEFAULT_DEEPGRAM: DeepgramConfig = {
@@ -57,6 +63,11 @@ const DEFAULT_UI: UiPreferences = {
   accentSource: 'default',
 };
 
+const DEFAULT_DENOISER: DenoiserConfig = {
+  enabled: false,
+  modelId: 'dpdfnet8',
+};
+
 function normalizeSubtitleMode(value: unknown): SubtitleMode {
   if (value === 'original' || value === 'translated' || value === 'bilingual') return value;
   return 'original';
@@ -82,6 +93,15 @@ function normalizeApiFormat(value: unknown): ApiFormat {
   return 'openai';
 }
 
+function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): DenoiserConfig {
+  return {
+    ...base,
+    ...partial,
+    enabled: typeof partial.enabled === 'boolean' ? partial.enabled : base.enabled,
+    modelId: typeof partial.modelId === 'string' && partial.modelId ? partial.modelId : base.modelId,
+  };
+}
+
 function buildDefaults(): UnifiedConfig {
   return {
     deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
@@ -89,6 +109,7 @@ function buildDefaults(): UnifiedConfig {
     app: { ...DEFAULT_APP },
     ui: { ...DEFAULT_UI },
     windowPositions: {},
+    denoiser: { ...DEFAULT_DENOISER },
   };
 }
 
@@ -163,6 +184,7 @@ export class UnifiedConfigManager {
       app: mergeApp(defaults.app, parsed.app || {}),
       ui: mergeUi(defaults.ui, parsed.ui || {}),
       windowPositions: parsed.windowPositions || {},
+      denoiser: mergeDenoiser(defaults.denoiser, parsed.denoiser || {}),
     };
   }
 
@@ -174,6 +196,7 @@ export class UnifiedConfigManager {
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
       ui: mergeUi(defaults.ui, this.readLegacy('ui-preferences.json')),
       windowPositions: this.readLegacy('window-positions.json'),
+      denoiser: { ...DEFAULT_DENOISER },
     };
     this.config = config;
     this.save();
@@ -203,6 +226,7 @@ export class UnifiedConfigManager {
   getApp(): AppSettings { return this.config.app; }
   getUi(): UiPreferences { return this.config.ui; }
   getWindowPositions(): WindowPositions { return this.config.windowPositions; }
+  getDenoiser(): DenoiserConfig { return this.config.denoiser; }
 
   updateDeepgram(partial: Partial<DeepgramConfig>): void {
     this.config.deepgram = mergeDeepgram(this.config.deepgram, partial);
@@ -226,6 +250,11 @@ export class UnifiedConfigManager {
 
   updateWindowPositions(positions: WindowPositions): void {
     this.config.windowPositions = positions;
+    this.save();
+  }
+
+  updateDenoiser(partial: Partial<DenoiserConfig>): void {
+    this.config.denoiser = mergeDenoiser(this.config.denoiser, partial);
     this.save();
   }
 }

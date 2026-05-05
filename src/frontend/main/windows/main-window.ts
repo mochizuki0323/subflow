@@ -7,7 +7,7 @@ import { getWindowIcon } from '../window-icon';
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 800,
-    height: 600,
+    height: 720,
     title: PRODUCT_NAME,
     icon: getWindowIcon(),
     webPreferences: {

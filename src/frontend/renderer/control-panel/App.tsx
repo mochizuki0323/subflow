@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SourceSelector } from './SourceSelector';
 import { ModelManager } from './ModelManager';
+import { DenoiserSettings } from './DenoiserSettings';
 import { LanguageSettings } from './LanguageSettings';
 import { LogViewer } from './LogViewer';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
@@ -17,7 +18,7 @@ import type {
   UiThemePayload,
 } from '../shared/types';
 
-type Tab = 'sources' | 'deepgram' | 'language' | 'history' | 'logs';
+type Tab = 'sources' | 'deepgram' | 'denoise' | 'language' | 'history' | 'logs' | 'about';
 
 const STATUS_KEY: Record<string, string> = {
   idle: 'status.idle',
@@ -28,9 +29,11 @@ const STATUS_KEY: Record<string, string> = {
 const TAB_META: Record<Tab, { titleKey: string; navKey: string; icon: string }> = {
   sources: { titleKey: 'tab.sources', navKey: 'tab.sources.nav', icon: '◆' },
   deepgram: { titleKey: 'tab.deepgram', navKey: 'tab.deepgram.nav', icon: '◎' },
+  denoise: { titleKey: 'tab.denoise', navKey: 'tab.denoise.nav', icon: '◈' },
   language: { titleKey: 'tab.language', navKey: 'tab.language.nav', icon: '◇' },
   history: { titleKey: 'tab.history', navKey: 'tab.history.nav', icon: '☰' },
   logs: { titleKey: 'tab.logs', navKey: 'tab.logs.nav', icon: '※' },
+  about: { titleKey: 'tab.about', navKey: 'tab.about.nav', icon: 'ⓘ' },
 };
 
 export function App() {
@@ -160,7 +163,13 @@ export function App() {
     await window.electronAPI.setUiLanguage(lang);
   };
 
-  const tabs: Tab[] = ['sources', 'deepgram', 'language', 'history', 'logs'];
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    window.electronAPI.getAppVersion().then(setAppVersion);
+  }, []);
+
+  const tabs: Tab[] = ['sources', 'deepgram', 'denoise', 'language', 'history', 'logs', 'about'];
 
   return (
     <div className="app-shell">
@@ -285,6 +294,7 @@ export function App() {
             />
           )}
           {tab === 'deepgram' && <ModelManager />}
+          {tab === 'denoise' && <DenoiserSettings />}
           {tab === 'language' && (
             <LanguageSettings
               status={status}
@@ -332,6 +342,25 @@ export function App() {
             </div>
           )}
           {tab === 'logs' && <LogViewer logs={logs} onClear={() => setLogs([])} />}
+          {tab === 'about' && (
+            <div className="panel">
+              <h2>{t('about.title')}</h2>
+              <div className="form-row" style={{ marginTop: 16 }}>
+                <label>{t('about.version')}</label>
+                <span style={{ fontSize: 14, fontWeight: 600 }}>v{appVersion}</span>
+              </div>
+              <div className="form-row">
+                <label>{t('about.project')}</label>
+                <a
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); window.electronAPI.openExternal('https://github.com/mochizuki0323/subflow'); }}
+                  style={{ fontSize: 14 }}
+                >
+                  github.com/mochizuki0323/subflow
+                </a>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

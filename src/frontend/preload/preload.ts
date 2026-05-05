@@ -23,6 +23,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   testTranslator: () => ipcRenderer.invoke('test-translator'),
   testTranslatorWithConfig: (config: any) => ipcRenderer.invoke('test-translator-with-config', config),
 
+  // App info
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
+
+  // Denoiser
+  getDenoiserConfig: () => ipcRenderer.invoke('get-denoiser-config'),
+  setDenoiserConfig: (config: { enabled?: boolean; modelId?: string }) =>
+    ipcRenderer.invoke('set-denoiser-config', config),
+  getDenoiserModels: () => ipcRenderer.invoke('get-denoiser-models'),
+  downloadDenoiserModel: (modelId: string) => ipcRenderer.invoke('download-denoiser-model', modelId),
+  onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
+    ipcRenderer.on('denoiser-download-progress', (_event, data) => callback(data));
+  },
+
   // Deepgram config
   getDeepgramConfig: () => ipcRenderer.invoke('get-deepgram-config'),
   setDeepgramConfig: (config: any) => ipcRenderer.invoke('set-deepgram-config', config),

@@ -24,6 +24,7 @@ jobs:
             openssl-devel pipewire-devel \
             nodejs npm \
             mingw64-gcc-c++ mingw64-openssl mingw64-openssl-static mingw64-winpthreads-static mingw64-zlib-static \
+            mingw64-binutils \
             libxcrypt-compat \
             rpm-build dpkg fuse fuse-libs \
             binutils objdump \
@@ -36,6 +37,12 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci
+
+      - name: Setup sherpa-onnx (Linux)
+        run: bash scripts/setup-sherpa-onnx.sh linux-x64
+
+      - name: Setup sherpa-onnx (Windows)
+        run: bash scripts/setup-sherpa-onnx.sh win-x64
 
       - name: Build C++ backend (Linux)
         run: |

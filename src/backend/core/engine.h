@@ -1,6 +1,7 @@
 #pragma once
 #include "core/config.h"
 #include "audio/audio_source.h"
+#include "audio/denoiser.h"
 #include "transcriber/transcriber.h"
 #include "ipc/ws_server.h"
 #include <atomic>
@@ -23,14 +24,18 @@ private:
 
     void send_source_list();
     void send_status();
+    void apply_denoise_config(const std::string& model_path,
+                              const std::string& architecture, bool enabled);
 
     Config config_;
     std::unique_ptr<IAudioSource> audio_source_;
     std::unique_ptr<ITranscriber> transcriber_;
+    Denoiser denoiser_;
     WsServer ws_server_;
 
     std::thread pipeline_thread_;
     std::atomic<bool> running_{false};
+    std::atomic<bool> denoise_active_{false};
     std::string current_state_ = "idle";
     uint32_t capture_source_id_ = 0;
     std::string capture_source_name_;

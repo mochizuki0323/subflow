@@ -29,3 +29,6 @@ scripts/generate-icon.sh
 # ML models (large binaries, download separately)
 models/
 
+# Pre-built sherpa-onnx libraries (downloaded by scripts/setup-sherpa-onnx.sh)
+extern/sherpa-onnx/
+

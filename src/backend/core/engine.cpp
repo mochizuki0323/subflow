@@ -22,6 +22,11 @@ Engine::Engine(const Config& config)
             {"message", message}
         }));
     });
+
+    // Load denoiser if configured at startup
+    if (config_.denoise_enabled && !config_.denoise_model_path.empty()) {
+        apply_denoise_config(config_.denoise_model_path, config_.denoise_architecture, true);
+    }
 }
 
 Engine::~Engine() {
@@ -132,6 +137,14 @@ void Engine::setup_command_handlers() {
         send_status();
     });
 
+    ws_server_.on_command(cmd::SET_DENOISE, [this](const json& data) {
+        bool enabled = data.value("enabled", false);
+        std::string model_path = data.value("model_path", "");
+        std::string architecture = data.value("architecture", "");
+        apply_denoise_config(model_path, architecture, enabled);
+        send_status();
+    });
+
     ws_server_.on_command(cmd::START, [this](const json& /*data*/) {
         current_state_ = "running";
         send_status();
@@ -148,6 +161,8 @@ void Engine::pipeline_loop() {
     constexpr size_t CHUNK_SIZE = 16000; // 1 second of audio
     std::vector<float> chunk(CHUNK_SIZE);
     auto last_level_broadcast = std::chrono::steady_clock::now();
+    auto last_denoise_log = std::chrono::steady_clock::now();
+    uint64_t denoise_chunks_processed = 0;
     bool was_connected = transcriber_->is_model_loaded();
 
     while (running_) {
@@ -161,13 +176,55 @@ void Engine::pipeline_loop() {
         }
 
         if (read > 0) {
-            // Calculate audio level (RMS)
+            // Calculate audio level (RMS) on raw input
             float sum_sq = 0;
             for (size_t i = 0; i < read; ++i) sum_sq += chunk[i] * chunk[i];
             audio_level_.store(std::sqrt(sum_sq / read));
 
             if (now_connected) {
-                transcriber_->feed_audio(chunk.data(), read);
+                const float* audio_data = chunk.data();
+                size_t audio_len = read;
+                std::vector<float> denoised_buf;
+
+                if (denoise_active_.load() && denoiser_.is_loaded()) {
+                    float rms_before = audio_level_.load();
+
+                    int32_t frame_shift = denoiser_.get_frame_shift();
+                    if (frame_shift <= 0) frame_shift = static_cast<int32_t>(read);
+
+                    for (size_t offset = 0; offset < read; offset += frame_shift) {
+                        int32_t n = static_cast<int32_t>(
+                            std::min<size_t>(frame_shift, read - offset));
+                        auto out = denoiser_.process(chunk.data() + offset, n, 16000);
+                        denoised_buf.insert(denoised_buf.end(), out.begin(), out.end());
+                    }
+
+                    if (!denoised_buf.empty()) {
+                        audio_data = denoised_buf.data();
+                        audio_len = denoised_buf.size();
+                    }
+
+                    ++denoise_chunks_processed;
+                    auto now_log = std::chrono::steady_clock::now();
+                    if (now_log - last_denoise_log > std::chrono::seconds(10)) {
+                        last_denoise_log = now_log;
+                        float rms_after = 0;
+                        if (audio_len > 0) {
+                            float sq = 0;
+                            for (size_t i = 0; i < audio_len; ++i) sq += audio_data[i] * audio_data[i];
+                            rms_after = std::sqrt(sq / audio_len);
+                        }
+                        float reduction_pct = (rms_before > 1e-6f)
+                            ? (1.0f - rms_after / rms_before) * 100.0f : 0.0f;
+                        char buf[256];
+                        std::snprintf(buf, sizeof(buf),
+                            "Denoise active: chunks=%llu, RMS before=%.4f, after=%.4f, reduction=%.1f%%",
+                            (unsigned long long)denoise_chunks_processed, rms_before, rms_after, reduction_pct);
+                        LOG_INFO(std::string(buf));
+                    }
+                }
+
+                transcriber_->feed_audio(audio_data, audio_len);
 
                 auto segments = transcriber_->process();
                 for (const auto& seg : segments) {
@@ -210,8 +267,41 @@ void Engine::send_status() {
         {"subtitle_mode", config_.subtitle_mode},
         {"capture_source_id", capture_source_id_},
         {"capture_source_name", capture_source_name_},
-        {"audio_level", audio_level_.load()}
+        {"audio_level", audio_level_.load()},
+        {"denoise_enabled", denoise_active_.load()},
+        {"denoise_loaded", denoiser_.is_loaded()}
     }));
+}
+
+void Engine::apply_denoise_config(const std::string& model_path,
+                                  const std::string& architecture, bool enabled) {
+    if (!enabled) {
+        denoise_active_ = false;
+        LOG_INFO("Denoiser disabled");
+        return;
+    }
+
+    if (model_path.empty() || architecture.empty()) {
+        LOG_WARN("Denoise enabled but model_path or architecture is empty");
+        denoise_active_ = false;
+        return;
+    }
+
+    if (denoiser_.is_loaded() && config_.denoise_model_path == model_path) {
+        denoise_active_ = true;
+        return;
+    }
+
+    if (denoiser_.load(model_path, architecture)) {
+        config_.denoise_model_path = model_path;
+        config_.denoise_architecture = architecture;
+        denoise_active_ = true;
+    } else {
+        denoise_active_ = false;
+        ws_server_.broadcast(make_message(msg::ERR, {
+            {"message", "Failed to load denoise model: " + model_path}
+        }));
+    }
 }
 
 } // namespace ais
