@@ -50,6 +50,13 @@ export interface DeepgramConfig {
 
 export type SttProvider = 'deepgram' | 'gladia';
 
+export interface CustomVocabularyItem {
+  value: string;
+  language?: string;
+  pronunciations?: string[];
+  intensity?: number;
+}
+
 export interface GladiaFeatures {
   code_switching: boolean;
   speech_threshold: number;
@@ -57,13 +64,15 @@ export interface GladiaFeatures {
   endpointing: number;
   max_duration_without_endpointing: number;
   partial_transcripts: boolean;
-  sentiment_analysis: boolean;
-  named_entity_recognition: boolean;
-  words_accurate_timestamps: boolean;
   custom_vocabulary: boolean;
+  custom_vocabulary_config: {
+    vocabulary: (string | CustomVocabularyItem)[];
+    default_intensity: number;
+  };
   custom_spelling: boolean;
-  translation: boolean;
-  translation_target_languages: string[];
+  custom_spelling_config: {
+    spelling_dictionary: Record<string, string[]>;
+  };
 }
 
 export interface GladiaConfig {

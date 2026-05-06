@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures, SttProvider } from '../shared/types';
+import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures, CustomVocabularyItem, SttProvider } from '../shared/types';
 import { t } from '../shared/i18n';
 
 const DEFAULT_FEATURES: DeepgramFeatures = {
@@ -250,13 +250,10 @@ const DEFAULT_GLADIA_FEATURES: GladiaFeatures = {
   endpointing: 0.01,
   max_duration_without_endpointing: 5,
   partial_transcripts: true,
-  sentiment_analysis: false,
-  named_entity_recognition: false,
-  words_accurate_timestamps: false,
   custom_vocabulary: false,
+  custom_vocabulary_config: { vocabulary: [], default_intensity: 0.4 },
   custom_spelling: false,
-  translation: false,
-  translation_target_languages: [],
+  custom_spelling_config: { spelling_dictionary: {} },
 };
 
 const GLADIA_BOOL_FEATURES: Array<{
@@ -267,12 +264,8 @@ const GLADIA_BOOL_FEATURES: Array<{
   { key: 'partial_transcripts', labelKey: 'gladia.partial_transcripts', descKey: 'gladia.partial_transcripts.desc' },
   { key: 'code_switching', labelKey: 'gladia.code_switching', descKey: 'gladia.code_switching.desc' },
   { key: 'audio_enhancer', labelKey: 'gladia.audio_enhancer', descKey: 'gladia.audio_enhancer.desc' },
-  { key: 'sentiment_analysis', labelKey: 'gladia.sentiment_analysis', descKey: 'gladia.sentiment_analysis.desc' },
-  { key: 'named_entity_recognition', labelKey: 'gladia.named_entity_recognition', descKey: 'gladia.named_entity_recognition.desc' },
-  { key: 'words_accurate_timestamps', labelKey: 'gladia.words_accurate_timestamps', descKey: 'gladia.words_accurate_timestamps.desc' },
   { key: 'custom_vocabulary', labelKey: 'gladia.custom_vocabulary', descKey: 'gladia.custom_vocabulary.desc' },
   { key: 'custom_spelling', labelKey: 'gladia.custom_spelling', descKey: 'gladia.custom_spelling.desc' },
-  { key: 'translation', labelKey: 'gladia.translation', descKey: 'gladia.translation.desc' },
 ];
 
 function GladiaSettings() {
@@ -494,21 +487,162 @@ function GladiaSettings() {
         );
       })}
 
-      {/* Translation target languages */}
-      {config.features.translation && (
-        <div className="form-row" style={{ marginTop: 8 }}>
-          <label>{t('gladia.translation.langs')}</label>
-          <input
-            type="text"
-            className="input"
-            value={config.features.translation_target_languages.join(', ')}
-            onChange={(e) => {
-              const langs = e.target.value.split(/[,，\s]+/).map(s => s.trim()).filter(Boolean);
-              updateFeature('translation_target_languages', langs);
+      {/* Custom Vocabulary config */}
+      {config.features.custom_vocabulary && (
+        <div style={{ marginTop: 8, marginBottom: 8 }}>
+          {/* Default intensity */}
+          <div className="form-row">
+            <label>{t('gladia.custom_vocabulary.default_intensity')}</label>
+            <input
+              type="number"
+              className="input"
+              style={{ width: 80 }}
+              min={0} max={1} step={0.1}
+              value={config.features.custom_vocabulary_config.default_intensity}
+              onChange={(e) => updateFeature('custom_vocabulary_config', {
+                ...config.features.custom_vocabulary_config,
+                default_intensity: parseFloat(e.target.value) || 0.4,
+              })}
+            />
+            <p className="hint">{t('gladia.custom_vocabulary.default_intensity.hint')}</p>
+          </div>
+
+          {/* Vocabulary items */}
+          {(config.features.custom_vocabulary_config.vocabulary as (string | CustomVocabularyItem)[]).map((item, idx) => {
+            const obj: CustomVocabularyItem = typeof item === 'string' ? { value: item } : item;
+            const updateItem = (patch: Partial<CustomVocabularyItem>) => {
+              const list = [...config.features.custom_vocabulary_config.vocabulary] as (string | CustomVocabularyItem)[];
+              list[idx] = { ...obj, ...patch };
+              updateFeature('custom_vocabulary_config', {
+                ...config.features.custom_vocabulary_config,
+                vocabulary: list,
+              });
+            };
+            const removeItem = () => {
+              const list = [...config.features.custom_vocabulary_config.vocabulary] as (string | CustomVocabularyItem)[];
+              list.splice(idx, 1);
+              updateFeature('custom_vocabulary_config', {
+                ...config.features.custom_vocabulary_config,
+                vocabulary: list,
+              });
+            };
+            return (
+              <div key={idx} style={{
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: '8px 10px',
+                marginBottom: 6,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+              }}>
+                {/* Row 1: Word + Language + Delete */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    style={{ flex: 1 }}
+                    value={obj.value}
+                    onChange={(e) => updateItem({ value: e.target.value })}
+                    placeholder={t('gladia.custom_vocabulary.word.placeholder')}
+                  />
+                  <select
+                    className="select"
+                    style={{ width: 100 }}
+                    value={obj.language || ''}
+                    onChange={(e) => updateItem({ language: e.target.value || undefined })}
+                  >
+                    <option value="">{t('gladia.custom_vocabulary.language')}</option>
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="pt">Português</option>
+                    <option value="ru">Русский</option>
+                    <option value="it">Italiano</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="btn-icon"
+                    style={{ flexShrink: 0 }}
+                    onClick={removeItem}
+                    title="Remove"
+                  >✕</button>
+                </div>
+                {/* Row 2: Pronunciations + Intensity */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    style={{ flex: 1 }}
+                    value={(obj.pronunciations || []).join(', ')}
+                    onChange={(e) => {
+                      const prons = e.target.value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+                      updateItem({ pronunciations: prons.length ? prons : undefined });
+                    }}
+                    placeholder={t('gladia.custom_vocabulary.pronunciations.placeholder')}
+                  />
+                  <label className="hint" style={{ marginTop: 0, flexShrink: 0 }}>{t('gladia.custom_vocabulary.intensity')}</label>
+                  <input
+                    type="number"
+                    className="input"
+                    style={{ width: 64 }}
+                    min={0} max={1} step={0.1}
+                    value={obj.intensity ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      updateItem({ intensity: v ? parseFloat(v) : undefined });
+                    }}
+                    placeholder="—"
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => {
+              const list = [...config.features.custom_vocabulary_config.vocabulary, { value: '' }] as (string | CustomVocabularyItem)[];
+              updateFeature('custom_vocabulary_config', {
+                ...config.features.custom_vocabulary_config,
+                vocabulary: list,
+              });
             }}
-            placeholder={t('gladia.translation.langs.placeholder')}
+          >
+            {t('gladia.custom_vocabulary.add')}
+          </button>
+        </div>
+      )}
+
+      {/* Custom Spelling config */}
+      {config.features.custom_spelling && (
+        <div className="form-row" style={{ marginTop: 8 }}>
+          <label>{t('gladia.custom_spelling.dict')}</label>
+          <textarea
+            className="input"
+            rows={4}
+            value={Object.entries(config.features.custom_spelling_config.spelling_dictionary)
+              .map(([correct, variants]) => `${correct}: ${variants.join(', ')}`)
+              .join('\n')}
+            onChange={(e) => {
+              const dict: Record<string, string[]> = {};
+              for (const line of e.target.value.split('\n')) {
+                const sep = line.indexOf(':');
+                if (sep < 1) continue;
+                const key = line.slice(0, sep).trim();
+                const vals = line.slice(sep + 1).split(/[,，]/).map(s => s.trim()).filter(Boolean);
+                if (key && vals.length) dict[key] = vals;
+              }
+              updateFeature('custom_spelling_config', { spelling_dictionary: dict });
+            }}
+            placeholder={t('gladia.custom_spelling.dict.placeholder')}
           />
-          <p className="hint">{t('gladia.translation.langs.hint')}</p>
+          <p className="hint">{t('gladia.custom_spelling.dict.hint')}</p>
         </div>
       )}
 

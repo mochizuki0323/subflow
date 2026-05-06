@@ -355,17 +355,8 @@ std::string GladiaTranscriber::build_init_body() const {
     double endpointing        = cfg.value("endpointing", 0.01);
     double max_dur            = cfg.value("max_duration_without_endpointing", 5.0);
     bool partial_transcripts  = cfg.value("partial_transcripts", true);
-    bool sentiment            = cfg.value("sentiment_analysis", false);
-    bool ner                  = cfg.value("named_entity_recognition", false);
-    bool accurate_ts          = cfg.value("words_accurate_timestamps", false);
     bool custom_vocab         = cfg.value("custom_vocabulary", false);
     bool custom_spell         = cfg.value("custom_spelling", false);
-    bool translation          = cfg.value("translation", false);
-    std::vector<std::string> translation_langs;
-    if (cfg.contains("translation_target_languages") && cfg["translation_target_languages"].is_array()) {
-        for (auto& l : cfg["translation_target_languages"])
-            if (l.is_string()) translation_langs.push_back(l.get<std::string>());
-    }
 
     json body = {
         {"encoding", "wav/pcm"},
@@ -394,17 +385,12 @@ std::string GladiaTranscriber::build_init_body() const {
 
     auto& rtp = body["realtime_processing"];
     rtp["custom_vocabulary"] = custom_vocab;
+    if (custom_vocab && cfg.contains("custom_vocabulary_config")) {
+        rtp["custom_vocabulary_config"] = cfg["custom_vocabulary_config"];
+    }
     rtp["custom_spelling"] = custom_spell;
-    rtp["named_entity_recognition"] = ner;
-    rtp["sentiment_analysis"] = sentiment;
-    rtp["words_accurate_timestamps"] = accurate_ts;
-    if (translation && !translation_langs.empty()) {
-        rtp["translation"] = true;
-        json target_arr = json::array();
-        for (auto& l : translation_langs) target_arr.push_back(l);
-        rtp["translation_config"] = {{"target_languages", target_arr}};
-    } else {
-        rtp["translation"] = false;
+    if (custom_spell && cfg.contains("custom_spelling_config")) {
+        rtp["custom_spelling_config"] = cfg["custom_spelling_config"];
     }
 
     if (lang != "auto" && !lang.empty()) {
@@ -928,37 +914,6 @@ void GladiaTranscriber::handle_text_frame(const std::string& json_str) {
 
             LOG_DEBUG("Gladia: transcript (is_final=" + std::string(is_final ? "true" : "false")
                       + "): " + seg.text.substr(0, 80));
-
-            std::lock_guard<std::mutex> lk(result_mutex_);
-            result_queue_.push(std::move(seg));
-
-        } else if (type == "translation") {
-            if (!j.contains("data")) return;
-            auto& data = j["data"];
-
-            std::string original;
-            double start_s = 0, end_s = 0;
-            if (data.contains("utterance")) {
-                auto& utt = data["utterance"];
-                original = utt.value("text", "");
-                start_s  = utt.value("start", 0.0);
-                end_s    = utt.value("end", 0.0);
-            }
-
-            std::string translated;
-            if (data.contains("translated_utterance")) {
-                translated = data["translated_utterance"].value("text", "");
-            }
-            if (translated.empty()) return;
-
-            TranscriptSegment seg;
-            seg.text            = original.empty() ? translated : original;
-            seg.translated_text = translated;
-            seg.t0_ms           = static_cast<int64_t>(start_s * 1000.0);
-            seg.t1_ms           = static_cast<int64_t>(end_s * 1000.0);
-            seg.is_partial      = false;
-
-            LOG_DEBUG("Gladia: translation: " + seg.translated_text.substr(0, 80));
 
             std::lock_guard<std::mutex> lk(result_mutex_);
             result_queue_.push(std::move(seg));

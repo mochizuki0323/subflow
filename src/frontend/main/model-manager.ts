@@ -59,6 +59,13 @@ export function buildExtraParams(features: DeepgramFeatures): string {
   return parts.join('&');
 }
 
+export interface CustomVocabularyItem {
+  value: string;
+  language?: string;
+  pronunciations?: string[];
+  intensity?: number;
+}
+
 export interface GladiaFeatures {
   code_switching: boolean;
   speech_threshold: number;
@@ -66,13 +73,15 @@ export interface GladiaFeatures {
   endpointing: number;
   max_duration_without_endpointing: number;
   partial_transcripts: boolean;
-  sentiment_analysis: boolean;
-  named_entity_recognition: boolean;
-  words_accurate_timestamps: boolean;
   custom_vocabulary: boolean;
+  custom_vocabulary_config: {
+    vocabulary: (string | CustomVocabularyItem)[];
+    default_intensity: number;
+  };
   custom_spelling: boolean;
-  translation: boolean;
-  translation_target_languages: string[];
+  custom_spelling_config: {
+    spelling_dictionary: Record<string, string[]>;
+  };
 }
 
 export interface GladiaConfig {
@@ -88,13 +97,10 @@ export const DEFAULT_GLADIA_FEATURES: GladiaFeatures = {
   endpointing: 0.01,
   max_duration_without_endpointing: 5,
   partial_transcripts: true,
-  sentiment_analysis: false,
-  named_entity_recognition: false,
-  words_accurate_timestamps: false,
   custom_vocabulary: false,
+  custom_vocabulary_config: { vocabulary: [], default_intensity: 0.4 },
   custom_spelling: false,
-  translation: false,
-  translation_target_languages: [],
+  custom_spelling_config: { spelling_dictionary: {} },
 };
 
 export const DEFAULT_GLADIA: GladiaConfig = {
