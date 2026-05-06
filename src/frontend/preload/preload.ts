@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('set-denoiser-config', config),
   getDenoiserModels: () => ipcRenderer.invoke('get-denoiser-models'),
   downloadDenoiserModel: (modelId: string) => ipcRenderer.invoke('download-denoiser-model', modelId),
+  getDownloadStatus: () => ipcRenderer.invoke('get-download-status') as Promise<Array<{ modelId: string; percent: number }>>,
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
     ipcRenderer.on('denoiser-download-progress', (_event, data) => callback(data));
   },

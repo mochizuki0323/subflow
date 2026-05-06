@@ -471,16 +471,39 @@ if (!gotSingleInstanceLock) {
       return { success: true };
     });
 
-    ipcMain.handle('download-denoiser-model', async (_event, modelId: string) => {
-      try {
-        const localPath = await downloadModel(configDir, modelId, (percent) => {
-          safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent });
-        });
-        safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent: 100 });
-        return { success: true, localPath };
-      } catch (err: any) {
-        return { success: false, error: err?.message || String(err) };
+    const activeDownloads = new Map<string, Promise<{ success: boolean; localPath?: string; error?: string }>>();
+    const downloadProgress = new Map<string, number>();
+
+    ipcMain.handle('get-download-status', () => {
+      const entries: Array<{ modelId: string; percent: number }> = [];
+      for (const [modelId, percent] of downloadProgress) {
+        entries.push({ modelId, percent });
       }
+      return entries;
+    });
+
+    ipcMain.handle('download-denoiser-model', (_event, modelId: string) => {
+      const existing = activeDownloads.get(modelId);
+      if (existing) return existing;
+
+      const task = (async () => {
+        try {
+          const localPath = await downloadModel(configDir, modelId, (percent) => {
+            downloadProgress.set(modelId, percent);
+            safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent });
+          });
+          safeSend(mainWindow, 'denoiser-download-progress', { modelId, percent: 100 });
+          return { success: true, localPath };
+        } catch (err: any) {
+          return { success: false, error: err?.message || String(err) };
+        } finally {
+          activeDownloads.delete(modelId);
+          downloadProgress.delete(modelId);
+        }
+      })();
+
+      activeDownloads.set(modelId, task);
+      return task;
     });
 
     // ---- IPC: App settings ----

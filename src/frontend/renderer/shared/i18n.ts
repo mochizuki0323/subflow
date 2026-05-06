@@ -158,6 +158,7 @@ const translations = {
   'denoise.downloading': { en: 'Downloading...', zh: '下载中...' },
   'denoise.downloaded': { en: 'Downloaded', zh: '已下载' },
   'denoise.downloadFailed': { en: 'Download failed', zh: '下载失败' },
+  'denoise.library': { en: 'Model Library', zh: '模型库' },
   'denoise.save': { en: 'Save Configuration', zh: '保存配置' },
   'denoise.saving': { en: 'Saving...', zh: '保存中...' },
   'denoise.saved': { en: 'Settings saved', zh: '设置已保存' },
