@@ -24,6 +24,7 @@ import {
   getModelPath,
   isModelDownloaded,
   downloadModel,
+  deleteModel,
   getModelsDir,
 } from './denoiser-manager';
 import {
@@ -547,6 +548,11 @@ if (!gotSingleInstanceLock) {
 
       activeDownloads.set(modelId, task);
       return task;
+    });
+
+    ipcMain.handle('delete-denoiser-model', (_event, modelId: string) => {
+      deleteModel(configDir, modelId);
+      return { success: true };
     });
 
     // ---- IPC: Parakeet ----

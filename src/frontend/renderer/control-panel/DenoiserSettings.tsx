@@ -53,6 +53,17 @@ export function DenoiserSettings() {
 
   const downloadedModels = models.filter(m => m.downloaded);
 
+  const handleDelete = async (modelId: string) => {
+    await window.electronAPI.deleteDenoiserModel(modelId);
+    const updatedModels = await window.electronAPI.getDenoiserModels();
+    setModels(updatedModels);
+    if (config.modelId === modelId) {
+      const remaining = updatedModels.filter(m => m.downloaded);
+      setConfig(prev => ({ ...prev, modelId: remaining.length > 0 ? remaining[0].id : prev.modelId }));
+      setDirty(true);
+    }
+  };
+
   const handleDownload = async (modelId: string) => {
     if (downloading) return;
     setDownloading(modelId);
@@ -181,9 +192,19 @@ export function DenoiserSettings() {
                     {m.architecture} · {formatSize(m.size_bytes)} · {m.sample_rate / 1000}kHz
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                <div style={{ flexShrink: 0, marginLeft: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
                   {m.downloaded ? (
-                    <span className="badge badge-success">{t('denoise.downloaded')}</span>
+                    <>
+                      <span className="badge badge-success">{t('denoise.downloaded')}</span>
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => handleDelete(m.id)}
+                        title={t('denoise.delete')}
+                        style={{ padding: '2px 8px', fontSize: 12 }}
+                      >
+                        {t('denoise.delete')}
+                      </button>
+                    </>
                   ) : isDownloading ? (
                     <span className="hint" style={{ marginTop: 0 }}>{downloadProgress}%</span>
                   ) : (

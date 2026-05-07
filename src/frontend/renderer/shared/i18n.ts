@@ -162,6 +162,7 @@ const translations = {
   'denoise.downloading': { en: 'Downloading...', zh: '下载中...' },
   'denoise.downloaded': { en: 'Downloaded', zh: '已下载' },
   'denoise.downloadFailed': { en: 'Download failed', zh: '下载失败' },
+  'denoise.delete': { en: 'Delete', zh: '删除' },
   'denoise.library': { en: 'Model Library', zh: '模型库' },
   'denoise.save': { en: 'Save Configuration', zh: '保存配置' },
   'denoise.saving': { en: 'Saving...', zh: '保存中...' },
@@ -264,7 +265,7 @@ const translations = {
 
   // ---- ParakeetSettings.tsx ----
   'parakeet.title': { en: 'Parakeet Local ASR', zh: 'Parakeet 本地语音识别' },
-  'parakeet.hint': { en: 'Local speech-to-text using NVIDIA Parakeet models via sherpa-onnx. No API key needed — runs entirely on your CPU.', zh: '使用 NVIDIA Parakeet 模型进行本地语音转文本（基于 sherpa-onnx）。无需 API Key，完全在本地 CPU 上运行。' },
+  'parakeet.hint': { en: 'Local speech-to-text powered by NVIDIA Parakeet. No API key needed.', zh: '基于 NVIDIA Parakeet 的本地语音识别，无需 API Key。' },
   'parakeet.model': { en: 'ASR Model', zh: '识别模型' },
   'parakeet.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
   'parakeet.languages': { en: 'Supported languages', zh: '支持语言' },

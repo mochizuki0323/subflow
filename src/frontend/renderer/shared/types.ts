@@ -179,6 +179,7 @@ export interface ElectronAPI {
   setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean }>;
   getDenoiserModels: () => Promise<DenoiseModelInfo[]>;
   downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
+  deleteDenoiserModel: (modelId: string) => Promise<{ success: boolean }>;
   getDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
