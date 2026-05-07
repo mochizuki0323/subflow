@@ -38,6 +38,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('denoiser-download-progress', (_event, data) => callback(data));
   },
 
+  // Parakeet local ASR
+  getParakeetConfig: () => ipcRenderer.invoke('get-parakeet-config'),
+  setParakeetConfig: (config: any) => ipcRenderer.invoke('set-parakeet-config', config),
+  getParakeetModels: () => ipcRenderer.invoke('get-parakeet-models'),
+  downloadParakeetModel: (modelId: string) => ipcRenderer.invoke('download-parakeet-model', modelId),
+  deleteParakeetModel: (modelId: string) => ipcRenderer.invoke('delete-parakeet-model', modelId),
+  getParakeetDownloadStatus: () => ipcRenderer.invoke('get-parakeet-download-status') as Promise<Array<{ modelId: string; percent: number }>>,
+  onParakeetDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
+    ipcRenderer.on('parakeet-download-progress', (_event, data) => callback(data));
+  },
+
   // STT provider
   getSttProvider: () => ipcRenderer.invoke('get-stt-provider'),
   setSttProvider: (provider: string) => ipcRenderer.invoke('set-stt-provider', provider),

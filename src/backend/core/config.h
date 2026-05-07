@@ -7,7 +7,7 @@ namespace ais {
 struct Config {
     int ws_port = 9876;
 
-    // STT provider: "deepgram" or "gladia"
+    // STT provider: "deepgram", "gladia", or "parakeet"
     std::string provider = "deepgram";
 
     // Deepgram API key for cloud speech-to-text.
@@ -23,6 +23,11 @@ struct Config {
     std::string gladia_model = "solaria-1";
     // JSON string of Gladia feature configuration
     std::string gladia_config;
+
+    // Parakeet local ASR model
+    std::string parakeet_model_dir;       // directory containing extracted model files
+    std::string parakeet_model_type;      // "nemo_ctc" or "nemo_transducer"
+    std::string parakeet_vad_model;       // path to silero_vad.onnx
 
     std::string language = "auto";
     bool translate = false;  // kept for API compat; translation is done by the LLM frontend

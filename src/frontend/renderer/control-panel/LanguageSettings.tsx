@@ -449,7 +449,7 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
             {t('lang.verify.subtitleMode')}: {verifyResult.subtitleMode.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.subtitleMode.ui}, ${t('lang.verify.backend')}: ${verifyResult.subtitleMode.backend})`}
           </div>
           <div className={verifyResult.modelLoaded ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
-            {t(sttProvider === 'gladia' ? 'lang.verify.gladia' : 'lang.verify.deepgram')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
+            {t(sttProvider === 'parakeet' ? 'lang.verify.stt' : sttProvider === 'gladia' ? 'lang.verify.gladia' : 'lang.verify.deepgram')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
           </div>
         </div>
       )}

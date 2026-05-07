@@ -48,7 +48,7 @@ export interface DeepgramConfig {
   features: DeepgramFeatures;
 }
 
-export type SttProvider = 'deepgram' | 'gladia';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
 
 export interface CustomVocabularyItem {
   value: string;
@@ -114,6 +114,24 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
+export interface ParakeetConfig {
+  modelId: string;
+}
+
+export interface ParakeetModelInfo {
+  id: string;
+  archive: string;
+  dir_name: string;
+  type: string;
+  files: Record<string, string>;
+  languages: string[];
+  archive_size_bytes: number;
+  description_en: string;
+  description_zh: string;
+  downloaded: boolean;
+  localDir: string;
+}
+
 export interface DenoiseModelInfo {
   id: string;
   filename: string;
@@ -162,6 +180,14 @@ export interface ElectronAPI {
   downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
   getDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
+
+  getParakeetConfig: () => Promise<ParakeetConfig>;
+  setParakeetConfig: (config: Partial<ParakeetConfig>) => Promise<{ success: boolean }>;
+  getParakeetModels: () => Promise<ParakeetModelInfo[]>;
+  downloadParakeetModel: (modelId: string) => Promise<{ success: boolean; localDir?: string; error?: string }>;
+  deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;
+  getParakeetDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
+  onParakeetDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
   getSttProvider: () => Promise<SttProvider>;
   setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;

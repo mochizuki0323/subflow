@@ -18,17 +18,22 @@ export interface WindowPositions {
   history?: WindowBounds;
 }
 
+export interface ParakeetConfig {
+  modelId: string;
+}
+
 export interface DenoiserConfig {
   enabled: boolean;
   modelId: string;
 }
 
-export type SttProvider = 'deepgram' | 'gladia';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
 
 export interface UnifiedConfig {
   provider: SttProvider;
   deepgram: DeepgramConfig;
   gladia: GladiaConfig;
+  parakeet: ParakeetConfig;
   translator: TranslatorConfig;
   app: AppSettings;
   ui: UiPreferences;
@@ -65,6 +70,10 @@ const DEFAULT_APP: AppSettings = {
 const DEFAULT_UI: UiPreferences = {
   appearance: 'system',
   accentSource: 'default',
+};
+
+const DEFAULT_PARAKEET: ParakeetConfig = {
+  modelId: '',
 };
 
 const DEFAULT_DENOISER: DenoiserConfig = {
@@ -107,8 +116,16 @@ function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): 
 }
 
 function normalizeProvider(value: unknown): SttProvider {
-  if (value === 'deepgram' || value === 'gladia') return value;
+  if (value === 'deepgram' || value === 'gladia' || value === 'parakeet') return value;
   return 'deepgram';
+}
+
+function mergeParakeet(base: ParakeetConfig, partial: Partial<ParakeetConfig>): ParakeetConfig {
+  return {
+    ...base,
+    ...partial,
+    modelId: typeof partial.modelId === 'string' ? partial.modelId : base.modelId,
+  };
 }
 
 function mergeGladia(base: GladiaConfig, partial: Partial<GladiaConfig>): GladiaConfig {
@@ -126,6 +143,7 @@ function buildDefaults(): UnifiedConfig {
     provider: 'deepgram',
     deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
     gladia: { ...DEFAULT_GLADIA },
+    parakeet: { ...DEFAULT_PARAKEET },
     translator: { ...DEFAULT_TRANSLATOR },
     app: { ...DEFAULT_APP },
     ui: { ...DEFAULT_UI },
@@ -203,6 +221,7 @@ export class UnifiedConfigManager {
       provider: normalizeProvider(parsed.provider),
       deepgram: mergeDeepgram(defaults.deepgram, parsed.deepgram || {}),
       gladia: mergeGladia(defaults.gladia, parsed.gladia || {}),
+      parakeet: mergeParakeet(defaults.parakeet, parsed.parakeet || {}),
       translator: mergeTranslator(defaults.translator, parsed.translator || {}),
       app: mergeApp(defaults.app, parsed.app || {}),
       ui: mergeUi(defaults.ui, parsed.ui || {}),
@@ -217,6 +236,7 @@ export class UnifiedConfigManager {
       provider: 'deepgram',
       deepgram: mergeDeepgram(defaults.deepgram, this.readLegacy('deepgram-config.json')),
       gladia: { ...DEFAULT_GLADIA },
+      parakeet: { ...DEFAULT_PARAKEET },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
       ui: mergeUi(defaults.ui, this.readLegacy('ui-preferences.json')),
@@ -249,6 +269,7 @@ export class UnifiedConfigManager {
   getProvider(): SttProvider { return this.config.provider; }
   getDeepgram(): DeepgramConfig { return this.config.deepgram; }
   getGladia(): GladiaConfig { return this.config.gladia; }
+  getParakeet(): ParakeetConfig { return this.config.parakeet; }
   getTranslator(): TranslatorConfig { return this.config.translator; }
   getApp(): AppSettings { return this.config.app; }
   getUi(): UiPreferences { return this.config.ui; }
@@ -267,6 +288,11 @@ export class UnifiedConfigManager {
 
   updateGladia(partial: Partial<GladiaConfig>): void {
     this.config.gladia = mergeGladia(this.config.gladia, partial);
+    this.save();
+  }
+
+  updateParakeet(partial: Partial<ParakeetConfig>): void {
+    this.config.parakeet = mergeParakeet(this.config.parakeet, partial);
     this.save();
   }
 

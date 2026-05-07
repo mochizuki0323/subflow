@@ -171,6 +171,7 @@ const translations = {
   'provider.title': { en: 'STT Provider', zh: '语音识别引擎' },
   'provider.deepgram': { en: 'Deepgram', zh: 'Deepgram' },
   'provider.gladia': { en: 'Gladia', zh: 'Gladia' },
+  'provider.parakeet': { en: 'Parakeet', zh: 'Parakeet' },
 
   'model.title': { en: 'Deepgram Speech Recognition', zh: 'Deepgram 语音识别' },
   'model.hint': { en: 'Configure the Deepgram cloud API. Get your API Key at', zh: '配置 Deepgram 云端 API。在' },
@@ -256,6 +257,27 @@ const translations = {
   'gladia.custom_spelling.dict': { en: 'Spelling Dictionary', zh: '拼写字典' },
   'gladia.custom_spelling.dict.placeholder': { en: 'correct: variant1, variant2\ne.g.:\nSubFlow: sub flow, subfloe\nGPT-4: gpt four, gptfour', zh: '正确写法: 错误变体1, 错误变体2\n例如：\nSubFlow: sub flow, subfloe\nGPT-4: gpt four, gptfour' },
   'gladia.custom_spelling.dict.hint': { en: 'One rule per line: "CorrectSpelling: variant1, variant2". Keys are case-sensitive, values are not.', zh: '每行一条规则：「正确写法: 变体1, 变体2」。正确写法区分大小写，变体不区分。' },
+
+  // ---- ParakeetSettings.tsx ----
+  'parakeet.title': { en: 'Parakeet Local ASR', zh: 'Parakeet 本地语音识别' },
+  'parakeet.hint': { en: 'Local speech-to-text using NVIDIA Parakeet models via sherpa-onnx. No API key needed — runs entirely on your CPU.', zh: '使用 NVIDIA Parakeet 模型进行本地语音转文本（基于 sherpa-onnx）。无需 API Key，完全在本地 CPU 上运行。' },
+  'parakeet.model': { en: 'ASR Model', zh: '识别模型' },
+  'parakeet.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
+  'parakeet.languages': { en: 'Supported languages', zh: '支持语言' },
+  'parakeet.langCount': { en: 'languages', zh: '种语言' },
+  'parakeet.library': { en: 'Model Library', zh: '模型库' },
+  'parakeet.download': { en: 'Download', zh: '下载' },
+  'parakeet.downloading': { en: 'Downloading...', zh: '下载中...' },
+  'parakeet.extracting': { en: 'Extracting...', zh: '解压中...' },
+  'parakeet.downloaded': { en: 'Downloaded', zh: '已下载' },
+  'parakeet.downloadFailed': { en: 'Download failed', zh: '下载失败' },
+  'parakeet.delete': { en: 'Delete', zh: '删除' },
+  'parakeet.save': { en: 'Save Configuration', zh: '保存配置' },
+  'parakeet.saving': { en: 'Saving & restarting...', zh: '保存并重启...' },
+  'parakeet.saved': { en: 'Saved — backend is restarting with Parakeet model', zh: '已保存 — 后端正在使用 Parakeet 模型重启' },
+  'parakeet.saveFailed': { en: 'Save failed', zh: '保存失败' },
+  'parakeet.connected': { en: 'Parakeet', zh: 'Parakeet' },
+  'parakeet.connected.title': { en: 'Parakeet model loaded', zh: 'Parakeet 模型已加载' },
 
   // ---- LogViewer.tsx ----
   'log.title': { en: 'Logs', zh: '日志' },

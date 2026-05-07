@@ -27,6 +27,9 @@ static void print_usage(const char* argv0) {
               << "  --extra-params <params>    Extra Deepgram URL params\n"
               << "  --gladia-api-key <key>     Gladia API key\n"
               << "  --gladia-model <model>     Gladia model (default: solaria-1)\n"
+              << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
+              << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
+              << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
               << "  --denoise                  Enable speech denoising\n"
               << "  --denoise-model <path>     Path to denoise ONNX model\n"
               << "  --denoise-arch <arch>      Denoise architecture: gtcrn or dpdfnet\n"
@@ -56,6 +59,12 @@ int main(int argc, char* argv[]) {
             config.gladia_model = argv[++i];
         } else if (std::strcmp(argv[i], "--gladia-config") == 0 && i + 1 < argc) {
             config.gladia_config = argv[++i];
+        } else if (std::strcmp(argv[i], "--parakeet-model-dir") == 0 && i + 1 < argc) {
+            config.parakeet_model_dir = argv[++i];
+        } else if (std::strcmp(argv[i], "--parakeet-model-type") == 0 && i + 1 < argc) {
+            config.parakeet_model_type = argv[++i];
+        } else if (std::strcmp(argv[i], "--parakeet-vad-model") == 0 && i + 1 < argc) {
+            config.parakeet_vad_model = argv[++i];
         } else if (std::strcmp(argv[i], "--denoise") == 0) {
             config.denoise_enabled = true;
         } else if (std::strcmp(argv[i], "--denoise-model") == 0 && i + 1 < argc) {
@@ -79,7 +88,12 @@ int main(int argc, char* argv[]) {
 
     LOG_INFO("SubFlow backend starting (provider=" + config.provider + ")...");
     LOG_INFO("WebSocket port: " + std::to_string(config.ws_port));
-    if (config.provider == "gladia") {
+    if (config.provider == "parakeet") {
+        if (!config.parakeet_model_dir.empty())
+            LOG_INFO("Parakeet model: " + config.parakeet_model_dir + " (type=" + config.parakeet_model_type + ")");
+        else
+            LOG_WARN("Parakeet model directory: NOT SET — transcription disabled until model is downloaded");
+    } else if (config.provider == "gladia") {
         if (!config.gladia_api_key.empty())
             LOG_INFO("Gladia API key: configured (model=" + config.gladia_model + ")");
         else

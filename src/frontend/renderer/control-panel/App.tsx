@@ -278,9 +278,13 @@ export function App() {
                 <span className="status-text">{t((STATUS_KEY[status.state] || status.state) as any)}</span>
                 {deepgramConnected ? (
                   <span className="badge badge-success" title={
-                    sttProvider === 'gladia' ? t('gladia.connected.title') : t('deepgram.connected.title')
+                    sttProvider === 'parakeet' ? t('parakeet.connected.title')
+                    : sttProvider === 'gladia' ? t('gladia.connected.title')
+                    : t('deepgram.connected.title')
                   }>
-                    {sttProvider === 'gladia' ? t('gladia.connected') : t('deepgram.connected')}
+                    {sttProvider === 'parakeet' ? t('parakeet.connected')
+                    : sttProvider === 'gladia' ? t('gladia.connected')
+                    : t('deepgram.connected')}
                   </span>
                 ) : (
                   <span className="badge" title={t('deepgram.disconnected.title')}>{t('deepgram.disconnected')}</span>
