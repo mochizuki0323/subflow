@@ -22,6 +22,7 @@ interface HistoryEntry {
 function HistoryDisplay() {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [mode, setMode] = useState<SubtitleMode>('original');
+  const [showPartials, setShowPartials] = useState(false);
   const [dragMode, setDragMode] = useState(false);
   const [, setI18nTick] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -43,14 +44,17 @@ function HistoryDisplay() {
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setMode(s.subtitleMode);
       }
+      setShowPartials(!!s.showPartials);
       setI18nTick((n) => n + 1);
     });
     window.electronAPI.onUiLanguage((lang) => {
       setLang(lang);
       setI18nTick((n) => n + 1);
     });
+    window.electronAPI.onShowPartials((show) => setShowPartials(show));
     return () => {
       window.electronAPI.removeListeners('ui-language');
+      window.electronAPI.removeListeners('show-partials');
     };
   }, []);
 
@@ -88,7 +92,7 @@ function HistoryDisplay() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [entries]);
 
-  const visibleEntries = entries.filter((e) => !e.partial);
+  const visibleEntries = showPartials ? entries : entries.filter((e) => !e.partial);
 
   return (
     <div className="history-container" style={{ position: 'relative' }}>
@@ -113,7 +117,7 @@ function HistoryDisplay() {
             const hasSpeaker = entry.speaker !== undefined && entry.speaker >= 0;
             const color = hasSpeaker ? SPEAKER_COLORS[entry.speaker! % SPEAKER_COLORS.length] : undefined;
             return (
-              <div key={i} className="history-entry">
+              <div key={i} className="history-entry" style={entry.partial ? { opacity: 0.5 } : undefined}>
                 <span className="history-ts">{entry.ts}</span>
                 {hasSpeaker && (
                   <span className="subtitle-speaker-label" style={{ color }}>

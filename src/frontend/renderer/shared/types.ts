@@ -48,7 +48,7 @@ export interface DeepgramConfig {
   features: DeepgramFeatures;
 }
 
-export type SttProvider = 'deepgram' | 'gladia';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
 
 export interface CustomVocabularyItem {
   value: string;
@@ -114,6 +114,24 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
+export interface ParakeetConfig {
+  modelId: string;
+}
+
+export interface ParakeetModelInfo {
+  id: string;
+  archive: string;
+  dir_name: string;
+  type: string;
+  files: Record<string, string>;
+  languages: string[];
+  archive_size_bytes: number;
+  description_en: string;
+  description_zh: string;
+  downloaded: boolean;
+  localDir: string;
+}
+
 export interface DenoiseModelInfo {
   id: string;
   filename: string;
@@ -132,6 +150,7 @@ export interface AppSettings {
   sourceLanguage: string;
   uiLanguage: UiLanguage;
   subtitleMode: SubtitleMode;
+  showPartials: boolean;
 }
 
 export interface ElectronAPI {
@@ -160,8 +179,17 @@ export interface ElectronAPI {
   setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean }>;
   getDenoiserModels: () => Promise<DenoiseModelInfo[]>;
   downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
+  deleteDenoiserModel: (modelId: string) => Promise<{ success: boolean }>;
   getDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
+
+  getParakeetConfig: () => Promise<ParakeetConfig>;
+  setParakeetConfig: (config: Partial<ParakeetConfig>) => Promise<{ success: boolean }>;
+  getParakeetModels: () => Promise<ParakeetModelInfo[]>;
+  downloadParakeetModel: (modelId: string) => Promise<{ success: boolean; localDir?: string; error?: string }>;
+  deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;
+  getParakeetDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
+  onParakeetDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
   getSttProvider: () => Promise<SttProvider>;
   setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;
@@ -174,7 +202,9 @@ export interface ElectronAPI {
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;
+  setShowPartials: (show: boolean) => Promise<AppSettings>;
   onUiLanguage: (callback: (lang: UiLanguage) => void) => void;
+  onShowPartials: (callback: (show: boolean) => void) => void;
 
   getUiTheme: () => Promise<UiThemePayload>;
   setUiTheme: (partial: { appearance?: AppearanceMode; accentSource?: AccentSource }) => Promise<UiThemePayload>;

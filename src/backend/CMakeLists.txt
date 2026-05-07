@@ -43,6 +43,7 @@ set(BACKEND_SOURCES
     audio/denoiser.cpp
     transcriber/deepgram_transcriber.cpp
     transcriber/gladia_transcriber.cpp
+    transcriber/parakeet_transcriber.cpp
     ipc/ws_server.cpp
 )
 

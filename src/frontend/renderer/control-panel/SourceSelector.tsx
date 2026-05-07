@@ -11,9 +11,11 @@ interface Props {
   onToggleHistory: (visible: boolean) => void;
   dragMode: boolean;
   onToggleDragMode: (active: boolean) => void;
+  showPartials: boolean;
+  onToggleShowPartials: (show: boolean) => void;
 }
 
-export function SourceSelector({ sources, status, overlayVisible, onToggleOverlay, historyVisible, onToggleHistory, dragMode, onToggleDragMode }: Props) {
+export function SourceSelector({ sources, status, overlayVisible, onToggleOverlay, historyVisible, onToggleHistory, dragMode, onToggleDragMode, showPartials, onToggleShowPartials }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
 
@@ -156,6 +158,13 @@ export function SourceSelector({ sources, status, overlayVisible, onToggleOverla
           title={t('source.dragMode.title')}
         >
           {dragMode ? t('source.dragMode.unlocked') : t('source.dragMode.adjust')}
+        </button>
+        <button
+          onClick={() => onToggleShowPartials(!showPartials)}
+          className={showPartials ? 'btn-overlay-on' : 'btn-secondary'}
+          title={t('ui.showPartials.desc')}
+        >
+          {showPartials ? t('ui.showPartials.on') : t('ui.showPartials.off')}
         </button>
       </div>
     </div>

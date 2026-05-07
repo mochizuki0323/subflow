@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "download_base_url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models",
+  "vad": {
+    "filename": "silero_vad.onnx",
+    "size_bytes": 643854
+  },
+  "models": [
+    {
+      "id": "parakeet-tdt-ctc-0.6b-ja",
+      "archive": "sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8.tar.bz2",
+      "dir_name": "sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8",
+      "type": "nemo_ctc",
+      "files": {
+        "model": "model.int8.onnx",
+        "tokens": "tokens.txt"
+      },
+      "languages": ["ja"],
+      "archive_size_bytes": 489389564,
+      "description_en": "Parakeet TDT-CTC 0.6B — Japanese",
+      "description_zh": "Parakeet TDT-CTC 0.6B — 日语"
+    },
+    {
+      "id": "parakeet-tdt-0.6b-v3",
+      "archive": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8.tar.bz2",
+      "dir_name": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
+      "type": "nemo_transducer",
+      "files": {
+        "encoder": "encoder.int8.onnx",
+        "decoder": "decoder.int8.onnx",
+        "joiner": "joiner.int8.onnx",
+        "tokens": "tokens.txt"
+      },
+      "languages": ["en", "bg", "hr", "cs", "da", "nl", "et", "fi", "fr", "de", "el", "hu", "it", "lv", "lt", "mt", "pl", "pt", "ro", "sk", "sl", "es", "sv", "ru", "uk"],
+      "archive_size_bytes": 487170055,
+      "description_en": "Parakeet TDT 0.6B V3 — 25 European Languages",
+      "description_zh": "Parakeet TDT 0.6B V3 — 25种欧洲语言"
+    }
+  ]
+}

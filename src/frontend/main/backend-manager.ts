@@ -15,6 +15,9 @@ export class BackendManager extends EventEmitter {
   private gladiaApiKey: string;
   private gladiaModel: string;
   private gladiaConfig: string;
+  private parakeetModelDir: string;
+  private parakeetModelType: string;
+  private parakeetVadModel: string;
   private denoiseEnabled = false;
   private denoiseModelPath = '';
   private denoiseArch = '';
@@ -48,6 +51,7 @@ export class BackendManager extends EventEmitter {
   constructor(binaryPath: string, port: number, options?: {
     provider?: string; apiKey?: string; model?: string; extraParams?: string;
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
   }) {
     super();
     this.binaryPath = binaryPath;
@@ -60,6 +64,9 @@ export class BackendManager extends EventEmitter {
     this.gladiaApiKey = options?.gladiaApiKey || '';
     this.gladiaModel = options?.gladiaModel || 'solaria-1';
     this.gladiaConfig = options?.gladiaConfig || '';
+    this.parakeetModelDir = options?.parakeetModelDir || '';
+    this.parakeetModelType = options?.parakeetModelType || '';
+    this.parakeetVadModel = options?.parakeetVadModel || '';
   }
 
   spawn(): void {
@@ -68,7 +75,11 @@ export class BackendManager extends EventEmitter {
     this.shuttingDown = false;
 
     const args = ['--port', String(this.port), '--provider', this.provider];
-    if (this.provider === 'gladia') {
+    if (this.provider === 'parakeet') {
+      if (this.parakeetModelDir) args.push('--parakeet-model-dir', this.parakeetModelDir);
+      if (this.parakeetModelType) args.push('--parakeet-model-type', this.parakeetModelType);
+      if (this.parakeetVadModel) args.push('--parakeet-vad-model', this.parakeetVadModel);
+    } else if (this.provider === 'gladia') {
       if (this.gladiaApiKey) args.push('--gladia-api-key', this.gladiaApiKey);
       if (this.gladiaModel) args.push('--gladia-model', this.gladiaModel);
       if (this.gladiaConfig) args.push('--gladia-config', this.gladiaConfig);
@@ -152,6 +163,7 @@ export class BackendManager extends EventEmitter {
   restart(opts: {
     provider?: string; apiKey?: string; model?: string; extraParams?: string;
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
   }): void {
     if (opts.provider) this.provider = opts.provider;
     if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
@@ -161,6 +173,9 @@ export class BackendManager extends EventEmitter {
     if (opts.gladiaApiKey !== undefined) this.gladiaApiKey = opts.gladiaApiKey;
     if (opts.gladiaModel) this.gladiaModel = opts.gladiaModel;
     if (opts.gladiaConfig !== undefined) this.gladiaConfig = opts.gladiaConfig;
+    if (opts.parakeetModelDir !== undefined) this.parakeetModelDir = opts.parakeetModelDir;
+    if (opts.parakeetModelType !== undefined) this.parakeetModelType = opts.parakeetModelType;
+    if (opts.parakeetVadModel !== undefined) this.parakeetVadModel = opts.parakeetVadModel;
     this.kill();
     this.shouldRestart = true;
     setTimeout(() => this.spawn(), 500);

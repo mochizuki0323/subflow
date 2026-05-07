@@ -33,9 +33,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('set-denoiser-config', config),
   getDenoiserModels: () => ipcRenderer.invoke('get-denoiser-models'),
   downloadDenoiserModel: (modelId: string) => ipcRenderer.invoke('download-denoiser-model', modelId),
+  deleteDenoiserModel: (modelId: string) => ipcRenderer.invoke('delete-denoiser-model', modelId),
   getDownloadStatus: () => ipcRenderer.invoke('get-download-status') as Promise<Array<{ modelId: string; percent: number }>>,
   onDenoiserDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
     ipcRenderer.on('denoiser-download-progress', (_event, data) => callback(data));
+  },
+
+  // Parakeet local ASR
+  getParakeetConfig: () => ipcRenderer.invoke('get-parakeet-config'),
+  setParakeetConfig: (config: any) => ipcRenderer.invoke('set-parakeet-config', config),
+  getParakeetModels: () => ipcRenderer.invoke('get-parakeet-models'),
+  downloadParakeetModel: (modelId: string) => ipcRenderer.invoke('download-parakeet-model', modelId),
+  deleteParakeetModel: (modelId: string) => ipcRenderer.invoke('delete-parakeet-model', modelId),
+  getParakeetDownloadStatus: () => ipcRenderer.invoke('get-parakeet-download-status') as Promise<Array<{ modelId: string; percent: number }>>,
+  onParakeetDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
+    ipcRenderer.on('parakeet-download-progress', (_event, data) => callback(data));
   },
 
   // STT provider
@@ -54,6 +66,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getTranslatorConfig: () => ipcRenderer.invoke('get-translator-config'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   setUiLanguage: (lang: 'en' | 'zh') => ipcRenderer.invoke('set-ui-language', lang),
+  setShowPartials: (show: boolean) => ipcRenderer.invoke('set-show-partials', show),
+  onShowPartials: (callback: (show: boolean) => void) => {
+    ipcRenderer.on('show-partials', (_event, show: boolean) => callback(show));
+  },
   onUiLanguage: (callback: (lang: 'en' | 'zh') => void) => {
     ipcRenderer.on('ui-language', (_event, lang: 'en' | 'zh') => callback(lang));
   },

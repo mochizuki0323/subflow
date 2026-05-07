@@ -24,8 +24,20 @@ import {
   getModelPath,
   isModelDownloaded,
   downloadModel,
+  deleteModel,
   getModelsDir,
 } from './denoiser-manager';
+import {
+  findParakeetModel,
+  getParakeetModelStatus,
+  getParakeetModelDir,
+  isParakeetModelDownloaded,
+  downloadParakeetModel,
+  deleteParakeetModel,
+  getVadModelPath,
+  isVadModelDownloaded,
+  downloadVadModel,
+} from './parakeet-manager';
 import path from 'path';
 
 if (process.platform === 'linux') {
@@ -43,7 +55,7 @@ let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let historyWindow: BrowserWindow | null = null;
 
-let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original' };
+let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original', showPartials: false };
 let subtitleMode = 'original';
 let lastCaptureSourceId = 0;
 let uiPrefs: UiPreferences = { appearance: 'system', accentSource: 'default' };
@@ -134,7 +146,23 @@ if (!gotSingleInstanceLock) {
   const provider = configManager.getProvider();
   const dgConfig = configManager.getDeepgram();
   const gdConfig = configManager.getGladia();
+  const pkConfig = configManager.getParakeet();
   const extraParams = buildExtraParams(dgConfig.features);
+
+  // Resolve parakeet model directory, type, and VAD path
+  let parakeetModelDir = '';
+  let parakeetModelType = '';
+  let parakeetVadModel = '';
+  if (provider === 'parakeet' && pkConfig.modelId) {
+    const pkModel = findParakeetModel(pkConfig.modelId);
+    if (pkModel && isParakeetModelDownloaded(configDir, pkModel)) {
+      parakeetModelDir = getParakeetModelDir(configDir, pkModel);
+      parakeetModelType = pkModel.type;
+      if (isVadModelDownloaded(configDir)) {
+        parakeetVadModel = getVadModelPath(configDir);
+      }
+    }
+  }
 
   backendManager = new BackendManager(backendPath, WS_PORT, {
     provider,
@@ -145,6 +173,9 @@ if (!gotSingleInstanceLock) {
     gladiaApiKey: gdConfig.apiKey || undefined,
     gladiaModel: gdConfig.model || 'solaria-1',
     gladiaConfig: buildGladiaConfig(gdConfig.features),
+    parakeetModelDir: parakeetModelDir || undefined,
+    parakeetModelType: parakeetModelType || undefined,
+    parakeetVadModel: parakeetVadModel || undefined,
   });
 
   // Set up denoiser if configured
@@ -322,11 +353,23 @@ if (!gotSingleInstanceLock) {
     ipcMain.handle('get-stt-provider', () => configManager.getProvider());
 
     ipcMain.handle('set-stt-provider', (_event, provider: string) => {
-      if (provider !== 'deepgram' && provider !== 'gladia') return { success: false };
-      configManager.updateProvider(provider);
+      if (provider !== 'deepgram' && provider !== 'gladia' && provider !== 'parakeet') return { success: false };
+      configManager.updateProvider(provider as any);
       wsClient.disconnect();
       const dg = configManager.getDeepgram();
       const gd = configManager.getGladia();
+      const pk = configManager.getParakeet();
+      let pkDir = '';
+      let pkType = '';
+      let pkVad = '';
+      if (provider === 'parakeet' && pk.modelId) {
+        const pkModel = findParakeetModel(pk.modelId);
+        if (pkModel && isParakeetModelDownloaded(configDir, pkModel)) {
+          pkDir = getParakeetModelDir(configDir, pkModel);
+          pkType = pkModel.type;
+          if (isVadModelDownloaded(configDir)) pkVad = getVadModelPath(configDir);
+        }
+      }
       backendManager.restart({
         provider,
         apiKey: dg.apiKey || '', model: dg.model || 'nova-3',
@@ -334,6 +377,7 @@ if (!gotSingleInstanceLock) {
         language: appSettings.sourceLanguage,
         gladiaApiKey: gd.apiKey || '', gladiaModel: gd.model || 'solaria-1',
         gladiaConfig: buildGladiaConfig(gd.features),
+        parakeetModelDir: pkDir, parakeetModelType: pkType, parakeetVadModel: pkVad,
       });
       setTimeout(() => wsClient.connect(), 2000);
       return { success: true };
@@ -506,6 +550,83 @@ if (!gotSingleInstanceLock) {
       return task;
     });
 
+    ipcMain.handle('delete-denoiser-model', (_event, modelId: string) => {
+      deleteModel(configDir, modelId);
+      return { success: true };
+    });
+
+    // ---- IPC: Parakeet ----
+    ipcMain.handle('get-parakeet-config', () => configManager.getParakeet());
+
+    ipcMain.handle('get-parakeet-models', () => getParakeetModelStatus(configDir));
+
+    ipcMain.handle('set-parakeet-config', (_event, config: { modelId?: string }) => {
+      configManager.updateParakeet(config);
+      const updated = configManager.getParakeet();
+      if (configManager.getProvider() === 'parakeet' && updated.modelId) {
+        const pkModel = findParakeetModel(updated.modelId);
+        if (pkModel && isParakeetModelDownloaded(configDir, pkModel)) {
+          const pkDir = getParakeetModelDir(configDir, pkModel);
+          const pkVad = isVadModelDownloaded(configDir) ? getVadModelPath(configDir) : '';
+          wsClient.disconnect();
+          backendManager.restart({
+            provider: 'parakeet',
+            parakeetModelDir: pkDir,
+            parakeetModelType: pkModel.type,
+            parakeetVadModel: pkVad,
+            language: appSettings.sourceLanguage,
+          });
+          setTimeout(() => wsClient.connect(), 2000);
+        }
+      }
+      return { success: true };
+    });
+
+    ipcMain.handle('delete-parakeet-model', (_event, modelId: string) => {
+      deleteParakeetModel(configDir, modelId);
+      return { success: true };
+    });
+
+    const parakeetActiveDownloads = new Map<string, Promise<{ success: boolean; localDir?: string; error?: string }>>();
+    const parakeetDownloadProgress = new Map<string, number>();
+
+    ipcMain.handle('get-parakeet-download-status', () => {
+      const entries: Array<{ modelId: string; percent: number }> = [];
+      for (const [modelId, percent] of parakeetDownloadProgress) {
+        entries.push({ modelId, percent });
+      }
+      return entries;
+    });
+
+    ipcMain.handle('download-parakeet-model', (_event, modelId: string) => {
+      const existing = parakeetActiveDownloads.get(modelId);
+      if (existing) return existing;
+
+      const task = (async () => {
+        try {
+          // Auto-download VAD model if not present (small, ~629KB)
+          if (!isVadModelDownloaded(configDir)) {
+            await downloadVadModel(configDir);
+          }
+
+          const localDir = await downloadParakeetModel(configDir, modelId, (percent) => {
+            parakeetDownloadProgress.set(modelId, percent);
+            safeSend(mainWindow, 'parakeet-download-progress', { modelId, percent });
+          });
+          safeSend(mainWindow, 'parakeet-download-progress', { modelId, percent: 100 });
+          return { success: true, localDir };
+        } catch (err: any) {
+          return { success: false, error: err?.message || String(err) };
+        } finally {
+          parakeetActiveDownloads.delete(modelId);
+          parakeetDownloadProgress.delete(modelId);
+        }
+      })();
+
+      parakeetActiveDownloads.set(modelId, task);
+      return task;
+    });
+
     // ---- IPC: App settings ----
     ipcMain.handle('get-app-settings', () => appSettings);
 
@@ -516,6 +637,14 @@ if (!gotSingleInstanceLock) {
       safeSend(mainWindow, 'ui-language', lang);
       safeSend(overlayWindow, 'ui-language', lang);
       safeSend(historyWindow, 'ui-language', lang);
+      return appSettings;
+    });
+
+    ipcMain.handle('set-show-partials', (_event, show: boolean) => {
+      appSettings = { ...appSettings, showPartials: !!show };
+      configManager.updateApp({ showPartials: !!show });
+      safeSend(overlayWindow, 'show-partials', !!show);
+      safeSend(historyWindow, 'show-partials', !!show);
       return appSettings;
     });
 

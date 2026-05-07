@@ -4,6 +4,7 @@
 #include "audio/audio_buffer.h"
 #include "transcriber/deepgram_transcriber.h"
 #include "transcriber/gladia_transcriber.h"
+#include "transcriber/parakeet_transcriber.h"
 #include <chrono>
 #include <cstring>
 
@@ -12,7 +13,11 @@ namespace ais {
 Engine::Engine(const Config& config)
     : config_(config), ws_server_(config.ws_port) {
     audio_source_ = create_audio_source();
-    if (config_.provider == "gladia") {
+    if (config_.provider == "parakeet") {
+        transcriber_ = std::make_unique<ParakeetTranscriber>(
+            config_.parakeet_model_dir, config_.parakeet_model_type,
+            config_.parakeet_vad_model);
+    } else if (config_.provider == "gladia") {
         transcriber_ = std::make_unique<GladiaTranscriber>(
             config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
     } else {

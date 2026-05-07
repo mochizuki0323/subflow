@@ -81,6 +81,18 @@ export function getModelStatus(configDir: string): Array<DenoiseModelEntry & { d
   }));
 }
 
+export function deleteModel(configDir: string, modelId: string): boolean {
+  const model = findDenoiseModel(modelId);
+  if (!model) return false;
+  const p = getModelPath(configDir, model);
+  try {
+    fs.unlinkSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function downloadModel(
   configDir: string,
   modelId: string,

@@ -54,6 +54,7 @@ export function App() {
   const [localAppearance, setLocalAppearance] = useState<AppearanceMode>('system');
   const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
   const [localUiLang, setLocalUiLang] = useState<UiLanguage>('zh');
+  const [showPartials, setShowPartials] = useState(false);
 
   useEffect(() => {
     window.electronAPI.getSttProvider().then(setSttProvider);
@@ -65,6 +66,7 @@ export function App() {
       setLang(lang);
       setUiLang(lang);
       setLocalUiLang(lang);
+      setShowPartials(!!s.showPartials);
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setSubtitleMode(s.subtitleMode);
       }
@@ -278,9 +280,13 @@ export function App() {
                 <span className="status-text">{t((STATUS_KEY[status.state] || status.state) as any)}</span>
                 {deepgramConnected ? (
                   <span className="badge badge-success" title={
-                    sttProvider === 'gladia' ? t('gladia.connected.title') : t('deepgram.connected.title')
+                    sttProvider === 'parakeet' ? t('parakeet.connected.title')
+                    : sttProvider === 'gladia' ? t('gladia.connected.title')
+                    : t('deepgram.connected.title')
                   }>
-                    {sttProvider === 'gladia' ? t('gladia.connected') : t('deepgram.connected')}
+                    {sttProvider === 'parakeet' ? t('parakeet.connected')
+                    : sttProvider === 'gladia' ? t('gladia.connected')
+                    : t('deepgram.connected')}
                   </span>
                 ) : (
                   <span className="badge" title={t('deepgram.disconnected.title')}>{t('deepgram.disconnected')}</span>
@@ -303,6 +309,11 @@ export function App() {
               onToggleHistory={setHistoryVisible}
               dragMode={dragMode}
               onToggleDragMode={setDragMode}
+              showPartials={showPartials}
+              onToggleShowPartials={(v) => {
+                setShowPartials(v);
+                window.electronAPI.setShowPartials(v);
+              }}
             />
           )}
           {tab === 'deepgram' && <ModelManager onProviderChange={setSttProvider} />}

@@ -9,12 +9,14 @@ export interface AppSettings {
   sourceLanguage: string;
   uiLanguage: UiLanguage;
   subtitleMode: SubtitleMode;
+  showPartials: boolean;
 }
 
 const DEFAULTS: AppSettings = {
   sourceLanguage: 'auto',
   uiLanguage: 'zh',
   subtitleMode: 'original',
+  showPartials: false,
 };
 
 function normalizeSubtitleMode(value: unknown): SubtitleMode {

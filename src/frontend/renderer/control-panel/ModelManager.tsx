@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures, CustomVocabularyItem, SttProvider } from '../shared/types';
 import { t } from '../shared/i18n';
+import { ParakeetSettings } from './ParakeetSettings';
 
 const DEFAULT_FEATURES: DeepgramFeatures = {
   smart_format: true,
@@ -684,6 +685,14 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
     }
   };
 
+  const renderProviderSettings = () => {
+    switch (provider) {
+      case 'parakeet': return <ParakeetSettings />;
+      case 'gladia': return <GladiaSettings />;
+      default: return <DeepgramSettings />;
+    }
+  };
+
   return (
     <div className="panel">
       {/* Provider selector */}
@@ -706,12 +715,20 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
           >
             {t('provider.gladia')}
           </button>
+          <button
+            type="button"
+            className={`segment-btn ${provider === 'parakeet' ? 'active' : ''}`}
+            onClick={() => handleProviderChange('parakeet')}
+            disabled={switching}
+          >
+            {t('provider.parakeet')}
+          </button>
         </div>
       </div>
 
       <div className="divider" />
 
-      {provider === 'deepgram' ? <DeepgramSettings /> : <GladiaSettings />}
+      {renderProviderSettings()}
     </div>
   );
 }

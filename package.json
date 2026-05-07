@@ -1,6 +1,6 @@
 {
   "name": "subflow",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "SubFlow — real-time speech captions with optional LLM translation, powered by cloud STT.",
   "homepage": "https://github.com/mochizuki0323/subflow",
   "author": "mochizuki0323 <motiduki0323@gmail.com>",
@@ -20,6 +20,7 @@
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/tar-stream": "^3.1.4",
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^8.2.2",
     "electron": "^41.5.0",
@@ -34,6 +35,8 @@
     "@types/ws": "^8.5.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "tar-stream": "^3.2.0",
+    "unbzip2-stream": "^1.4.3",
     "ws": "^8.16.0"
   }
 }
