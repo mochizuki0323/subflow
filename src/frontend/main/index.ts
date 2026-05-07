@@ -54,7 +54,7 @@ let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let historyWindow: BrowserWindow | null = null;
 
-let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original' };
+let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original', showPartials: false };
 let subtitleMode = 'original';
 let lastCaptureSourceId = 0;
 let uiPrefs: UiPreferences = { appearance: 'system', accentSource: 'default' };
@@ -631,6 +631,14 @@ if (!gotSingleInstanceLock) {
       safeSend(mainWindow, 'ui-language', lang);
       safeSend(overlayWindow, 'ui-language', lang);
       safeSend(historyWindow, 'ui-language', lang);
+      return appSettings;
+    });
+
+    ipcMain.handle('set-show-partials', (_event, show: boolean) => {
+      appSettings = { ...appSettings, showPartials: !!show };
+      configManager.updateApp({ showPartials: !!show });
+      safeSend(overlayWindow, 'show-partials', !!show);
+      safeSend(historyWindow, 'show-partials', !!show);
       return appSettings;
     });
 

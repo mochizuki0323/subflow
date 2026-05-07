@@ -26,11 +26,13 @@ interface SubtitleLine {
   text: string;
   translatedText?: string;
   speaker?: number;
+  partial?: boolean;
 }
 
 function SubtitleDisplay() {
   const [lines, setLines] = useState<SubtitleLine[]>([]);
   const [mode, setMode] = useState<SubtitleMode>('original');
+  const [showPartials, setShowPartials] = useState(false);
   const [dragMode, setDragMode] = useState(false);
   const [, setI18nTick] = useState(0);
 
@@ -51,14 +53,17 @@ function SubtitleDisplay() {
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setMode(s.subtitleMode);
       }
+      setShowPartials(!!s.showPartials);
       setI18nTick((n) => n + 1);
     });
     window.electronAPI.onUiLanguage((lang) => {
       setLang(lang);
       setI18nTick((n) => n + 1);
     });
+    window.electronAPI.onShowPartials((show) => setShowPartials(show));
     return () => {
       window.electronAPI.removeListeners('ui-language');
+      window.electronAPI.removeListeners('show-partials');
     };
   }, []);
 
@@ -77,14 +82,17 @@ function SubtitleDisplay() {
         const text = segment.text.trim();
         const translatedText = segment.translated_text?.trim() || '';
         const speaker = segment.speaker;
+        const partial = !!segment.partial;
+        const line: SubtitleLine = { text, translatedText, speaker, partial };
 
         // Avoid duplicating the same line from the same speaker
         const last = prev[prev.length - 1];
         if (last && last.text === text && last.speaker === speaker) return prev;
 
-        const next = [...prev, { text, translatedText, speaker }];
-        // Keep last 3 lines visible
-        return next.slice(-3);
+        // Replace previous partial with current segment (partial or final)
+        if (last?.partial) return [...prev.slice(0, -1), line].slice(-3);
+
+        return [...prev, line].slice(-3);
       });
     });
 
@@ -117,12 +125,12 @@ function SubtitleDisplay() {
         </div>
       )}
       <div className="subtitle-lines">
-      {lines.map((line, i) => {
+      {lines.filter((l) => showPartials || !l.partial).map((line, i) => {
         const hasSpeaker = line.speaker !== undefined && line.speaker >= 0;
         const color = hasSpeaker ? speakerColor(line.speaker!) : undefined;
         const label = hasSpeaker ? `S${line.speaker! + 1}` : undefined;
         return (
-          <div key={`${i}-${line.text.slice(0, 20)}`} className="subtitle-group">
+          <div key={`${i}-${line.text.slice(0, 20)}`} className="subtitle-group" style={line.partial ? { opacity: 0.6 } : undefined}>
             {(mode === 'original' || mode === 'bilingual') && (
               <div className="subtitle-line subtitle-original">
                 {label && (

@@ -150,6 +150,7 @@ export interface AppSettings {
   sourceLanguage: string;
   uiLanguage: UiLanguage;
   subtitleMode: SubtitleMode;
+  showPartials: boolean;
 }
 
 export interface ElectronAPI {
@@ -200,7 +201,9 @@ export interface ElectronAPI {
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;
+  setShowPartials: (show: boolean) => Promise<AppSettings>;
   onUiLanguage: (callback: (lang: UiLanguage) => void) => void;
+  onShowPartials: (callback: (show: boolean) => void) => void;
 
   getUiTheme: () => Promise<UiThemePayload>;
   setUiTheme: (partial: { appearance?: AppearanceMode; accentSource?: AccentSource }) => Promise<UiThemePayload>;

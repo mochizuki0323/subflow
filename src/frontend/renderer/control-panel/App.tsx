@@ -54,6 +54,7 @@ export function App() {
   const [localAppearance, setLocalAppearance] = useState<AppearanceMode>('system');
   const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
   const [localUiLang, setLocalUiLang] = useState<UiLanguage>('zh');
+  const [showPartials, setShowPartials] = useState(false);
 
   useEffect(() => {
     window.electronAPI.getSttProvider().then(setSttProvider);
@@ -65,6 +66,7 @@ export function App() {
       setLang(lang);
       setUiLang(lang);
       setLocalUiLang(lang);
+      setShowPartials(!!s.showPartials);
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setSubtitleMode(s.subtitleMode);
       }
@@ -307,6 +309,11 @@ export function App() {
               onToggleHistory={setHistoryVisible}
               dragMode={dragMode}
               onToggleDragMode={setDragMode}
+              showPartials={showPartials}
+              onToggleShowPartials={(v) => {
+                setShowPartials(v);
+                window.electronAPI.setShowPartials(v);
+              }}
             />
           )}
           {tab === 'deepgram' && <ModelManager onProviderChange={setSttProvider} />}
