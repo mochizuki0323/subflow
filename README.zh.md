@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT 许可证"></a>
 </p>
 
-SubFlow 是一款基于云端 STT（Deepgram / Gladia，可切换）与 LLM 开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容或 Anthropic 等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
+SubFlow 是一款基于云端 STT（Deepgram / Gladia）与本地 ASR（NVIDIA Parakeet）开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容或 Anthropic 等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
 
 [English](README.md) · [发行版](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
 
@@ -24,12 +24,13 @@ SubFlow 是一款基于云端 STT（Deepgram / Gladia，可切换）与 LLM 开�
 
 ## 功能特性
 
-- **实时转录** — Deepgram Nova-3 或 Gladia Solaria-1 流式语音转文字（可在设置中切换）
+- **实时转录** — Deepgram Nova-3、Gladia Solaria-1 或 NVIDIA Parakeet 本地 ASR（可在设置中切换）
+- **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言，无需 API Key
 - **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音，提升识别准确率
 - **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
 - **可选 LLM 层** — OpenAI 兼容与 Anthropic 等接口：翻译与后处理（场景提示词、历史上下文及相关选项）
 - **Gladia 专属功能** — 服务端音频增强、实时翻译、情感分析、命名实体识别、自定义词汇、多语言切换
-- **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板
+- **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板；支持显示中间结果
 - **多种字幕模式** — 原文、翻译或双语显示
 - **深色 / 浅色 / 跟随系统** — 跟随桌面外观，支持壁纸取色
 
