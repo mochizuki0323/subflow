@@ -265,7 +265,7 @@ const translations = {
 
   // ---- ParakeetSettings.tsx ----
   'parakeet.title': { en: 'Parakeet Local ASR', zh: 'Parakeet 本地语音识别' },
-  'parakeet.hint': { en: 'Local speech-to-text powered by NVIDIA Parakeet. No API key needed.', zh: '基于 NVIDIA Parakeet 的本地语音识别，无需 API Key。' },
+  'parakeet.hint': { en: 'Local speech-to-text powered by NVIDIA Parakeet.', zh: '基于 NVIDIA Parakeet 的本地语音识别。' },
   'parakeet.model': { en: 'ASR Model', zh: '识别模型' },
   'parakeet.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
   'parakeet.languages': { en: 'Supported languages', zh: '支持语言' },
