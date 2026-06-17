@@ -114,8 +114,17 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
+export interface ParakeetVadConfig {
+  threshold: number;
+  minSilence: number;
+  minSpeech: number;
+  maxSpeech: number;
+  partialInterval: number;
+}
+
 export interface ParakeetConfig {
   modelId: string;
+  vad: ParakeetVadConfig;
 }
 
 export interface ParakeetModelInfo {
@@ -185,6 +194,7 @@ export interface ElectronAPI {
 
   getParakeetConfig: () => Promise<ParakeetConfig>;
   setParakeetConfig: (config: Partial<ParakeetConfig>) => Promise<{ success: boolean }>;
+  setParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
   getParakeetModels: () => Promise<ParakeetModelInfo[]>;
   downloadParakeetModel: (modelId: string) => Promise<{ success: boolean; localDir?: string; error?: string }>;
   deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;

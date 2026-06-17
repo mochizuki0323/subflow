@@ -2,6 +2,8 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
+import type { ParakeetVadConfig } from './unified-config';
+import { DEFAULT_PARAKEET_VAD } from './unified-config';
 
 export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
@@ -18,6 +20,7 @@ export class BackendManager extends EventEmitter {
   private parakeetModelDir: string;
   private parakeetModelType: string;
   private parakeetVadModel: string;
+  private parakeetVad: ParakeetVadConfig;
   private denoiseEnabled = false;
   private denoiseModelPath = '';
   private denoiseArch = '';
@@ -52,6 +55,7 @@ export class BackendManager extends EventEmitter {
     provider?: string; apiKey?: string; model?: string; extraParams?: string;
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
+    parakeetVad?: ParakeetVadConfig;
   }) {
     super();
     this.binaryPath = binaryPath;
@@ -67,6 +71,7 @@ export class BackendManager extends EventEmitter {
     this.parakeetModelDir = options?.parakeetModelDir || '';
     this.parakeetModelType = options?.parakeetModelType || '';
     this.parakeetVadModel = options?.parakeetVadModel || '';
+    this.parakeetVad = options?.parakeetVad || { ...DEFAULT_PARAKEET_VAD };
   }
 
   spawn(): void {
@@ -79,6 +84,11 @@ export class BackendManager extends EventEmitter {
       if (this.parakeetModelDir) args.push('--parakeet-model-dir', this.parakeetModelDir);
       if (this.parakeetModelType) args.push('--parakeet-model-type', this.parakeetModelType);
       if (this.parakeetVadModel) args.push('--parakeet-vad-model', this.parakeetVadModel);
+      args.push('--parakeet-vad-threshold', String(this.parakeetVad.threshold));
+      args.push('--parakeet-vad-min-silence', String(this.parakeetVad.minSilence));
+      args.push('--parakeet-vad-min-speech', String(this.parakeetVad.minSpeech));
+      args.push('--parakeet-vad-max-speech', String(this.parakeetVad.maxSpeech));
+      args.push('--parakeet-partial-interval', String(this.parakeetVad.partialInterval));
     } else if (this.provider === 'gladia') {
       if (this.gladiaApiKey) args.push('--gladia-api-key', this.gladiaApiKey);
       if (this.gladiaModel) args.push('--gladia-model', this.gladiaModel);
@@ -160,10 +170,16 @@ export class BackendManager extends EventEmitter {
     this.modelsDir = modelsDir;
   }
 
+  /** Update stored VAD params so a later restart re-applies them via CLI args. */
+  setParakeetVadParams(vad: ParakeetVadConfig): void {
+    this.parakeetVad = { ...vad };
+  }
+
   restart(opts: {
     provider?: string; apiKey?: string; model?: string; extraParams?: string;
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
+    parakeetVad?: ParakeetVadConfig;
   }): void {
     if (opts.provider) this.provider = opts.provider;
     if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
@@ -176,6 +192,7 @@ export class BackendManager extends EventEmitter {
     if (opts.parakeetModelDir !== undefined) this.parakeetModelDir = opts.parakeetModelDir;
     if (opts.parakeetModelType !== undefined) this.parakeetModelType = opts.parakeetModelType;
     if (opts.parakeetVadModel !== undefined) this.parakeetVadModel = opts.parakeetVadModel;
+    if (opts.parakeetVad !== undefined) this.parakeetVad = opts.parakeetVad;
     this.kill();
     this.shouldRestart = true;
     setTimeout(() => this.spawn(), 500);

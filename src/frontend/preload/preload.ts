@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Parakeet local ASR
   getParakeetConfig: () => ipcRenderer.invoke('get-parakeet-config'),
   setParakeetConfig: (config: any) => ipcRenderer.invoke('set-parakeet-config', config),
+  setParakeetVadConfig: (vad: any) => ipcRenderer.invoke('set-parakeet-vad-config', vad),
   getParakeetModels: () => ipcRenderer.invoke('get-parakeet-models'),
   downloadParakeetModel: (modelId: string) => ipcRenderer.invoke('download-parakeet-model', modelId),
   deleteParakeetModel: (modelId: string) => ipcRenderer.invoke('delete-parakeet-model', modelId),

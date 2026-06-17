@@ -18,8 +18,17 @@ export interface WindowPositions {
   history?: WindowBounds;
 }
 
+export interface ParakeetVadConfig {
+  threshold: number;       // Silero VAD speech probability cutoff (0..1)
+  minSilence: number;      // seconds of silence before a segment closes
+  minSpeech: number;       // shortest accepted speech segment, seconds
+  maxSpeech: number;       // force-cut very long speech, seconds
+  partialInterval: number; // interim re-decode period, seconds
+}
+
 export interface ParakeetConfig {
   modelId: string;
+  vad: ParakeetVadConfig;
 }
 
 export interface DenoiserConfig {
@@ -73,8 +82,17 @@ const DEFAULT_UI: UiPreferences = {
   accentSource: 'default',
 };
 
+export const DEFAULT_PARAKEET_VAD: ParakeetVadConfig = {
+  threshold: 0.3,
+  minSilence: 0.5,
+  minSpeech: 0.25,
+  maxSpeech: 15,
+  partialInterval: 0.2,
+};
+
 const DEFAULT_PARAKEET: ParakeetConfig = {
   modelId: '',
+  vad: { ...DEFAULT_PARAKEET_VAD },
 };
 
 const DEFAULT_DENOISER: DenoiserConfig = {
@@ -121,11 +139,32 @@ function normalizeProvider(value: unknown): SttProvider {
   return 'deepgram';
 }
 
+function clampFloat(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function mergeParakeetVad(
+  base: ParakeetVadConfig,
+  partial: Partial<ParakeetVadConfig> | undefined,
+): ParakeetVadConfig {
+  const p = partial || {};
+  return {
+    threshold: clampFloat(p.threshold ?? base.threshold, 0.1, 0.9, base.threshold),
+    minSilence: clampFloat(p.minSilence ?? base.minSilence, 0.1, 3.0, base.minSilence),
+    minSpeech: clampFloat(p.minSpeech ?? base.minSpeech, 0.05, 1.0, base.minSpeech),
+    maxSpeech: clampFloat(p.maxSpeech ?? base.maxSpeech, 5, 30, base.maxSpeech),
+    partialInterval: clampFloat(p.partialInterval ?? base.partialInterval, 0.1, 1.0, base.partialInterval),
+  };
+}
+
 function mergeParakeet(base: ParakeetConfig, partial: Partial<ParakeetConfig>): ParakeetConfig {
   return {
     ...base,
     ...partial,
     modelId: typeof partial.modelId === 'string' ? partial.modelId : base.modelId,
+    vad: mergeParakeetVad(base.vad, partial.vad),
   };
 }
 
@@ -144,7 +183,7 @@ function buildDefaults(): UnifiedConfig {
     provider: 'deepgram',
     deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
     gladia: { ...DEFAULT_GLADIA },
-    parakeet: { ...DEFAULT_PARAKEET },
+    parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
     translator: { ...DEFAULT_TRANSLATOR },
     app: { ...DEFAULT_APP },
     ui: { ...DEFAULT_UI },
@@ -238,7 +277,7 @@ export class UnifiedConfigManager {
       provider: 'deepgram',
       deepgram: mergeDeepgram(defaults.deepgram, this.readLegacy('deepgram-config.json')),
       gladia: { ...DEFAULT_GLADIA },
-      parakeet: { ...DEFAULT_PARAKEET },
+      parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
       ui: mergeUi(defaults.ui, this.readLegacy('ui-preferences.json')),

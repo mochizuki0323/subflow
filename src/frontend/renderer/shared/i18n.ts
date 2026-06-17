@@ -284,6 +284,43 @@ const translations = {
   'parakeet.connected': { en: 'Parakeet', zh: 'Parakeet' },
   'parakeet.connected.title': { en: 'Parakeet model loaded', zh: 'Parakeet 模型已加载' },
 
+  // Advanced VAD tuning (Parakeet only)
+  'parakeet.vad.title': { en: 'Advanced VAD Settings', zh: '高级 VAD 设置' },
+  'parakeet.vad.hint': {
+    en: 'Tune local voice activity detection for your audio source. Parakeet only — changes apply live, no restart.',
+    zh: '调整本地语音活动检测以适配不同音源。仅 Parakeet 生效,改动实时应用、无需重启。',
+  },
+  'parakeet.vad.show': { en: 'Show', zh: '展开' },
+  'parakeet.vad.hide': { en: 'Hide', zh: '收起' },
+  'parakeet.vad.threshold': { en: 'Speech threshold', zh: '灵敏度阈值' },
+  'parakeet.vad.threshold.hint': {
+    en: 'Lower = more sensitive (noise may trigger); higher = stricter (may miss quiet speech).',
+    zh: '越低越灵敏(易被噪音触发);越高越严格(可能漏掉小声说话)。',
+  },
+  'parakeet.vad.minSilence': { en: 'Silence to end segment (s)', zh: '断句静音(秒)' },
+  'parakeet.vad.minSilence.hint': {
+    en: 'How long a pause ends a sentence. Lower = faster but choppier; higher = more complete but higher latency.',
+    zh: '停顿多久判定一句结束。越小出字越快但越碎;越大越完整但延迟更高。',
+  },
+  'parakeet.vad.minSpeech': { en: 'Min speech length (s)', zh: '最短语音(秒)' },
+  'parakeet.vad.minSpeech.hint': {
+    en: 'Sounds shorter than this are discarded as noise.',
+    zh: '短于此长度的声音会被当作噪音丢弃。',
+  },
+  'parakeet.vad.maxSpeech': { en: 'Max speech length (s)', zh: '最长语音(秒)' },
+  'parakeet.vad.maxSpeech.hint': {
+    en: 'Continuous speech longer than this is force-cut into a segment.',
+    zh: '连续说话超过此长度时强制切断成一段。',
+  },
+  'parakeet.vad.partialInterval': { en: 'Interim update interval (s)', zh: '中间结果间隔(秒)' },
+  'parakeet.vad.partialInterval.hint': {
+    en: 'How often interim subtitles are re-decoded. Lower = smoother but more CPU.',
+    zh: '重新解码生成临时字幕的频率。越小越流畅但越费 CPU。',
+  },
+  'parakeet.vad.apply': { en: 'Apply', zh: '应用' },
+  'parakeet.vad.applied': { en: 'Applied', zh: '已应用' },
+  'parakeet.vad.reset': { en: 'Reset to defaults', zh: '恢复默认' },
+
   // ---- LogViewer.tsx ----
   'log.title': { en: 'Logs', zh: '日志' },
   'log.all': { en: 'All', zh: '全部' },

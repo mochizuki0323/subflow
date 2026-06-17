@@ -946,6 +946,112 @@ button:disabled {
   margin: 22px 0;
 }
 
+/* ---- Advanced VAD tuning ---- */
+.vad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vad-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.vad-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vad-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.vad-field-head label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.vad-value {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+}
+
+.vad-field .hint {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.vad-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  outline: none;
+  cursor: pointer;
+}
+
+.vad-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.vad-slider::-webkit-slider-thumb:hover {
+  background: var(--accent-hover);
+  transform: scale(1.15);
+}
+
+.vad-slider::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+
+.vad-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--bg-card);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+
+.vad-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.vad-applied {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

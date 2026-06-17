@@ -30,6 +30,11 @@ static void print_usage(const char* argv0) {
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
+              << "  --parakeet-vad-threshold <f>     Silero VAD speech threshold (default: 0.3)\n"
+              << "  --parakeet-vad-min-silence <f>   Min silence sec to close a segment (default: 0.5)\n"
+              << "  --parakeet-vad-min-speech <f>    Min speech sec to accept a segment (default: 0.25)\n"
+              << "  --parakeet-vad-max-speech <f>    Max speech sec before force-cut (default: 15)\n"
+              << "  --parakeet-partial-interval <f>  Interim re-decode period sec (default: 0.2)\n"
               << "  --denoise                  Enable speech denoising\n"
               << "  --denoise-model <path>     Path to denoise ONNX model\n"
               << "  --denoise-arch <arch>      Denoise architecture: gtcrn or dpdfnet\n"
@@ -65,6 +70,16 @@ int main(int argc, char* argv[]) {
             config.parakeet_model_type = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-vad-model") == 0 && i + 1 < argc) {
             config.parakeet_vad_model = argv[++i];
+        } else if (std::strcmp(argv[i], "--parakeet-vad-threshold") == 0 && i + 1 < argc) {
+            config.parakeet_vad_threshold = std::stof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--parakeet-vad-min-silence") == 0 && i + 1 < argc) {
+            config.parakeet_vad_min_silence = std::stof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--parakeet-vad-min-speech") == 0 && i + 1 < argc) {
+            config.parakeet_vad_min_speech = std::stof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--parakeet-vad-max-speech") == 0 && i + 1 < argc) {
+            config.parakeet_vad_max_speech = std::stof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--parakeet-partial-interval") == 0 && i + 1 < argc) {
+            config.parakeet_partial_interval = std::stof(argv[++i]);
         } else if (std::strcmp(argv[i], "--denoise") == 0) {
             config.denoise_enabled = true;
         } else if (std::strcmp(argv[i], "--denoise-model") == 0 && i + 1 < argc) {

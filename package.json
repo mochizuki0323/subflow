@@ -1,6 +1,6 @@
 {
   "name": "subflow",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "SubFlow — real-time speech captions with optional LLM translation, powered by cloud STT.",
   "homepage": "https://github.com/mochizuki0323/subflow",
   "author": "mochizuki0323 <motiduki0323@gmail.com>",

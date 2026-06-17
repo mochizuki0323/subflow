@@ -29,6 +29,13 @@ struct Config {
     std::string parakeet_model_type;      // "nemo_ctc" or "nemo_transducer"
     std::string parakeet_vad_model;       // path to silero_vad.onnx
 
+    // Parakeet VAD tuning (Silero VAD + simulated streaming). Durations in seconds.
+    float parakeet_vad_threshold = 0.3f;
+    float parakeet_vad_min_silence = 0.5f;
+    float parakeet_vad_min_speech = 0.25f;
+    float parakeet_vad_max_speech = 15.0f;
+    float parakeet_partial_interval = 0.2f;
+
     std::string language = "auto";
     bool translate = false;  // kept for API compat; translation is done by the LLM frontend
     std::string subtitle_mode = "original"; // "original", "translated", "bilingual"

@@ -13,11 +13,14 @@ struct ParakeetTranscriber::Impl {
 
 ParakeetTranscriber::ParakeetTranscriber(std::string model_dir,
                                          std::string model_type,
-                                         std::string vad_model)
+                                         std::string vad_model,
+                                         VadParams params)
     : model_dir_(std::move(model_dir)),
       model_type_(std::move(model_type)),
       vad_model_path_(std::move(vad_model)),
-      impl_(new Impl) {}
+      impl_(new Impl) {
+    params_ = params;
+}
 
 ParakeetTranscriber::~ParakeetTranscriber() {
     running_ = false;
@@ -91,10 +94,10 @@ bool ParakeetTranscriber::create_vad() {
     std::memset(&vad_config, 0, sizeof(vad_config));
 
     vad_config.silero_vad.model = vad_model_path_.c_str();
-    vad_config.silero_vad.threshold = 0.3f;
-    vad_config.silero_vad.min_silence_duration = 0.5f;
-    vad_config.silero_vad.min_speech_duration = 0.25f;
-    vad_config.silero_vad.max_speech_duration = MAX_SPEECH_SEC;
+    vad_config.silero_vad.threshold = params_.threshold;
+    vad_config.silero_vad.min_silence_duration = params_.min_silence;
+    vad_config.silero_vad.min_speech_duration = params_.min_speech;
+    vad_config.silero_vad.max_speech_duration = params_.max_speech;
     vad_config.silero_vad.window_size = VAD_WINDOW;
     vad_config.sample_rate = SAMPLE_RATE;
     vad_config.num_threads = 1;
@@ -109,6 +112,36 @@ bool ParakeetTranscriber::create_vad() {
 
     LOG_INFO("Silero VAD loaded: " + vad_model_path_);
     return true;
+}
+
+void ParakeetTranscriber::rebuild_vad() {
+    if (impl_->vad) {
+        SherpaOnnxDestroyVoiceActivityDetector(impl_->vad);
+        impl_->vad = nullptr;
+    }
+    speech_buf_.clear();
+    vad_remainder_.clear();
+    if (create_vad()) {
+        LOG_INFO("VAD rebuilt with updated parameters");
+    } else {
+        LOG_ERROR("Failed to rebuild VAD with updated parameters");
+    }
+    last_partial_time_ = clock::now();
+}
+
+void ParakeetTranscriber::set_vad_params(const VadParams& params) {
+    {
+        std::lock_guard<std::mutex> lk(vad_params_mutex_);
+        pending_params_ = params;
+    }
+    vad_dirty_.store(true);
+
+    char buf[160];
+    std::snprintf(buf, sizeof(buf),
+        "VAD params queued: thr=%.2f minSil=%.2fs minSpe=%.2fs maxSpe=%.1fs partial=%.2fs",
+        params.threshold, params.min_silence, params.min_speech,
+        params.max_speech, params.partial_interval);
+    LOG_INFO(buf);
 }
 
 std::string ParakeetTranscriber::decode_buffer(const float* samples, int32_t n) {
@@ -236,6 +269,16 @@ void ParakeetTranscriber::feed_audio(const float* samples, size_t count) {
 std::vector<TranscriptSegment> ParakeetTranscriber::process() {
     if (!loaded_.load()) return {};
 
+    // Apply any pending VAD parameter change on the pipeline thread, where the
+    // VAD object is owned, so it is never destroyed while in use elsewhere.
+    if (vad_dirty_.exchange(false)) {
+        {
+            std::lock_guard<std::mutex> lk(vad_params_mutex_);
+            params_ = pending_params_;
+        }
+        rebuild_vad();
+    }
+
     // Drain results from decode thread
     std::vector<TranscriptSegment> results;
     {
@@ -320,7 +363,7 @@ std::vector<TranscriptSegment> ParakeetTranscriber::process() {
         auto now = clock::now();
         float elapsed = std::chrono::duration<float>(now - last_partial_time_).count();
 
-        if (elapsed >= PARTIAL_INTERVAL) {
+        if (elapsed >= params_.partial_interval) {
             last_partial_time_ = now;
 
             DecodeRequest req;

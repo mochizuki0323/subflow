@@ -17,6 +17,7 @@ import {
 } from './app-config-dir';
 import type { AppSettings, UiLanguage } from './app-settings';
 import { UnifiedConfigManager } from './unified-config';
+import type { ParakeetVadConfig } from './unified-config';
 import {
   getDenoiseModels,
   findDenoiseModel,
@@ -176,6 +177,7 @@ if (!gotSingleInstanceLock) {
     parakeetModelDir: parakeetModelDir || undefined,
     parakeetModelType: parakeetModelType || undefined,
     parakeetVadModel: parakeetVadModel || undefined,
+    parakeetVad: pkConfig.vad,
   });
 
   // Set up denoiser if configured
@@ -580,6 +582,24 @@ if (!gotSingleInstanceLock) {
         }
       }
       return { success: true };
+    });
+
+    ipcMain.handle('set-parakeet-vad-config', (_event, vad: Partial<ParakeetVadConfig>) => {
+      configManager.updateParakeet({ vad: vad as ParakeetVadConfig });
+      const updated = configManager.getParakeet();
+      // VAD tuning applies at runtime (no restart) when Parakeet is active.
+      wsClient.send({
+        type: 'set_vad',
+        data: {
+          threshold: updated.vad.threshold,
+          min_silence: updated.vad.minSilence,
+          min_speech: updated.vad.minSpeech,
+          max_speech: updated.vad.maxSpeech,
+          partial_interval: updated.vad.partialInterval,
+        },
+      });
+      backendManager.setParakeetVadParams(updated.vad);
+      return { success: true, vad: updated.vad };
     });
 
     ipcMain.handle('delete-parakeet-model', (_event, modelId: string) => {
