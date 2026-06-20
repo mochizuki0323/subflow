@@ -21,6 +21,8 @@ export class BackendManager extends EventEmitter {
   private parakeetModelType: string;
   private parakeetVadModel: string;
   private parakeetVad: ParakeetVadConfig;
+  private remoteParakeetUrl: string;
+  private remoteParakeetApiKey: string;
   private denoiseEnabled = false;
   private denoiseModelPath = '';
   private denoiseArch = '';
@@ -56,6 +58,7 @@ export class BackendManager extends EventEmitter {
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
+    remoteParakeetUrl?: string; remoteParakeetApiKey?: string;
   }) {
     super();
     this.binaryPath = binaryPath;
@@ -72,6 +75,8 @@ export class BackendManager extends EventEmitter {
     this.parakeetModelType = options?.parakeetModelType || '';
     this.parakeetVadModel = options?.parakeetVadModel || '';
     this.parakeetVad = options?.parakeetVad || { ...DEFAULT_PARAKEET_VAD };
+    this.remoteParakeetUrl = options?.remoteParakeetUrl || '';
+    this.remoteParakeetApiKey = options?.remoteParakeetApiKey || '';
   }
 
   spawn(): void {
@@ -93,6 +98,9 @@ export class BackendManager extends EventEmitter {
       if (this.gladiaApiKey) args.push('--gladia-api-key', this.gladiaApiKey);
       if (this.gladiaModel) args.push('--gladia-model', this.gladiaModel);
       if (this.gladiaConfig) args.push('--gladia-config', this.gladiaConfig);
+    } else if (this.provider === 'remote_parakeet') {
+      if (this.remoteParakeetUrl) args.push('--remote-parakeet-url', this.remoteParakeetUrl);
+      if (this.remoteParakeetApiKey) args.push('--remote-parakeet-api-key', this.remoteParakeetApiKey);
     } else {
       if (this.apiKey) args.push('--api-key', this.apiKey);
       if (this.model) args.push('--model', this.model);
@@ -180,6 +188,7 @@ export class BackendManager extends EventEmitter {
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
+    remoteParakeetUrl?: string; remoteParakeetApiKey?: string;
   }): void {
     if (opts.provider) this.provider = opts.provider;
     if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
@@ -193,6 +202,8 @@ export class BackendManager extends EventEmitter {
     if (opts.parakeetModelType !== undefined) this.parakeetModelType = opts.parakeetModelType;
     if (opts.parakeetVadModel !== undefined) this.parakeetVadModel = opts.parakeetVadModel;
     if (opts.parakeetVad !== undefined) this.parakeetVad = opts.parakeetVad;
+    if (opts.remoteParakeetUrl !== undefined) this.remoteParakeetUrl = opts.remoteParakeetUrl;
+    if (opts.remoteParakeetApiKey !== undefined) this.remoteParakeetApiKey = opts.remoteParakeetApiKey;
     this.kill();
     this.shouldRestart = true;
     setTimeout(() => this.spawn(), 500);

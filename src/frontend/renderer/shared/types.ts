@@ -48,7 +48,7 @@ export interface DeepgramConfig {
   features: DeepgramFeatures;
 }
 
-export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet' | 'remote_parakeet';
 
 export interface CustomVocabularyItem {
   value: string;
@@ -125,6 +125,11 @@ export interface ParakeetVadConfig {
 export interface ParakeetConfig {
   modelId: string;
   vad: ParakeetVadConfig;
+}
+
+export interface RemoteParakeetConfig {
+  serverUrl: string;
+  apiKey: string;
 }
 
 export interface ParakeetModelInfo {
@@ -209,6 +214,9 @@ export interface ElectronAPI {
   getGladiaConfig: () => Promise<GladiaConfig>;
   setGladiaConfig: (config: Partial<GladiaConfig>) => Promise<{ success: boolean }>;
   fetchGladiaModels: () => Promise<{ success: boolean; models?: Array<{ name: string; description: string }>; error?: string }>;
+  getRemoteParakeetConfig: () => Promise<RemoteParakeetConfig>;
+  setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
+  testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;

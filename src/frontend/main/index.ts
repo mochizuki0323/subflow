@@ -178,6 +178,8 @@ if (!gotSingleInstanceLock) {
     parakeetModelType: parakeetModelType || undefined,
     parakeetVadModel: parakeetVadModel || undefined,
     parakeetVad: pkConfig.vad,
+    remoteParakeetUrl: configManager.getRemoteParakeet().serverUrl || undefined,
+    remoteParakeetApiKey: configManager.getRemoteParakeet().apiKey || undefined,
   });
 
   // Set up denoiser if configured
@@ -355,7 +357,7 @@ if (!gotSingleInstanceLock) {
     ipcMain.handle('get-stt-provider', () => configManager.getProvider());
 
     ipcMain.handle('set-stt-provider', (_event, provider: string) => {
-      if (provider !== 'deepgram' && provider !== 'gladia' && provider !== 'parakeet') return { success: false };
+      if (provider !== 'deepgram' && provider !== 'gladia' && provider !== 'parakeet' && provider !== 'remote_parakeet') return { success: false };
       configManager.updateProvider(provider as any);
       wsClient.disconnect();
       const dg = configManager.getDeepgram();
@@ -380,6 +382,8 @@ if (!gotSingleInstanceLock) {
         gladiaApiKey: gd.apiKey || '', gladiaModel: gd.model || 'solaria-1',
         gladiaConfig: buildGladiaConfig(gd.features),
         parakeetModelDir: pkDir, parakeetModelType: pkType, parakeetVadModel: pkVad,
+        remoteParakeetUrl: configManager.getRemoteParakeet().serverUrl,
+        remoteParakeetApiKey: configManager.getRemoteParakeet().apiKey,
       });
       setTimeout(() => wsClient.connect(), 2000);
       return { success: true };
@@ -399,6 +403,50 @@ if (!gotSingleInstanceLock) {
       });
       setTimeout(() => wsClient.connect(), 2000);
       return { success: true };
+    });
+
+    // ---- IPC: Remote Parakeet config ----
+    ipcMain.handle('get-remote-parakeet-config', () => configManager.getRemoteParakeet());
+
+    ipcMain.handle('set-remote-parakeet-config', (_event, config: { serverUrl?: string; apiKey?: string }) => {
+      configManager.updateRemoteParakeet(config);
+      const updated = configManager.getRemoteParakeet();
+      if (configManager.getProvider() === 'remote_parakeet') {
+        wsClient.disconnect();
+        backendManager.restart({
+          remoteParakeetUrl: updated.serverUrl,
+          remoteParakeetApiKey: updated.apiKey,
+          language: appSettings.sourceLanguage,
+        });
+        setTimeout(() => wsClient.connect(), 2000);
+      }
+      return { success: true, config: updated };
+    });
+
+    // Probe the server's /healthz (HTTP derived from the ws/wss URL).
+    ipcMain.handle('test-remote-parakeet', async (_event, { serverUrl, apiKey }: { serverUrl: string; apiKey: string }) => {
+      let u: URL;
+      try { u = new URL(serverUrl); } catch { return { success: false, error: 'invalid URL' }; }
+      if (u.protocol !== 'ws:' && u.protocol !== 'wss:') {
+        return { success: false, error: 'URL must start with ws:// or wss://' };
+      }
+      const isTls = u.protocol === 'wss:';
+      const mod = await import(isTls ? 'https' : 'http');
+      const port = u.port || (isTls ? '443' : '80');
+      return await new Promise<{ success: boolean; error?: string }>((resolve) => {
+        const req = mod.request({
+          hostname: u.hostname, port, path: '/healthz', method: 'GET',
+          headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+          timeout: 5000,
+        }, (res: import('http').IncomingMessage) => {
+          res.resume();
+          if (res.statusCode === 200) resolve({ success: true });
+          else resolve({ success: false, error: `HTTP ${res.statusCode}` });
+        });
+        req.on('error', (e: Error) => resolve({ success: false, error: e.message }));
+        req.on('timeout', () => { req.destroy(); resolve({ success: false, error: 'timeout' }); });
+        req.end();
+      });
     });
 
     ipcMain.handle('fetch-gladia-models', async () => {

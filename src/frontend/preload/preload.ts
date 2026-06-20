@@ -64,6 +64,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getGladiaConfig: () => ipcRenderer.invoke('get-gladia-config'),
   setGladiaConfig: (config: any) => ipcRenderer.invoke('set-gladia-config', config),
   fetchGladiaModels: () => ipcRenderer.invoke('fetch-gladia-models'),
+
+  // Remote Parakeet config
+  getRemoteParakeetConfig: () => ipcRenderer.invoke('get-remote-parakeet-config'),
+  setRemoteParakeetConfig: (config: { serverUrl?: string; apiKey?: string }) =>
+    ipcRenderer.invoke('set-remote-parakeet-config', config),
+  testRemoteParakeet: (serverUrl: string, apiKey: string) =>
+    ipcRenderer.invoke('test-remote-parakeet', { serverUrl, apiKey }),
   getTranslatorConfig: () => ipcRenderer.invoke('get-translator-config'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   setUiLanguage: (lang: 'en' | 'zh') => ipcRenderer.invoke('set-ui-language', lang),

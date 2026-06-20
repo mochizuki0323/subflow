@@ -31,18 +31,24 @@ export interface ParakeetConfig {
   vad: ParakeetVadConfig;
 }
 
+export interface RemoteParakeetConfig {
+  serverUrl: string;   // ws:// or wss:// address of the remote Parakeet server
+  apiKey: string;      // optional Bearer token
+}
+
 export interface DenoiserConfig {
   enabled: boolean;
   modelId: string;
 }
 
-export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet' | 'remote_parakeet';
 
 export interface UnifiedConfig {
   provider: SttProvider;
   deepgram: DeepgramConfig;
   gladia: GladiaConfig;
   parakeet: ParakeetConfig;
+  remoteParakeet: RemoteParakeetConfig;
   translator: TranslatorConfig;
   app: AppSettings;
   ui: UiPreferences;
@@ -95,6 +101,11 @@ const DEFAULT_PARAKEET: ParakeetConfig = {
   vad: { ...DEFAULT_PARAKEET_VAD },
 };
 
+const DEFAULT_REMOTE_PARAKEET: RemoteParakeetConfig = {
+  serverUrl: '',
+  apiKey: '',
+};
+
 const DEFAULT_DENOISER: DenoiserConfig = {
   enabled: false,
   modelId: 'dpdfnet8',
@@ -135,7 +146,7 @@ function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): 
 }
 
 function normalizeProvider(value: unknown): SttProvider {
-  if (value === 'deepgram' || value === 'gladia' || value === 'parakeet') return value;
+  if (value === 'deepgram' || value === 'gladia' || value === 'parakeet' || value === 'remote_parakeet') return value;
   return 'deepgram';
 }
 
@@ -168,6 +179,16 @@ function mergeParakeet(base: ParakeetConfig, partial: Partial<ParakeetConfig>): 
   };
 }
 
+function mergeRemoteParakeet(
+  base: RemoteParakeetConfig,
+  partial: Partial<RemoteParakeetConfig>,
+): RemoteParakeetConfig {
+  return {
+    serverUrl: typeof partial.serverUrl === 'string' ? partial.serverUrl : base.serverUrl,
+    apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : base.apiKey,
+  };
+}
+
 function mergeGladia(base: GladiaConfig, partial: Partial<GladiaConfig>): GladiaConfig {
   return {
     ...base,
@@ -184,6 +205,7 @@ function buildDefaults(): UnifiedConfig {
     deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
     gladia: { ...DEFAULT_GLADIA },
     parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
+    remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
     translator: { ...DEFAULT_TRANSLATOR },
     app: { ...DEFAULT_APP },
     ui: { ...DEFAULT_UI },
@@ -263,6 +285,7 @@ export class UnifiedConfigManager {
       deepgram: mergeDeepgram(defaults.deepgram, parsed.deepgram || {}),
       gladia: mergeGladia(defaults.gladia, parsed.gladia || {}),
       parakeet: mergeParakeet(defaults.parakeet, parsed.parakeet || {}),
+      remoteParakeet: mergeRemoteParakeet(defaults.remoteParakeet, parsed.remoteParakeet || {}),
       translator: mergeTranslator(defaults.translator, parsed.translator || {}),
       app: mergeApp(defaults.app, parsed.app || {}),
       ui: mergeUi(defaults.ui, parsed.ui || {}),
@@ -278,6 +301,7 @@ export class UnifiedConfigManager {
       deepgram: mergeDeepgram(defaults.deepgram, this.readLegacy('deepgram-config.json')),
       gladia: { ...DEFAULT_GLADIA },
       parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
+      remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
       ui: mergeUi(defaults.ui, this.readLegacy('ui-preferences.json')),
@@ -311,6 +335,7 @@ export class UnifiedConfigManager {
   getDeepgram(): DeepgramConfig { return this.config.deepgram; }
   getGladia(): GladiaConfig { return this.config.gladia; }
   getParakeet(): ParakeetConfig { return this.config.parakeet; }
+  getRemoteParakeet(): RemoteParakeetConfig { return this.config.remoteParakeet; }
   getTranslator(): TranslatorConfig { return this.config.translator; }
   getApp(): AppSettings { return this.config.app; }
   getUi(): UiPreferences { return this.config.ui; }
@@ -334,6 +359,11 @@ export class UnifiedConfigManager {
 
   updateParakeet(partial: Partial<ParakeetConfig>): void {
     this.config.parakeet = mergeParakeet(this.config.parakeet, partial);
+    this.save();
+  }
+
+  updateRemoteParakeet(partial: Partial<RemoteParakeetConfig>): void {
+    this.config.remoteParakeet = mergeRemoteParakeet(this.config.remoteParakeet, partial);
     this.save();
   }
 
