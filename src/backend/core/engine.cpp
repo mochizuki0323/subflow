@@ -5,6 +5,7 @@
 #include "transcriber/deepgram_transcriber.h"
 #include "transcriber/gladia_transcriber.h"
 #include "transcriber/parakeet_transcriber.h"
+#include "transcriber/remote_parakeet_transcriber.h"
 #include <chrono>
 #include <cstring>
 
@@ -23,6 +24,9 @@ Engine::Engine(const Config& config)
         transcriber_ = std::make_unique<ParakeetTranscriber>(
             config_.parakeet_model_dir, config_.parakeet_model_type,
             config_.parakeet_vad_model, vp);
+    } else if (config_.provider == "remote_parakeet") {
+        transcriber_ = std::make_unique<RemoteParakeetTranscriber>(
+            config_.remote_parakeet_url, config_.remote_parakeet_api_key);
     } else if (config_.provider == "gladia") {
         transcriber_ = std::make_unique<GladiaTranscriber>(
             config_.gladia_api_key, config_.gladia_model, config_.gladia_config);

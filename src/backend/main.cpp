@@ -30,6 +30,8 @@ static void print_usage(const char* argv0) {
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
+              << "  --remote-parakeet-url <url>     Remote Parakeet server URL (ws:// or wss://)\n"
+              << "  --remote-parakeet-api-key <key> Bearer token for the remote Parakeet server\n"
               << "  --parakeet-vad-threshold <f>     Silero VAD speech threshold (default: 0.3)\n"
               << "  --parakeet-vad-min-silence <f>   Min silence sec to close a segment (default: 0.5)\n"
               << "  --parakeet-vad-min-speech <f>    Min speech sec to accept a segment (default: 0.25)\n"
@@ -70,6 +72,10 @@ int main(int argc, char* argv[]) {
             config.parakeet_model_type = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-vad-model") == 0 && i + 1 < argc) {
             config.parakeet_vad_model = argv[++i];
+        } else if (std::strcmp(argv[i], "--remote-parakeet-url") == 0 && i + 1 < argc) {
+            config.remote_parakeet_url = argv[++i];
+        } else if (std::strcmp(argv[i], "--remote-parakeet-api-key") == 0 && i + 1 < argc) {
+            config.remote_parakeet_api_key = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-vad-threshold") == 0 && i + 1 < argc) {
             config.parakeet_vad_threshold = std::stof(argv[++i]);
         } else if (std::strcmp(argv[i], "--parakeet-vad-min-silence") == 0 && i + 1 < argc) {

@@ -36,6 +36,10 @@ struct Config {
     float parakeet_vad_max_speech = 15.0f;
     float parakeet_partial_interval = 0.2f;
 
+    // Remote Parakeet inference server (provider "remote_parakeet")
+    std::string remote_parakeet_url;       // ws:// or wss:// server URL
+    std::string remote_parakeet_api_key;   // optional Bearer token
+
     std::string language = "auto";
     bool translate = false;  // kept for API compat; translation is done by the LLM frontend
     std::string subtitle_mode = "original"; // "original", "translated", "bilingual"
