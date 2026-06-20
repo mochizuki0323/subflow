@@ -32,3 +32,9 @@ models/
 # Pre-built sherpa-onnx libraries (downloaded by scripts/setup-sherpa-onnx.sh)
 extern/sherpa-onnx/
 
+# Vendored Boost headers (downloaded by scripts/setup-boost.sh)
+extern/boost/
+
+
+# Standalone Parakeet server build output
+server/build/
