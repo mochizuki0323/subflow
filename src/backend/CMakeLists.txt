@@ -33,6 +33,34 @@ else()
     target_link_libraries(uSockets PRIVATE PkgConfig::PIPEWIRE)
 endif()
 
+# ── Networking: Boost.Beast WebSocket + HTTP clients ──────────────────────────
+# Boost (Beast + Asio + System) is header-only, so the same vendored headers
+# serve both the native build and the MinGW cross-compile. The Boost dependency
+# is confined to subflow_net's translation units; its public headers
+# (net/ws_client.h, net/http_client.h) are Boost-free.
+set(BOOST_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/extern/boost/include)
+if(NOT EXISTS "${BOOST_INCLUDE_DIR}/boost/beast.hpp")
+    message(FATAL_ERROR
+        "Boost headers not found.\n"
+        "Run: ./scripts/setup-boost.sh\n"
+        "Expected: ${BOOST_INCLUDE_DIR}/boost/beast.hpp")
+endif()
+
+add_library(subflow_net STATIC
+    net/beast_ws_client.cpp
+    net/http_client.cpp
+)
+target_include_directories(subflow_net
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${BOOST_INCLUDE_DIR} ${OPENSSL_INCLUDE_DIR}
+)
+target_link_libraries(subflow_net PUBLIC OpenSSL::SSL OpenSSL::Crypto Threads::Threads)
+target_compile_definitions(subflow_net PRIVATE BOOST_ASIO_NO_DEPRECATED)
+if(WIN32)
+    target_compile_definitions(subflow_net PRIVATE _WIN32_WINNT=0x0A00 WIN32_LEAN_AND_MEAN)
+    target_link_libraries(subflow_net PUBLIC ws2_32 mswsock crypt32 bcrypt)
+endif()
+
 # Backend executable
 set(BACKEND_SOURCES
     main.cpp
@@ -44,6 +72,7 @@ set(BACKEND_SOURCES
     transcriber/deepgram_transcriber.cpp
     transcriber/gladia_transcriber.cpp
     transcriber/parakeet_transcriber.cpp
+    transcriber/remote_parakeet_transcriber.cpp
     ipc/ws_server.cpp
 )
 
@@ -77,6 +106,7 @@ target_include_directories(subflow-backend PRIVATE
 )
 
 target_link_libraries(subflow-backend PRIVATE
+    subflow_net
     OpenSSL::SSL
     OpenSSL::Crypto
     uSockets
@@ -118,3 +148,7 @@ target_compile_definitions(subflow-backend PRIVATE
 )
 
 install(TARGETS subflow-backend RUNTIME DESTINATION bin)
+
+# The standalone Parakeet inference server lives in its own project under
+# server/ (built via server/build.sh) — it is a separate deliverable and must
+# not be coupled to the desktop app backend.
