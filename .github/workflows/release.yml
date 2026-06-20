@@ -44,10 +44,16 @@ jobs:
       - name: Setup sherpa-onnx (Windows)
         run: bash scripts/setup-sherpa-onnx.sh win-x64
 
+      - name: Setup Boost headers (header-only; serves both Linux and MinGW)
+        run: bash scripts/setup-boost.sh
+
       - name: Build C++ backend (Linux)
         run: |
           CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --parallel "$(nproc)"
+
+      - name: Build Parakeet server (Linux, regression check only — not packaged)
+        run: bash server/build.sh
 
       - name: Download cacert.pem
         run: |
