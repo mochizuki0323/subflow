@@ -67,10 +67,12 @@ const DEFAULT_DEEPGRAM: DeepgramConfig = {
 const DEFAULT_TRANSLATOR: TranslatorConfig = {
   baseUrl: 'https://openrouter.ai/api',
   apiKey: '',
+  apiKeys: { openai: '', anthropic: '', google: '' },
   model: 'google/gemma-4-31b-it',
   apiFormat: 'openai' as ApiFormat,
   targetLanguage: 'zh',
   enabled: false,
+  translatePartials: false,
   contextPrompt: '',
   useHistory: false,
   historyMaxPairs: 10,
@@ -136,8 +138,14 @@ function normalizeAccentSource(value: unknown): AccentSource {
 }
 
 function normalizeApiFormat(value: unknown): ApiFormat {
-  if (value === 'openai' || value === 'anthropic') return value;
+  if (value === 'openai' || value === 'anthropic' || value === 'google') return value;
   return 'openai';
+}
+
+function normalizeApiKeys(value: unknown, fallback: Record<ApiFormat, string>): Record<ApiFormat, string> {
+  const v = (value && typeof value === 'object') ? value as Record<string, unknown> : {};
+  const pick = (k: ApiFormat) => (typeof v[k] === 'string' ? v[k] as string : fallback[k]);
+  return { openai: pick('openai'), anthropic: pick('anthropic'), google: pick('google') };
 }
 
 function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): DenoiserConfig {
@@ -229,10 +237,20 @@ function mergeDeepgram(base: DeepgramConfig, partial: Partial<DeepgramConfig>): 
 }
 
 function mergeTranslator(base: TranslatorConfig, partial: Partial<TranslatorConfig>): TranslatorConfig {
+  const apiFormat = normalizeApiFormat(partial.apiFormat ?? base.apiFormat);
+  const apiKeys = normalizeApiKeys(partial.apiKeys ?? base.apiKeys, base.apiKeys ?? DEFAULT_TRANSLATOR.apiKeys);
+  // Backward compat: an old config (or a partial) carrying only the flat `apiKey`
+  // seeds the active format's per-format key.
+  const flatKey = partial.apiKey ?? base.apiKey;
+  if (!apiKeys[apiFormat] && flatKey) apiKeys[apiFormat] = flatKey;
   return {
     ...base,
     ...partial,
-    apiFormat: normalizeApiFormat(partial.apiFormat ?? base.apiFormat),
+    apiFormat,
+    apiKeys,
+    // Keep the flat mirror in sync with the active format.
+    apiKey: apiKeys[apiFormat] || '',
+    translatePartials: typeof partial.translatePartials === 'boolean' ? partial.translatePartials : base.translatePartials,
     historyMaxPairs: clampNumber(partial.historyMaxPairs ?? base.historyMaxPairs, 1, 100, 10),
     historyMaxCharsPerEntry: Math.max(0, Math.floor(partial.historyMaxCharsPerEntry ?? base.historyMaxCharsPerEntry)),
   };

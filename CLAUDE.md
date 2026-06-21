@@ -88,7 +88,7 @@ Audio Source → C++ Backend → [optional sherpa-onnx denoise]
 
 ### Translation
 
-`Translator` class in `translator.ts` supports OpenAI-compatible (`/v1/chat/completions`) and Anthropic (`/v1/messages`) APIs. Features: in-flight deduplication, sliding window history context, scene-specific prompts. Translation happens in the Electron main process, not the C++ backend.
+`Translator` class in `translator.ts` supports OpenAI-compatible (`/v1/chat/completions`), Anthropic (`/v1/messages`), and Google AI Studio (Gemini/Gemma `:generateContent`) APIs, selected by the `apiFormat` field (`'openai'` | `'anthropic'` | `'google'`). Features: in-flight deduplication, sliding window history context, scene-specific prompts. Translation happens in the Electron main process, not the C++ backend. The Google path is special-cased: instruction-tuned Gemma models reason verbosely and bury the translation in chain-of-thought, so the request constrains the output grammar via `responseMimeType: application/json` + `responseSchema` (parsed back to the translation), with a sentinel-delimited prompt fallback for models that reject structured output.
 
 ## Cross-compilation
 
