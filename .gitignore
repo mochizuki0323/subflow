@@ -41,3 +41,6 @@ server/build/
 
 # Local test models for the Parakeet inference server (large binaries, not committed)
 test-models/
+
+# Windows mark-of-the-web alternate data streams
+*:Zone.Identifier

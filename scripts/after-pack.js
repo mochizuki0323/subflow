@@ -36,6 +36,12 @@ exports.default = async function afterPack(context) {
     iconFile.icons.map((icon) => icon.data),
   );
 
+  // Derive company name from package.json author ("Name <email>" → "Name");
+  // without this CompanyName/LegalCopyright keep Electron's default ("GitHub, Inc.").
+  const companyName = (typeof pkg.author === 'string'
+    ? pkg.author.replace(/\s*<[^>]*>\s*$/, '').trim()
+    : (pkg.author && pkg.author.name) || '') || pkg.productName || pkg.name;
+
   const vi = ResEdit.Resource.VersionInfo.fromEntries(res.entries);
   if (vi.length > 0) {
     const ver = vi[0];
@@ -43,10 +49,12 @@ exports.default = async function afterPack(context) {
     ver.setFileVersion(parts[0] || 0, parts[1] || 0, parts[2] || 0, 0);
     ver.setProductVersion(parts[0] || 0, parts[1] || 0, parts[2] || 0, 0);
     ver.setStringValues({ lang: 1033, codepage: 1200 }, {
+      CompanyName: companyName,
       ProductName: pkg.productName || pkg.name,
       FileDescription: pkg.description || '',
       FileVersion: pkg.version,
       ProductVersion: pkg.version,
+      LegalCopyright: `Copyright © ${companyName}`,
     });
     ver.outputToResourceEntries(res.entries);
   }

@@ -229,7 +229,10 @@ if (!gotSingleInstanceLock) {
 
     // Route backend messages to renderers
     wsClient.on('transcript', async (data) => {
-      if (translator.getConfig().enabled && subtitleMode !== 'original' && data.text) {
+      const tcfg = translator.getConfig();
+      // Skip interim/partial transcripts unless the user opted in — translating
+      // every partial multiplies API requests and easily trips provider rate limits.
+      if (tcfg.enabled && subtitleMode !== 'original' && data.text && (!data.partial || tcfg.translatePartials)) {
         try {
           const sourceText = data.text.trim();
           const translated = await translator.translate(sourceText);

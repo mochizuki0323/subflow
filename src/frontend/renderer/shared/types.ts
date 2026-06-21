@@ -93,15 +93,20 @@ export interface UiThemePayload {
   vars: Record<string, string>;
 }
 
-export type ApiFormat = 'openai' | 'anthropic';
+export type ApiFormat = 'openai' | 'anthropic' | 'google';
 
 export interface TranslatorConfig {
   baseUrl: string;
+  /** Active-format key. Mirrors `apiKeys[apiFormat]`; kept for backward compat. */
   apiKey: string;
+  /** Per-format API keys so switching provider doesn't clobber the others. */
+  apiKeys: Record<ApiFormat, string>;
   model: string;
   apiFormat: ApiFormat;
   targetLanguage: string;
   enabled: boolean;
+  /** When false, only final transcripts are translated (interim/partial ones are skipped). */
+  translatePartials: boolean;
   contextPrompt: string;
   useHistory: boolean;
   historyMaxPairs: number;

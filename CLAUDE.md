@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is SubFlow
 
-Real-time speech captioning desktop app. Captures system audio, transcribes via cloud STT (Deepgram Nova-3 or Gladia Solaria-1), local ASR (NVIDIA Parakeet via sherpa-onnx), or a self-hosted remote Parakeet inference server, optionally translates via LLM (OpenAI-compatible or Anthropic API). Displays subtitles in a floating overlay window.
+Real-time speech captioning desktop app. Captures system audio, transcribes via cloud STT (Deepgram Nova-3 or Gladia Solaria-1), local ASR (NVIDIA Parakeet via sherpa-onnx), or a self-hosted remote Parakeet inference server, optionally translates via LLM (OpenAI-compatible, Anthropic, or Google AI Studio API). Displays subtitles in a floating overlay window.
 
 ## Build Commands
 
@@ -88,7 +88,7 @@ Audio Source → C++ Backend → [optional sherpa-onnx denoise]
 
 ### Translation
 
-`Translator` class in `translator.ts` supports OpenAI-compatible (`/v1/chat/completions`) and Anthropic (`/v1/messages`) APIs. Features: in-flight deduplication, sliding window history context, scene-specific prompts. Translation happens in the Electron main process, not the C++ backend.
+`Translator` class in `translator.ts` supports OpenAI-compatible (`/v1/chat/completions`), Anthropic (`/v1/messages`), and Google AI Studio (Gemini/Gemma `:generateContent`) APIs, selected by the `apiFormat` field (`'openai'` | `'anthropic'` | `'google'`). Features: in-flight deduplication, sliding window history context, scene-specific prompts. Translation happens in the Electron main process, not the C++ backend. The Google path is special-cased: instruction-tuned Gemma models reason verbosely and bury the translation in chain-of-thought, so the request constrains the output grammar via `responseMimeType: application/json` + `responseSchema` (parsed back to the translation), with a sentinel-delimited prompt fallback for models that reject structured output. API keys are stored **per format** (`apiKeys` map keyed by `apiFormat`) so switching provider doesn't clobber the others; the flat `apiKey` field mirrors the active format for backward compat. The main-process transcript handler (`index.ts`) only sends **final** transcripts to the translator by default — interim/partial transcripts are translated only when `translatePartials` is enabled (off by default), which keeps request volume low and avoids tripping provider rate limits (e.g. AI Studio free-tier RPM).
 
 ## Cross-compilation
 
