@@ -181,7 +181,7 @@ const translations = {
 
   // ---- RemoteParakeetSettings.tsx ----
   'remoteParakeet.title': { en: 'Remote Parakeet Server', zh: '远程 Parakeet 服务器' },
-  'remoteParakeet.hint': { en: 'Send audio to a self-hosted Parakeet inference server instead of running the model locally.', zh: '将音频发送到自建的 Parakeet 推理服务器，而不是在本地运行模型。' },
+  'remoteParakeet.hint': { en: 'Send audio to a self-hosted Parakeet inference server for transcription.', zh: '将音频发送到自建的 Parakeet 推理服务器进行转写。' },
   'remoteParakeet.serverUrl': { en: 'Server Address', zh: '服务器地址' },
   'remoteParakeet.serverUrlHint': { en: 'WebSocket URL, e.g. ws://192.168.1.10:9090 (LAN) or wss://asr.example.com (internet).', zh: 'WebSocket 地址，例如 ws://192.168.1.10:9090（局域网）或 wss://asr.example.com（公网）。' },
   'remoteParakeet.apiKey': { en: 'API Key', zh: 'API 密钥' },
@@ -207,7 +207,7 @@ const translations = {
   'model.fetchModels': { en: 'Fetch Models', zh: '获取模型列表' },
   'model.fetchingModels': { en: 'Fetching...', zh: '获取中...' },
   'model.fetchFailed': { en: 'Fetch failed', zh: '获取失败' },
-  'model.modelHint': { en: 'nova-3 is the latest and most accurate model; nova-2 is the previous generation.', zh: 'nova-3 是最新最准确的模型；nova-2 是上一代。' },
+  'model.modelHint': { en: "Check Deepgram's documentation for the latest available models.", zh: '请在 Deepgram 官方文档查看最新可用模型。' },
   'model.features': { en: 'Transcription Features', zh: '转录功能' },
   'model.enable': { en: 'Enable', zh: '启用' },
   'model.saving': { en: 'Saving & restarting...', zh: '保存并重启...' },
@@ -239,7 +239,7 @@ const translations = {
   'gladia.hint.suffix': { en: '.', zh: '获取 API Key。' },
   'gladia.noKey': { en: 'No API Key configured — transcription unavailable', zh: '未配置 API Key — 转录功能暂不可用' },
   'gladia.model': { en: 'Model', zh: '模型' },
-  'gladia.modelHint': { en: 'solaria-1 is the latest and most powerful model.', zh: 'solaria-1 是最新最强大的模型。' },
+  'gladia.modelHint': { en: "Check Gladia's documentation for the latest available models.", zh: '请在 Gladia 官方文档查看最新可用模型。' },
   'gladia.fetchModels': { en: 'Fetch Models', zh: '获取模型列表' },
   'gladia.fetchModels.title': { en: 'Fetch available models from the Gladia API', zh: '从 Gladia API 获取可用模型列表' },
   'gladia.fetchingModels': { en: 'Fetching...', zh: '获取中...' },
@@ -305,8 +305,8 @@ const translations = {
   // Advanced VAD tuning (Parakeet only)
   'parakeet.vad.title': { en: 'Advanced VAD Settings', zh: '高级 VAD 设置' },
   'parakeet.vad.hint': {
-    en: 'Tune local voice activity detection for your audio source. Parakeet only — changes apply live, no restart.',
-    zh: '调整本地语音活动检测以适配不同音源。仅 Parakeet 生效,改动实时应用、无需重启。',
+    en: 'Tune local voice activity detection for your audio source. Parakeet only.',
+    zh: '调整本地语音活动检测以适配不同音源。仅 Parakeet 生效。',
   },
   'parakeet.vad.show': { en: 'Show', zh: '展开' },
   'parakeet.vad.hide': { en: 'Hide', zh: '收起' },

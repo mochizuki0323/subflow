@@ -479,7 +479,7 @@ if (!gotSingleInstanceLock) {
               resolve({
                 success: true,
                 models: [
-                  { name: 'solaria-1', description: 'Latest and most powerful model' },
+                  { name: 'solaria-1', description: '' },
                 ],
               });
             });
@@ -488,7 +488,7 @@ if (!gotSingleInstanceLock) {
             resolve({
               success: true,
               models: [
-                { name: 'solaria-1', description: 'Latest and most powerful model' },
+                { name: 'solaria-1', description: '' },
               ],
             });
           });
@@ -497,7 +497,7 @@ if (!gotSingleInstanceLock) {
             resolve({
               success: true,
               models: [
-                { name: 'solaria-1', description: 'Latest and most powerful model' },
+                { name: 'solaria-1', description: '' },
               ],
             });
           });
@@ -507,7 +507,7 @@ if (!gotSingleInstanceLock) {
         return {
           success: true,
           models: [
-            { name: 'solaria-1', description: 'Latest and most powerful model' },
+            { name: 'solaria-1', description: '' },
           ],
         };
       }
