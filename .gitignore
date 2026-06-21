@@ -38,3 +38,6 @@ extern/boost/
 
 # Standalone Parakeet server build output
 server/build/
+
+# Local test models for the Parakeet inference server (large binaries, not committed)
+test-models/

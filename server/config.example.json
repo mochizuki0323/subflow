@@ -1,0 +1,35 @@
+{
+  "//": "subflow-parakeet-server config. Copy to config/config.json next to the binary.",
+  "//paths": "Relative paths (vad_model, each model.dir) resolve against THIS file's folder.",
+
+  "port": 9090,
+  "api_key": "",
+
+  "provider": "cpu",
+  "num_threads": 4,
+  "max_sessions": 64,
+  "max_batch": 8,
+
+  "vad_model": "silero_vad.onnx",
+  "vad": {
+    "threshold": 0.3,
+    "min_silence": 0.5,
+    "min_speech": 0.25,
+    "max_speech": 15.0,
+    "partial_interval": 0.2
+  },
+
+  "//models": "id = name shown in the app + sent as ?model=<id>; type = nemo_ctc | nemo_transducer.",
+  "models": [
+    {
+      "id": "parakeet-ja",
+      "dir": "models/sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8",
+      "type": "nemo_ctc"
+    },
+    {
+      "id": "parakeet-v3-multilingual",
+      "dir": "/opt/parakeet/parakeet-tdt-0.6b-v3-int8",
+      "type": "nemo_transducer"
+    }
+  ]
+}

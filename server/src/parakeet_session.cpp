@@ -16,7 +16,10 @@ ParakeetSession::ParakeetSession(uint64_t id, DecodeScheduler& scheduler,
 
 ParakeetSession::~ParakeetSession() {
     stop();
-    if (vad_) SherpaOnnxDestroyVoiceActivityDetector(vad_);
+    if (vad_) {
+        SherpaOnnxDestroyVoiceActivityDetector(vad_);
+        vad_ = nullptr;
+    }
 }
 
 bool ParakeetSession::create_vad() {
@@ -37,7 +40,14 @@ bool ParakeetSession::create_vad() {
     cfg.provider = "cpu";
     cfg.debug = 0;
 
-    vad_ = SherpaOnnxCreateVoiceActivityDetector(&cfg, 30.0f);
+    // Buffer size mirrors the local ParakeetTranscriber (fixed 30 s).
+    try {
+        vad_ = SherpaOnnxCreateVoiceActivityDetector(&cfg, 30.0f);
+    } catch (const std::exception& e) {
+        LOG_ERROR(std::string("ParakeetSession: exception creating VAD: ") + e.what());
+        vad_ = nullptr;
+        return false;
+    }
     if (!vad_) {
         LOG_ERROR("ParakeetSession: failed to create Silero VAD from " + vad_model_path_);
         return false;
@@ -52,6 +62,39 @@ bool ParakeetSession::start() {
     last_partial_time_ = std::chrono::steady_clock::now();
     worker_ = std::thread([this] { worker_loop(); });
     return true;
+}
+
+void ParakeetSession::set_vad_params(const ServerVadParams& params) {
+    {
+        std::lock_guard<std::mutex> lk(vad_params_mutex_);
+        pending_params_ = params;
+    }
+    vad_dirty_.store(true);
+    audio_cv_.notify_one();  // wake the worker so the change applies promptly
+}
+
+// Worker thread only: destroy + recreate the VAD with the new params (mirrors
+// ParakeetTranscriber::rebuild_vad).
+void ParakeetSession::rebuild_vad() {
+    if (vad_) {
+        SherpaOnnxDestroyVoiceActivityDetector(vad_);
+        vad_ = nullptr;
+    }
+    speech_buf_.clear();
+    vad_remainder_.clear();
+    last_partial_time_ = std::chrono::steady_clock::now();
+    if (!create_vad()) {
+        LOG_ERROR("ParakeetSession " + std::to_string(id_) + ": VAD rebuild failed");
+        running_.store(false);
+    }
+}
+
+void ParakeetSession::apply_vad_change() {
+    {
+        std::lock_guard<std::mutex> lk(vad_params_mutex_);
+        params_ = pending_params_;
+    }
+    rebuild_vad();
 }
 
 void ParakeetSession::stop() {
@@ -84,11 +127,15 @@ DecodeScheduler::ResultSink ParakeetSession::make_sink() {
 
 void ParakeetSession::worker_loop() {
     while (running_.load()) {
+        if (vad_dirty_.exchange(false)) {
+            apply_vad_change();
+            if (!running_.load()) break;
+        }
         std::vector<float> incoming;
         {
             std::unique_lock<std::mutex> lk(audio_mutex_);
             audio_cv_.wait_for(lk, std::chrono::milliseconds(20), [this] {
-                return !running_.load() || !audio_pending_.empty();
+                return !running_.load() || vad_dirty_.load() || !audio_pending_.empty();
             });
             if (!running_.load()) break;
             if (audio_pending_.empty()) continue;

@@ -4,7 +4,9 @@
 // dedicated lightweight worker thread: it detects speech segments and submits
 // decode jobs to the shared DecodeScheduler. Decoding itself happens on the
 // scheduler's single thread against the one shared recognizer, so per-session
-// cost is just the (tiny) VAD plus audio buffers.
+// cost is just the VAD plus audio buffers. VAD handling mirrors the local
+// ParakeetTranscriber: same buffer size, and live set_vad_params() that rebuilds
+// the VAD on the worker thread (no reconnect).
 #include "decode_scheduler.h"
 
 #include <atomic>
@@ -22,6 +24,7 @@ struct SherpaOnnxVoiceActivityDetector;  // opaque (sherpa-onnx C API)
 
 namespace ais {
 
+// Silero VAD + simulated-streaming parameters (durations in seconds).
 struct ServerVadParams {
     float threshold = 0.3f;
     float min_silence = 0.5f;
@@ -48,10 +51,15 @@ public:
     // Thread-safe; called from the uWS loop thread on each inbound audio frame.
     void feed_audio(const float* samples, size_t count);
 
+    // Thread-safe; the worker thread rebuilds the VAD on its next tick.
+    void set_vad_params(const ServerVadParams& params);
+
     uint64_t id() const { return id_; }
 
 private:
     bool create_vad();
+    void rebuild_vad();       // worker thread only
+    void apply_vad_change();  // worker thread only
     void worker_loop();
     void process_audio(std::vector<float>& incoming);
     DecodeScheduler::ResultSink make_sink();
@@ -59,7 +67,7 @@ private:
     uint64_t id_;
     DecodeScheduler& scheduler_;
     std::string vad_model_path_;
-    ServerVadParams params_;
+    ServerVadParams params_;  // worker-thread-owned once running
     TranscriptCallback on_transcript_;
 
     const SherpaOnnxVoiceActivityDetector* vad_ = nullptr;
@@ -70,6 +78,13 @@ private:
     std::mutex audio_mutex_;
     std::condition_variable audio_cv_;
     std::vector<float> audio_pending_;
+
+    // Live VAD-parameter update channel: set_vad_params() stashes into
+    // pending_params_ + raises vad_dirty_; the worker rebuilds the VAD on its own
+    // thread so the VAD object is never destroyed while in use.
+    std::mutex vad_params_mutex_;
+    ServerVadParams pending_params_;
+    std::atomic<bool> vad_dirty_{false};
 
     // worker-thread-only VAD state
     std::vector<float> vad_remainder_;

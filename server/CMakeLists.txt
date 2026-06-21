@@ -40,6 +40,7 @@ add_executable(subflow-parakeet-server
     src/parakeet_model.cpp
     src/decode_scheduler.cpp
     src/parakeet_session.cpp
+    src/model_registry.cpp
     src/parakeet_ws_server.cpp
 )
 

@@ -72,7 +72,17 @@ bool ParakeetModel::load() {
 
     LOG_INFO("ParakeetModel: creating shared offline recognizer (type=" + config_.model_type +
              ", threads=" + std::to_string(config_.num_threads) + ", provider=" + config_.provider + ")");
-    recognizer_ = SherpaOnnxCreateOfflineRecognizer(&config);
+    // onnxruntime throws (Ort::Exception) on a corrupt/incomplete model rather
+    // than returning null. Because models load lazily on a worker thread, an
+    // uncaught throw would std::terminate the whole server — so contain it here
+    // and report a clean failure for just this model.
+    try {
+        recognizer_ = SherpaOnnxCreateOfflineRecognizer(&config);
+    } catch (const std::exception& e) {
+        LOG_ERROR(std::string("ParakeetModel: exception loading recognizer: ") + e.what());
+        recognizer_ = nullptr;
+        return false;
+    }
     if (!recognizer_) {
         LOG_ERROR("ParakeetModel: failed to create recognizer from " + config_.model_dir);
         return false;
