@@ -281,10 +281,12 @@ export function App() {
                 {deepgramConnected ? (
                   <span className="badge badge-success" title={
                     sttProvider === 'parakeet' ? t('parakeet.connected.title')
+                    : sttProvider === 'remote_parakeet' ? t('remoteParakeet.connected.title')
                     : sttProvider === 'gladia' ? t('gladia.connected.title')
                     : t('deepgram.connected.title')
                   }>
                     {sttProvider === 'parakeet' ? t('parakeet.connected')
+                    : sttProvider === 'remote_parakeet' ? t('remoteParakeet.connected')
                     : sttProvider === 'gladia' ? t('gladia.connected')
                     : t('deepgram.connected')}
                   </span>
