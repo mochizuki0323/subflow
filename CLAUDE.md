@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is SubFlow
 
-Real-time speech captioning desktop app. Captures system audio, transcribes via cloud STT (Deepgram Nova-3 or Gladia Solaria-1) or local ASR (NVIDIA Parakeet via sherpa-onnx), optionally translates via LLM (OpenAI-compatible or Anthropic API). Displays subtitles in a floating overlay window.
+Real-time speech captioning desktop app. Captures system audio, transcribes via cloud STT (Deepgram Nova-3 or Gladia Solaria-1), local ASR (NVIDIA Parakeet via sherpa-onnx), or a self-hosted remote Parakeet inference server, optionally translates via LLM (OpenAI-compatible or Anthropic API). Displays subtitles in a floating overlay window.
 
 ## Build Commands
 
@@ -36,7 +36,7 @@ No test framework is configured.
 
 Three-process model:
 
-1. **C++ Backend** (`src/backend/`) — Standalone executable (`subflow-backend`). Captures audio (PipeWire on Linux, WASAPI on Windows) at per-application or device level, transcribes via one of three providers, broadcasts transcripts over a local WebSocket server on port 9876. The `--provider` CLI arg selects which transcriber to use. `DeepgramTranscriber` connects directly to `api.deepgram.com`; `GladiaTranscriber` first POSTs to `api.gladia.io/v2/live` to create a session, then connects to the returned WebSocket URL; `ParakeetTranscriber` runs sherpa-onnx offline ASR locally with simulated streaming (Silero VAD + periodic re-decode). Per-app capture uses PipeWire node targeting on Linux and `AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK` on Windows (requires Build 20348+).
+1. **C++ Backend** (`src/backend/`) — Standalone executable (`subflow-backend`). Captures audio (PipeWire on Linux, WASAPI on Windows) at per-application or device level, transcribes via one of four providers, broadcasts transcripts over a local WebSocket server on port 9876. The `--provider` CLI arg selects which transcriber to use. `DeepgramTranscriber` connects directly to `api.deepgram.com`; `GladiaTranscriber` first POSTs to `api.gladia.io/v2/live` to create a session, then connects to the returned WebSocket URL; `ParakeetTranscriber` runs sherpa-onnx offline ASR locally with simulated streaming (Silero VAD + periodic re-decode); `RemoteParakeetTranscriber` streams audio to a remote Parakeet server and receives transcripts back. All WebSocket/HTTP clients go through the Boost.Beast layer in `src/backend/net/` (see Networking). Per-app capture uses PipeWire node targeting on Linux and `AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK` on Windows (requires Build 20348+).
 
 2. **Electron Main Process** (`src/frontend/main/`) — Spawns the C++ backend, connects to it via WebSocket (`WsClient`), manages three Electron windows, handles config persistence, and runs LLM translation.
 
@@ -56,12 +56,23 @@ Two model families are supported: `nemo_ctc` (single `model.int8.onnx`, e.g. Jap
 
 The backend receives model dir, type, and VAD model path via `--parakeet-model-dir`, `--parakeet-model-type`, `--parakeet-vad-model` CLI args.
 
+### Networking (`net/`)
+
+All C++ WebSocket and HTTP clients are unified on **Boost.Beast** behind a Boost-free interface: `net::WsClient` (`ws_client.h` + `beast_ws_client.cpp`, async single-IO-thread, ws+wss, reconnect) and `net::HttpClient` (`http_client.{h,cpp}`, sync). Deepgram, Gladia, and the remote-Parakeet client all use this layer. Boost is header-only and vendored by `scripts/setup-boost.sh` into `extern/boost/` (gitignored); the backend CMake `FATAL_ERROR`s without it. `subflow_net` is a STATIC lib linked into `subflow-backend`.
+
+### Remote Parakeet (`remote_parakeet` provider + standalone server)
+
+`RemoteParakeetTranscriber` (`remote_parakeet_transcriber.{h,cpp}`) is a thin client over `net::WsClient`: it streams 16 kHz mono int16 PCM binary frames to a remote server and parses JSON transcript frames back. The server is selected via `--remote-parakeet-url` (`ws://`/`wss://`), `--remote-parakeet-api-key` (optional Bearer), and `--remote-parakeet-model` (server model id, sent as `?model=<id>` on the WS URL). Server-side VAD is tuned per connection: the client sends a `set_vad` control frame on connect and on change, reusing the same `--parakeet-vad-*` CLI args / `ParakeetVadParams` as the local provider (no restart).
+
+The **standalone server** lives in the top-level `server/` directory (a separate deliverable, NOT under `src/backend/`; built with `server/build.sh` → `subflow-parakeet-server`, Linux-only, own `CMakeLists.txt`, no Boost/OpenSSL/pipewire). Architecture: a `ModelRegistry` holds one shared `ParakeetModel` (recognizer) + `DecodeScheduler` (batched, single dispatcher thread) **per model id**, loaded lazily on first use and shared across all connections (model RAM is O(models), not O(clients)); each connection gets its own `ParakeetSession` (own Silero VAD + worker thread, mirroring the local transcriber's create/rebuild/destroy). It serves over uWebSockets: `GET /models` lists models, `GET /healthz`, `GET /metrics`, and `/*` upgrades to WS (Bearer auth + `?model=` validated at upgrade). Config is a single JSON (auto-loaded from `<exe-dir>/config/config.json` or `./config/config.json`, or `--config <path>`; CLI flags override individual fields) holding all server settings + the model list; relative paths resolve against the config file. See `server/config.example.json`. Note: sherpa's VAD bundles model+state per ORT session and cannot be shared across concurrent streams, so each live session holds its own VAD (~17 MB) — only the recognizer is shared.
+
 ### Data flow
 
 ```
 Audio Source → C++ Backend → [optional sherpa-onnx denoise]
   → Cloud STT: [Deepgram/Gladia WebSocket] → transcript JSON
   → Local STT: [Silero VAD → Parakeet offline decode (dedicated thread)] → transcript JSON
+  → Remote STT: [int16 PCM → remote Parakeet server (server-side VAD + shared recognizer)] → transcript JSON
   → Electron Main (WsClient) → [optional LLM translation] → IPC → Renderer windows
 ```
 
@@ -73,7 +84,7 @@ Audio Source → C++ Backend → [optional sherpa-onnx denoise]
 
 ### Config system
 
-`UnifiedConfigManager` in `unified-config.ts` manages all settings in a single `config/subflow-config.json` file. Sections: `provider`, `deepgram`, `gladia`, `parakeet`, `translator`, `app`, `ui`, `windowPositions`, `denoiser`. The `provider` field (`"deepgram"`, `"gladia"`, or `"parakeet"`) selects which STT service to use. Auto-migrates from legacy per-file configs on first run. Config directory varies by platform: repo root (dev), next to exe (Windows packaged), `~/.config/subflow_settings` (Linux packaged).
+`UnifiedConfigManager` in `unified-config.ts` manages all settings in a single `config/subflow-config.json` file. Sections: `provider`, `deepgram`, `gladia`, `parakeet`, `remoteParakeet`, `translator`, `app`, `ui`, `windowPositions`, `denoiser`. The `provider` field (`"deepgram"`, `"gladia"`, `"parakeet"`, or `"remote_parakeet"`) selects which STT service to use. `remoteParakeet` holds `serverUrl`, `apiKey`, `model`, and `vad` (per-client VAD tuning). Auto-migrates from legacy per-file configs on first run. Config directory varies by platform: repo root (dev), next to exe (Windows packaged), `~/.config/subflow_settings` (Linux packaged). (This app config is unrelated to the standalone server's own `config/config.json`.)
 
 ### Translation
 
@@ -81,11 +92,11 @@ Audio Source → C++ Backend → [optional sherpa-onnx denoise]
 
 ## Cross-compilation
 
-Windows builds are cross-compiled from Linux using MinGW-w64. Required packages (Fedora): `mingw64-gcc-c++`, `mingw64-winpthreads-static`, `mingw64-openssl`, `mingw64-openssl-static`, `mingw64-zlib-static`, `mingw64-binutils`. The exe icon is set via `resedit` (pure Node.js) in the `afterPack` hook — no Wine needed. Before building, run `scripts/setup-sherpa-onnx.sh <target>` to download pre-built sherpa-onnx libraries.
+Windows builds are cross-compiled from Linux using MinGW-w64. Required packages (Fedora): `mingw64-gcc-c++`, `mingw64-winpthreads-static`, `mingw64-openssl`, `mingw64-openssl-static`, `mingw64-zlib-static`, `mingw64-binutils`. The exe icon is set via `resedit` (pure Node.js) in the `afterPack` hook — no Wine needed. Before building, run `scripts/setup-sherpa-onnx.sh <target>` to download pre-built sherpa-onnx libraries and `scripts/setup-boost.sh` to vendor Boost headers (header-only, one setup serves both Linux and MinGW).
 
 ## Key conventions
 
 - UI supports Chinese and English (`src/frontend/renderer/shared/i18n.ts`). All user-visible strings use the `t('key')` function.
 - Theme system broadcasts CSS variables to all windows. Dark/light/system modes with optional wallpaper accent color extraction.
-- The `BackendManager` spawns the C++ process with CLI args (`--provider`, `--api-key`, `--model`, `--language`, `--extra-params`, `--gladia-api-key`, `--gladia-model`, `--gladia-config`, `--parakeet-model-dir`, `--parakeet-model-type`, `--parakeet-vad-model`, `--denoise`, `--denoise-model`, `--denoise-arch`). `--gladia-config` is a JSON string of Gladia feature flags (code_switching, speech_threshold, endpointing, translation, etc.) parsed in `GladiaTranscriber::build_init_body()`. Changing STT provider or config triggers a full backend restart. Changing language only triggers a WebSocket reconnect (no restart). Changing denoise settings sends a `SET_DENOISE` command without restart.
-- Settings save behavior: Deepgram tab, Language tab, Denoise tab, and Parakeet tab use deferred save with explicit save button. Sidebar theme/language settings and the interim results toggle save immediately.
+- The `BackendManager` spawns the C++ process with CLI args (`--provider`, `--api-key`, `--model`, `--language`, `--extra-params`, `--gladia-api-key`, `--gladia-model`, `--gladia-config`, `--parakeet-model-dir`, `--parakeet-model-type`, `--parakeet-vad-model`, `--parakeet-vad-*` VAD tuning, `--remote-parakeet-url`, `--remote-parakeet-api-key`, `--remote-parakeet-model`, `--denoise`, `--denoise-model`, `--denoise-arch`). The `--parakeet-vad-*` args apply to both the local Parakeet provider and the remote one. `--gladia-config` is a JSON string of Gladia feature flags (code_switching, speech_threshold, endpointing, translation, etc.) parsed in `GladiaTranscriber::build_init_body()`. Changing STT provider or config triggers a full backend restart. Changing language only triggers a WebSocket reconnect (no restart). Changing denoise or VAD settings sends a `SET_DENOISE` / `SET_VAD` command without restart (the `set_vad` command is routed to both the local and remote Parakeet transcribers).
+- Settings save behavior: Deepgram tab, Language tab, Denoise tab, Parakeet tab, and Parakeet Server tab use deferred save with explicit save button; VAD tuning (Parakeet + Parakeet Server) applies live via `set_vad`. Sidebar theme/language settings and the interim results toggle save immediately.

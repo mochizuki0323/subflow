@@ -26,6 +26,7 @@ SubFlow 是一款基于云端 STT（Deepgram / Gladia）与本地 ASR（NVIDIA P
 
 - **实时转录** — Deepgram Nova-3、Gladia Solaria-1 或 NVIDIA Parakeet 本地 ASR（可在设置中切换）
 - **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言，无需 API Key
+- **远程 Parakeet 服务器** — 将应用指向自建的 Parakeet 推理服务器（`remote_parakeet` provider）：一份已加载的模型被所有客户端共享，可在应用内拉取可用模型列表，VAD 参数可按连接运行时调整
 - **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音，提升识别准确率
 - **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
 - **可选 LLM 层** — OpenAI 兼容与 Anthropic 等接口：翻译与后处理（场景提示词、历史上下文及相关选项）
@@ -87,8 +88,11 @@ git clone --recursive https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
 
-# 下载预编译的 sherpa-onnx 库（降噪功能所需）
+# 下载预编译的 sherpa-onnx 库（降噪 / Parakeet 所需）
 bash scripts/setup-sherpa-onnx.sh
+
+# 拉取 Boost 头文件（后端的 WebSocket/HTTP 层所需）
+bash scripts/setup-boost.sh
 
 # 构建全部（后端 + 前端）
 bash scripts/build.sh
@@ -112,6 +116,33 @@ bash scripts/dist-windows.sh
 
 - **Linux**（AppImage / deb / rpm）：`~/.config/subflow_settings/config/`
 - **Windows**：exe 同目录下的 `config/` 文件夹
+
+## 自建 Parakeet 服务器
+
+`server/` 目录可构建一个独立的推理服务器（`subflow-parakeet-server`），把 Parakeet ASR 放到一台存放模型的机器上、通过网络为多个客户端服务，而不必在每台设备本地跑模型。
+
+```bash
+# 一次性：为服务器拉取 sherpa-onnx
+bash scripts/setup-sherpa-onnx.sh linux-x64
+
+# 构建 → server/build/bin/subflow-parakeet-server
+bash server/build.sh
+```
+
+服务器由单个 JSON 配置驱动，默认从二进制同目录的 `config/config.json` 自动加载（也可用 `--config <path>` 指定；命令行参数会覆盖对应字段）。配置里的相对路径相对配置文件所在目录解析。参见 `server/config.example.json`：
+
+```json
+{
+  "port": 9090,
+  "api_key": "",
+  "vad_model": "silero_vad.onnx",
+  "models": [
+    { "id": "parakeet-ja", "dir": "models/<模型文件夹>", "type": "nemo_ctc" }
+  ]
+}
+```
+
+每个模型的 `id` 即应用中显示并选择的名称；`type` 为 `nemo_ctc` 或 `nemo_transducer`。在应用中选择 **Parakeet 服务器** provider，填入服务器地址（局域网 `ws://host:9090` 或公网 `wss://...`），拉取模型列表并选择一个模型。TLS 由服务器前置的反向代理终止。
 
 ## 许可证
 
