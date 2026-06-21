@@ -12,6 +12,15 @@
 
 namespace ais {
 
+// Tunable Silero VAD / simulated-streaming parameters. Durations in seconds.
+struct ParakeetVadParams {
+    float threshold = 0.3f;          // speech probability cutoff (0..1)
+    float min_silence = 0.5f;        // silence before a segment closes
+    float min_speech = 0.25f;        // shortest accepted speech segment
+    float max_speech = 15.0f;        // force-cut very long speech
+    float partial_interval = 0.2f;   // re-decode period for interim results
+};
+
 // Simulated streaming with separate decode thread:
 //   Pipeline thread: runs Silero VAD, accumulates speech, queues decode requests
 //   Decode thread:   runs offline ASR, produces TranscriptSegment results
@@ -21,10 +30,17 @@ namespace ais {
 // the segment, the full segment is decoded as a final result.
 class ParakeetTranscriber : public ITranscriber {
 public:
+    using VadParams = ParakeetVadParams;
+
     explicit ParakeetTranscriber(std::string model_dir,
                                  std::string model_type,
-                                 std::string vad_model);
+                                 std::string vad_model,
+                                 VadParams params = {});
     ~ParakeetTranscriber() override;
+
+    // Apply new VAD parameters at runtime (no restart). Thread-safe; the VAD is
+    // rebuilt lazily on the pipeline thread inside process().
+    void set_vad_params(const VadParams& params);
 
     bool load_model(const std::string& path) override;
     void set_language(const std::string& lang) override;
@@ -36,6 +52,7 @@ public:
 private:
     bool create_recognizer();
     bool create_vad();
+    void rebuild_vad();
     std::string resolve_file(const std::string& name) const;
     std::string decode_buffer(const float* samples, int32_t n);
     void decode_thread_func();
@@ -91,8 +108,16 @@ private:
 
     static constexpr int SAMPLE_RATE = 16000;
     static constexpr int VAD_WINDOW = 512;
-    static constexpr float PARTIAL_INTERVAL = 0.2f;
-    static constexpr float MAX_SPEECH_SEC = 15.0f;
+
+    // Active VAD parameters (pipeline-thread only once applied)
+    VadParams params_;
+
+    // Runtime update channel: set_vad_params() stashes into pending_params_ and
+    // raises vad_dirty_; process() applies them + rebuilds the VAD on the
+    // pipeline thread so impl_->vad is never touched concurrently.
+    std::mutex vad_params_mutex_;
+    VadParams pending_params_;
+    std::atomic<bool> vad_dirty_{false};
 };
 
 } // namespace ais

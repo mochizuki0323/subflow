@@ -26,6 +26,7 @@ SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / G
 
 - **Real-time transcription** — Deepgram Nova-3, Gladia Solaria-1, or NVIDIA Parakeet local ASR (switchable in settings)
 - **Local ASR (Parakeet)** — Offline speech-to-text via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages; no API key needed
+- **Remote Parakeet server** — Point the app at a self-hosted Parakeet inference server (`remote_parakeet` provider): one loaded model is shared across all clients, available models are listed in-app, and VAD is tunable per connection at runtime
 - **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription for cleaner results
 - **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
 - **Optional LLM layer** — OpenAI-compatible and Anthropic APIs: translation and post-processing (scene prompts, historical context, and related options)
@@ -87,8 +88,11 @@ git clone --recursive https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
 
-# Download pre-built sherpa-onnx libraries (required for denoising)
+# Download pre-built sherpa-onnx libraries (required for denoising / Parakeet)
 bash scripts/setup-sherpa-onnx.sh
+
+# Vendor Boost headers (required by the backend's WebSocket/HTTP layer)
+bash scripts/setup-boost.sh
 
 # Build everything (backend + frontend)
 bash scripts/build.sh
@@ -112,6 +116,33 @@ bash scripts/dist-windows.sh
 
 - **Linux** (AppImage / deb / rpm): `~/.config/subflow_settings/config/`
 - **Windows**: `config/` folder next to the executable
+
+## Self-hosted Parakeet server
+
+The `server/` directory builds a standalone inference server (`subflow-parakeet-server`) so Parakeet ASR can run on a machine that holds the models and serve multiple clients over the network, instead of running the model locally on each device.
+
+```bash
+# One-time: fetch sherpa-onnx for the server
+bash scripts/setup-sherpa-onnx.sh linux-x64
+
+# Build → server/build/bin/subflow-parakeet-server
+bash server/build.sh
+```
+
+The server is driven by a single JSON config, auto-loaded from `config/config.json` next to the binary (or pass `--config <path>`; CLI flags override individual fields). Relative paths resolve against the config file's location. See `server/config.example.json`:
+
+```json
+{
+  "port": 9090,
+  "api_key": "",
+  "vad_model": "silero_vad.onnx",
+  "models": [
+    { "id": "parakeet-ja", "dir": "models/<model-folder>", "type": "nemo_ctc" }
+  ]
+}
+```
+
+Each model `id` is what the app shows and selects; `type` is `nemo_ctc` or `nemo_transducer`. In the app, choose the **Parakeet Server** provider, enter the server address (`ws://host:9090` on a LAN or `wss://...` over the internet), fetch the model list, and pick a model. TLS is terminated by a reverse proxy in front of the server.
 
 ## License
 

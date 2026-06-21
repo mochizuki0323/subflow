@@ -48,7 +48,7 @@ export interface DeepgramConfig {
   features: DeepgramFeatures;
 }
 
-export type SttProvider = 'deepgram' | 'gladia' | 'parakeet';
+export type SttProvider = 'deepgram' | 'gladia' | 'parakeet' | 'remote_parakeet';
 
 export interface CustomVocabularyItem {
   value: string;
@@ -114,8 +114,30 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
+export interface ParakeetVadConfig {
+  threshold: number;
+  minSilence: number;
+  minSpeech: number;
+  maxSpeech: number;
+  partialInterval: number;
+}
+
 export interface ParakeetConfig {
   modelId: string;
+  vad: ParakeetVadConfig;
+}
+
+export interface RemoteParakeetConfig {
+  serverUrl: string;
+  apiKey: string;
+  model: string;
+  vad: ParakeetVadConfig;
+}
+
+// One model advertised by a remote Parakeet server (GET /models).
+export interface RemoteParakeetModelInfo {
+  id: string;
+  type: string;
 }
 
 export interface ParakeetModelInfo {
@@ -185,6 +207,7 @@ export interface ElectronAPI {
 
   getParakeetConfig: () => Promise<ParakeetConfig>;
   setParakeetConfig: (config: Partial<ParakeetConfig>) => Promise<{ success: boolean }>;
+  setParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
   getParakeetModels: () => Promise<ParakeetModelInfo[]>;
   downloadParakeetModel: (modelId: string) => Promise<{ success: boolean; localDir?: string; error?: string }>;
   deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;
@@ -199,6 +222,11 @@ export interface ElectronAPI {
   getGladiaConfig: () => Promise<GladiaConfig>;
   setGladiaConfig: (config: Partial<GladiaConfig>) => Promise<{ success: boolean }>;
   fetchGladiaModels: () => Promise<{ success: boolean; models?: Array<{ name: string; description: string }>; error?: string }>;
+  getRemoteParakeetConfig: () => Promise<RemoteParakeetConfig>;
+  setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
+  testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;
+  fetchRemoteParakeetModels: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; models?: RemoteParakeetModelInfo[]; error?: string }>;
+  setRemoteParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;

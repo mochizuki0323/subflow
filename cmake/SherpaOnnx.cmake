@@ -2,7 +2,11 @@
 # Locate pre-built sherpa-onnx libraries downloaded by scripts/setup-sherpa-onnx.sh
 # and create an IMPORTED target `sherpa_onnx::c_api` for linking.
 
-set(SHERPA_ONNX_ROOT "${CMAKE_SOURCE_DIR}/extern/sherpa-onnx")
+# Default to the repo's extern/, but allow a caller (e.g. the standalone server
+# project) to point this at the repo root before include()-ing this module.
+if(NOT DEFINED SHERPA_ONNX_ROOT)
+    set(SHERPA_ONNX_ROOT "${CMAKE_SOURCE_DIR}/extern/sherpa-onnx")
+endif()
 set(SHERPA_ONNX_INCLUDE_DIR "${SHERPA_ONNX_ROOT}/include")
 
 # ── Determine library sub-directory for the current target ────────────────────
