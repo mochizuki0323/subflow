@@ -9,8 +9,9 @@ namespace ais {
 
 using json = nlohmann::json;
 
-RemoteParakeetTranscriber::RemoteParakeetTranscriber(std::string url, std::string api_key)
-    : url_(std::move(url)), api_key_(std::move(api_key)) {}
+RemoteParakeetTranscriber::RemoteParakeetTranscriber(std::string url, std::string api_key,
+                                                     std::string model, ParakeetVadParams vad)
+    : url_(std::move(url)), api_key_(std::move(api_key)), model_(std::move(model)), vad_(vad) {}
 
 RemoteParakeetTranscriber::~RemoteParakeetTranscriber() {
     if (ws_) ws_->stop();
@@ -23,6 +24,21 @@ bool RemoteParakeetTranscriber::load_model(const std::string& /*path*/) {
     }
     net::WsClientConfig cfg;
     cfg.url = url_;
+    // Select the server-side model via a query param. Model ids are plain folder
+    // names (alphanumerics / '-' / '.'), so no escaping is needed.
+    if (!model_.empty()) {
+        if (url_.find('?') != std::string::npos) {
+            cfg.url += "&model=" + model_;
+        } else {
+            // The query must sit after a path: "ws://host:port" → ".../?model=…".
+            // A query glued straight onto the port (".../:port?model") would be
+            // parsed as part of the port and break host/port resolution.
+            auto auth = url_.find("://");
+            auth = (auth == std::string::npos) ? 0 : auth + 3;
+            const bool has_path = url_.find('/', auth) != std::string::npos;
+            cfg.url += (has_path ? "?model=" : "/?model=") + model_;
+        }
+    }
     if (!api_key_.empty()) cfg.headers["Authorization"] = "Bearer " + api_key_;
     cfg.auto_reconnect = true;
 
@@ -30,7 +46,7 @@ bool RemoteParakeetTranscriber::load_model(const std::string& /*path*/) {
     ws_->set_on_message([this](const uint8_t* d, size_t n, bool bin) { on_message(d, n, bin); });
     ws_->set_on_state([this](net::WsState s, const std::string& det) { on_state(s, det); });
     ws_->start();
-    LOG_INFO("Remote Parakeet: connecting to " + url_);
+    LOG_INFO("Remote Parakeet: connecting to " + cfg.url);
     return true;
 }
 
@@ -40,6 +56,31 @@ void RemoteParakeetTranscriber::set_language(const std::string& lang) {
         json j = {{"type", "set_language"}, {"data", {{"language", lang}}}};
         ws_->send_text(j.dump());
     }
+}
+
+void RemoteParakeetTranscriber::set_vad_params(const ParakeetVadParams& params) {
+    {
+        std::lock_guard<std::mutex> lk(vad_mutex_);
+        vad_ = params;
+    }
+    send_vad_params();
+}
+
+void RemoteParakeetTranscriber::send_vad_params() {
+    if (!ws_ || !connected_.load()) return;  // re-sent on (re)connect via on_state
+    ParakeetVadParams p;
+    {
+        std::lock_guard<std::mutex> lk(vad_mutex_);
+        p = vad_;
+    }
+    json j = {{"type", "set_vad"}, {"data", {
+        {"threshold", p.threshold},
+        {"min_silence", p.min_silence},
+        {"min_speech", p.min_speech},
+        {"max_speech", p.max_speech},
+        {"partial_interval", p.partial_interval},
+    }}};
+    ws_->send_text(j.dump());
 }
 
 void RemoteParakeetTranscriber::feed_audio(const float* samples, size_t count) {
@@ -94,6 +135,7 @@ void RemoteParakeetTranscriber::on_state(net::WsState state, const std::string& 
             connected_ = true;
             LOG_INFO("Remote Parakeet: connected");
             if (language_ != "auto") set_language(language_);
+            send_vad_params();  // push this client's VAD tuning to the server session
             break;
         case net::WsState::Connecting:
             break;

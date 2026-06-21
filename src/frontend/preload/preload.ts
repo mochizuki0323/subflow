@@ -67,10 +67,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Remote Parakeet config
   getRemoteParakeetConfig: () => ipcRenderer.invoke('get-remote-parakeet-config'),
-  setRemoteParakeetConfig: (config: { serverUrl?: string; apiKey?: string }) =>
+  setRemoteParakeetConfig: (config: { serverUrl?: string; apiKey?: string; model?: string }) =>
     ipcRenderer.invoke('set-remote-parakeet-config', config),
   testRemoteParakeet: (serverUrl: string, apiKey: string) =>
     ipcRenderer.invoke('test-remote-parakeet', { serverUrl, apiKey }),
+  fetchRemoteParakeetModels: (serverUrl: string, apiKey: string) =>
+    ipcRenderer.invoke('fetch-remote-parakeet-models', { serverUrl, apiKey }),
+  setRemoteParakeetVadConfig: (vad: any) =>
+    ipcRenderer.invoke('set-remote-parakeet-vad-config', vad),
   getTranslatorConfig: () => ipcRenderer.invoke('get-translator-config'),
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   setUiLanguage: (lang: 'en' | 'zh') => ipcRenderer.invoke('set-ui-language', lang),

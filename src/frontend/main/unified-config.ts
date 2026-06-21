@@ -34,6 +34,8 @@ export interface ParakeetConfig {
 export interface RemoteParakeetConfig {
   serverUrl: string;   // ws:// or wss:// address of the remote Parakeet server
   apiKey: string;      // optional Bearer token
+  model: string;       // model id to select on the server (empty = server default)
+  vad: ParakeetVadConfig;  // per-client server-side VAD tuning
 }
 
 export interface DenoiserConfig {
@@ -104,6 +106,8 @@ const DEFAULT_PARAKEET: ParakeetConfig = {
 const DEFAULT_REMOTE_PARAKEET: RemoteParakeetConfig = {
   serverUrl: '',
   apiKey: '',
+  model: '',
+  vad: { ...DEFAULT_PARAKEET_VAD },
 };
 
 const DEFAULT_DENOISER: DenoiserConfig = {
@@ -186,6 +190,8 @@ function mergeRemoteParakeet(
   return {
     serverUrl: typeof partial.serverUrl === 'string' ? partial.serverUrl : base.serverUrl,
     apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : base.apiKey,
+    model: typeof partial.model === 'string' ? partial.model : base.model,
+    vad: mergeParakeetVad(base.vad, partial.vad),
   };
 }
 

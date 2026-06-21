@@ -130,6 +130,14 @@ export interface ParakeetConfig {
 export interface RemoteParakeetConfig {
   serverUrl: string;
   apiKey: string;
+  model: string;
+  vad: ParakeetVadConfig;
+}
+
+// One model advertised by a remote Parakeet server (GET /models).
+export interface RemoteParakeetModelInfo {
+  id: string;
+  type: string;
 }
 
 export interface ParakeetModelInfo {
@@ -217,6 +225,8 @@ export interface ElectronAPI {
   getRemoteParakeetConfig: () => Promise<RemoteParakeetConfig>;
   setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
   testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;
+  fetchRemoteParakeetModels: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; models?: RemoteParakeetModelInfo[]; error?: string }>;
+  setRemoteParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;

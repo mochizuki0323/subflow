@@ -23,6 +23,7 @@ export class BackendManager extends EventEmitter {
   private parakeetVad: ParakeetVadConfig;
   private remoteParakeetUrl: string;
   private remoteParakeetApiKey: string;
+  private remoteParakeetModel: string;
   private denoiseEnabled = false;
   private denoiseModelPath = '';
   private denoiseArch = '';
@@ -58,7 +59,7 @@ export class BackendManager extends EventEmitter {
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
-    remoteParakeetUrl?: string; remoteParakeetApiKey?: string;
+    remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
   }) {
     super();
     this.binaryPath = binaryPath;
@@ -77,6 +78,7 @@ export class BackendManager extends EventEmitter {
     this.parakeetVad = options?.parakeetVad || { ...DEFAULT_PARAKEET_VAD };
     this.remoteParakeetUrl = options?.remoteParakeetUrl || '';
     this.remoteParakeetApiKey = options?.remoteParakeetApiKey || '';
+    this.remoteParakeetModel = options?.remoteParakeetModel || '';
   }
 
   spawn(): void {
@@ -101,6 +103,14 @@ export class BackendManager extends EventEmitter {
     } else if (this.provider === 'remote_parakeet') {
       if (this.remoteParakeetUrl) args.push('--remote-parakeet-url', this.remoteParakeetUrl);
       if (this.remoteParakeetApiKey) args.push('--remote-parakeet-api-key', this.remoteParakeetApiKey);
+      if (this.remoteParakeetModel) args.push('--remote-parakeet-model', this.remoteParakeetModel);
+      // Server-side VAD is tuned per client; ship the initial values (reuses the
+      // same --parakeet-vad-* flags the local provider uses).
+      args.push('--parakeet-vad-threshold', String(this.parakeetVad.threshold));
+      args.push('--parakeet-vad-min-silence', String(this.parakeetVad.minSilence));
+      args.push('--parakeet-vad-min-speech', String(this.parakeetVad.minSpeech));
+      args.push('--parakeet-vad-max-speech', String(this.parakeetVad.maxSpeech));
+      args.push('--parakeet-partial-interval', String(this.parakeetVad.partialInterval));
     } else {
       if (this.apiKey) args.push('--api-key', this.apiKey);
       if (this.model) args.push('--model', this.model);
@@ -188,7 +198,7 @@ export class BackendManager extends EventEmitter {
     language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
-    remoteParakeetUrl?: string; remoteParakeetApiKey?: string;
+    remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
   }): void {
     if (opts.provider) this.provider = opts.provider;
     if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
@@ -204,6 +214,7 @@ export class BackendManager extends EventEmitter {
     if (opts.parakeetVad !== undefined) this.parakeetVad = opts.parakeetVad;
     if (opts.remoteParakeetUrl !== undefined) this.remoteParakeetUrl = opts.remoteParakeetUrl;
     if (opts.remoteParakeetApiKey !== undefined) this.remoteParakeetApiKey = opts.remoteParakeetApiKey;
+    if (opts.remoteParakeetModel !== undefined) this.remoteParakeetModel = opts.remoteParakeetModel;
     this.kill();
     this.shouldRestart = true;
     setTimeout(() => this.spawn(), 500);

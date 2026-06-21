@@ -39,6 +39,7 @@ struct Config {
     // Remote Parakeet inference server (provider "remote_parakeet")
     std::string remote_parakeet_url;       // ws:// or wss:// server URL
     std::string remote_parakeet_api_key;   // optional Bearer token
+    std::string remote_parakeet_model;     // model id to select on the server (optional)
 
     std::string language = "auto";
     bool translate = false;  // kept for API compat; translation is done by the LLM frontend

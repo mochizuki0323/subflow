@@ -25,8 +25,15 @@ Engine::Engine(const Config& config)
             config_.parakeet_model_dir, config_.parakeet_model_type,
             config_.parakeet_vad_model, vp);
     } else if (config_.provider == "remote_parakeet") {
+        ParakeetVadParams rvp;
+        rvp.threshold = config_.parakeet_vad_threshold;
+        rvp.min_silence = config_.parakeet_vad_min_silence;
+        rvp.min_speech = config_.parakeet_vad_min_speech;
+        rvp.max_speech = config_.parakeet_vad_max_speech;
+        rvp.partial_interval = config_.parakeet_partial_interval;
         transcriber_ = std::make_unique<RemoteParakeetTranscriber>(
-            config_.remote_parakeet_url, config_.remote_parakeet_api_key);
+            config_.remote_parakeet_url, config_.remote_parakeet_api_key,
+            config_.remote_parakeet_model, rvp);
     } else if (config_.provider == "gladia") {
         transcriber_ = std::make_unique<GladiaTranscriber>(
             config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
@@ -169,15 +176,19 @@ void Engine::setup_command_handlers() {
     });
 
     ws_server_.on_command(cmd::SET_VAD, [this](const json& data) {
-        // VAD tuning only applies to the local Parakeet transcriber.
-        if (config_.provider != "parakeet" || !transcriber_) return;
-        ParakeetTranscriber::VadParams p;
+        // VAD tuning applies to the local Parakeet transcriber and the remote one.
+        if (!transcriber_) return;
+        ParakeetVadParams p;
         p.threshold = data.value("threshold", 0.3f);
         p.min_silence = data.value("min_silence", 0.5f);
         p.min_speech = data.value("min_speech", 0.25f);
         p.max_speech = data.value("max_speech", 15.0f);
         p.partial_interval = data.value("partial_interval", 0.2f);
-        static_cast<ParakeetTranscriber*>(transcriber_.get())->set_vad_params(p);
+        if (config_.provider == "parakeet") {
+            static_cast<ParakeetTranscriber*>(transcriber_.get())->set_vad_params(p);
+        } else if (config_.provider == "remote_parakeet") {
+            static_cast<RemoteParakeetTranscriber*>(transcriber_.get())->set_vad_params(p);
+        }
     });
 
     ws_server_.on_command(cmd::START, [this](const json& /*data*/) {
