@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / Gladia) and local ASR (NVIDIA Parakeet). It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible and Anthropic APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
+SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / Gladia) and local ASR (NVIDIA Parakeet). It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible, Anthropic, and Google AI Studio (Gemini/Gemma) APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
 
 [中文](README.zh.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [License](LICENSE)
 
@@ -29,7 +29,7 @@ SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / G
 - **Remote Parakeet server** — Point the app at a self-hosted Parakeet inference server (`remote_parakeet` provider): one loaded model is shared across all clients, available models are listed in-app, and VAD is tunable per connection at runtime
 - **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription for cleaner results
 - **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
-- **Optional LLM layer** — OpenAI-compatible and Anthropic APIs: translation and post-processing (scene prompts, historical context, and related options)
+- **Optional LLM layer** — translation & post-processing via OpenAI-compatible, Anthropic, or Google AI Studio (Gemini/Gemma) APIs; scene prompts, history context, per-provider API keys, and a toggle to translate interim results or only final lines (skip interim to stay within rate limits)
 - **Gladia-specific features** — Server-side audio enhancer, live translation, sentiment analysis, named entity recognition, custom vocabulary, code switching
 - **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel; optional interim results display
 - **Multiple subtitle modes** — Original, translated, or bilingual display
