@@ -42,7 +42,7 @@ set(BOOST_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/extern/boost/include)
 if(NOT EXISTS "${BOOST_INCLUDE_DIR}/boost/beast.hpp")
     message(FATAL_ERROR
         "Boost headers not found.\n"
-        "Run: ./scripts/setup-boost.sh\n"
+        "Run: ./scripts/setup-deps.sh\n"
         "Expected: ${BOOST_INCLUDE_DIR}/boost/beast.hpp")
 endif()
 

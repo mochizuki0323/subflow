@@ -30,6 +30,13 @@ if [[ ! -f "${MINGW_SYSROOT}/include/openssl/opensslv.h" ]] && [[ ! -f "${MINGW_
     exit 1
 fi
 
+# Ensure vendored deps (uWebSockets/uSockets + nlohmann/json + Boost headers) are present
+if [[ ! -f "${ROOT}/extern/uWebSockets/uSockets/src/libusockets.h" ]] \
+    || [[ ! -f "${ROOT}/extern/nlohmann/json.hpp" ]] \
+    || [[ ! -f "${ROOT}/extern/boost/include/boost/beast.hpp" ]]; then
+    bash "${ROOT}/scripts/setup-deps.sh"
+fi
+
 BUILD_DIR="${ROOT}/build-mingw"
 TOOLCHAIN="${ROOT}/cmake/mingw-w64-toolchain.cmake"
 

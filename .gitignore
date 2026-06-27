@@ -29,11 +29,9 @@ scripts/generate-icon.sh
 # ML models (large binaries, download separately)
 models/
 
-# Pre-built sherpa-onnx libraries (downloaded by scripts/setup-sherpa-onnx.sh)
-extern/sherpa-onnx/
-
-# Vendored Boost headers (downloaded by scripts/setup-boost.sh)
-extern/boost/
+# Vendored C++ deps — all fetched by scripts (scripts/setup-deps.sh +
+# scripts/setup-sherpa-onnx.sh); nothing under extern/ is committed.
+extern/
 
 
 # Standalone Parakeet server build output

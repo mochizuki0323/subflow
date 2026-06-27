@@ -58,7 +58,9 @@ The backend receives model dir, type, and VAD model path via `--parakeet-model-d
 
 ### Networking (`net/`)
 
-All C++ WebSocket and HTTP clients are unified on **Boost.Beast** behind a Boost-free interface: `net::WsClient` (`ws_client.h` + `beast_ws_client.cpp`, async single-IO-thread, ws+wss, reconnect) and `net::HttpClient` (`http_client.{h,cpp}`, sync). Deepgram, Gladia, and the remote-Parakeet client all use this layer. Boost is header-only and vendored by `scripts/setup-boost.sh` into `extern/boost/` (gitignored); the backend CMake `FATAL_ERROR`s without it. `subflow_net` is a STATIC lib linked into `subflow-backend`.
+All C++ WebSocket and HTTP clients are unified on **Boost.Beast** behind a Boost-free interface: `net::WsClient` (`ws_client.h` + `beast_ws_client.cpp`, async single-IO-thread, ws+wss, reconnect) and `net::HttpClient` (`http_client.{h,cpp}`, sync). Deepgram, Gladia, and the remote-Parakeet client all use this layer. Boost is header-only and vendored by `scripts/setup-deps.sh` into `extern/boost/` (gitignored); the backend CMake `FATAL_ERROR`s without it. `subflow_net` is a STATIC lib linked into `subflow-backend`.
+
+Note on `extern/` provenance: the **entire `extern/` directory is gitignored** — nothing under it is committed (there are no git submodules). Two scripts reproduce it from pinned upstream versions: `scripts/setup-deps.sh` `git clone`s uWebSockets (release tag `v20.76.0`) + its `uSockets` dependency (only `uSockets` is fetched, not the `fuzzing`/`h1spec`/`libdeflate` nested submodules), downloads the nlohmann/json single header (`v3.11.3`), and downloads the header-only **Boost** subset into `extern/boost/` (Boost is a tarball download because its superproject is ~166 nested submodules + a `b2 headers` generation step); `scripts/setup-sherpa-onnx.sh` fetches sherpa-onnx separately (platform-specific, called with a `<target>`). The build scripts auto-run `setup-deps.sh` when a dependency is missing.
 
 ### Remote Parakeet (`remote_parakeet` provider + standalone server)
 
@@ -92,7 +94,7 @@ Audio Source → C++ Backend → [optional sherpa-onnx denoise]
 
 ## Cross-compilation
 
-Windows builds are cross-compiled from Linux using MinGW-w64. Required packages (Fedora): `mingw64-gcc-c++`, `mingw64-winpthreads-static`, `mingw64-openssl`, `mingw64-openssl-static`, `mingw64-zlib-static`, `mingw64-binutils`. The exe icon is set via `resedit` (pure Node.js) in the `afterPack` hook — no Wine needed. Before building, run `scripts/setup-sherpa-onnx.sh <target>` to download pre-built sherpa-onnx libraries and `scripts/setup-boost.sh` to vendor Boost headers (header-only, one setup serves both Linux and MinGW).
+Windows builds are cross-compiled from Linux using MinGW-w64. Required packages (Fedora): `mingw64-gcc-c++`, `mingw64-winpthreads-static`, `mingw64-openssl`, `mingw64-openssl-static`, `mingw64-zlib-static`, `mingw64-binutils`. The exe icon is set via `resedit` (pure Node.js) in the `afterPack` hook — no Wine needed. Before building, run `scripts/setup-deps.sh` to fetch the vendored deps (uWebSockets + uSockets, nlohmann/json, and the header-only Boost subset — one setup serves both Linux and MinGW), and `scripts/setup-sherpa-onnx.sh <target>` to download pre-built sherpa-onnx libraries.
 
 ## Key conventions
 

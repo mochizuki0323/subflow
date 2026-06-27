@@ -14,6 +14,12 @@ if [[ ! -f "$REPO_ROOT/extern/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h" ]];
     exit 1
 fi
 
+# Ensure vendored deps the server needs (uWebSockets/uSockets + nlohmann/json) are present
+if [[ ! -f "$REPO_ROOT/extern/uWebSockets/uSockets/src/libusockets.h" ]] \
+    || [[ ! -f "$REPO_ROOT/extern/nlohmann/json.hpp" ]]; then
+    bash "$REPO_ROOT/scripts/setup-deps.sh"
+fi
+
 BUILD_DIR="$ROOT/build"
 : "${BUILD_JOBS:=$(nproc 2>/dev/null || echo 4)}"
 

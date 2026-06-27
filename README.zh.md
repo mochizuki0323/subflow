@@ -10,9 +10,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT 许可证"></a>
 </p>
 
-SubFlow 是一款基于云端 STT（Deepgram / Gladia）与本地 ASR（NVIDIA Parakeet）开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容、Anthropic 或 Google AI Studio（Gemini/Gemma）等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
+SubFlow 是一款基于云端 ASR（Deepgram / Gladia）与 NVIDIA Parakeet ASR（可本地运行或连接自建远程服务器）开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容、Anthropic 或 Google AI Studio 等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
 
-[English](README.md) · [发行版](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
+[English](README.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
 
 ## 预览
 
@@ -24,13 +24,12 @@ SubFlow 是一款基于云端 STT（Deepgram / Gladia）与本地 ASR（NVIDIA P
 
 ## 功能特性
 
-- **实时转录** — Deepgram Nova-3、Gladia Solaria-1 或 NVIDIA Parakeet 本地 ASR（可在设置中切换）
-- **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言，无需 API Key
-- **远程 Parakeet 服务器** — 将应用指向自建的 Parakeet 推理服务器（`remote_parakeet` provider）：一份已加载的模型被所有客户端共享，可在应用内拉取可用模型列表，VAD 参数可按连接运行时调整
-- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音，提升识别准确率
+- **实时转录** — Deepgram Nova-3、Gladia Solaria-1、NVIDIA Parakeet 本地 ASR 或远程 Parakeet 服务器
+- **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言
+- **远程 Parakeet 服务器** — 将应用指向自建的 Parakeet 推理服务器：一份已加载的模型被所有客户端共享，可在应用内拉取可用模型列表，VAD 参数可按连接运行时调整
+- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音。注意：降噪在多数情况下可能反而*损害*识别准确率，建议仅在背景噪音明显时按需开启
 - **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
-- **可选 LLM 层** — 通过 OpenAI 兼容、Anthropic 或 Google AI Studio（Gemini/Gemma）接口进行翻译与后处理；支持场景提示词、历史上下文、按服务商分别保存 API Key，以及「仅翻译最终字幕 / 同时翻译中间结果」的开关（跳过中间结果可避免触发限流）
-- **Gladia 专属功能** — 服务端音频增强、实时翻译、情感分析、命名实体识别、自定义词汇、多语言切换
+- **可选 LLM 层** — 通过 OpenAI 兼容、Anthropic 或 Google AI Studio 接口进行翻译与后处理；支持场景提示词、历史上下文、按服务商分别保存 API Key，以及「仅翻译最终字幕 / 同时翻译中间结果」的开关（跳过中间结果可避免触发限流）
 - **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板；支持显示中间结果
 - **多种字幕模式** — 原文、翻译或双语显示
 - **深色 / 浅色 / 跟随系统** — 跟随桌面外观，支持壁纸取色
@@ -68,7 +67,7 @@ sudo dnf install subflow-*-linux-x86_64.rpm
 **Linux (Fedora):**
 
 ```bash
-sudo dnf install gcc-c++ clang cmake ninja-build \
+sudo dnf install git curl gcc-c++ clang cmake ninja-build \
   openssl-devel pipewire-devel \
   nodejs npm
 ```
@@ -76,7 +75,7 @@ sudo dnf install gcc-c++ clang cmake ninja-build \
 **Linux (Debian/Ubuntu):**
 
 ```bash
-sudo apt install build-essential clang cmake ninja-build \
+sudo apt install git curl build-essential clang cmake ninja-build \
   libssl-dev libpipewire-0.3-dev \
   nodejs npm
 ```
@@ -84,15 +83,15 @@ sudo apt install build-essential clang cmake ninja-build \
 ### 构建
 
 ```bash
-git clone --recursive https://github.com/mochizuki0323/subflow.git
+git clone https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
 
+# 拉取 vendored 依赖（uWebSockets + uSockets、nlohmann/json、Boost 头文件）
+bash scripts/setup-deps.sh
+
 # 下载预编译的 sherpa-onnx 库（降噪 / Parakeet 所需）
 bash scripts/setup-sherpa-onnx.sh
-
-# 拉取 Boost 头文件（后端的 WebSocket/HTTP 层所需）
-bash scripts/setup-boost.sh
 
 # 构建全部（后端 + 前端）
 bash scripts/build.sh

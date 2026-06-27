@@ -32,20 +32,18 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install Node dependencies
         run: npm ci
+
+      - name: Setup vendored deps (uWebSockets + uSockets, nlohmann/json, Boost)
+        run: bash scripts/setup-deps.sh
 
       - name: Setup sherpa-onnx (Linux)
         run: bash scripts/setup-sherpa-onnx.sh linux-x64
 
       - name: Setup sherpa-onnx (Windows)
         run: bash scripts/setup-sherpa-onnx.sh win-x64
-
-      - name: Setup Boost headers (header-only; serves both Linux and MinGW)
-        run: bash scripts/setup-boost.sh
 
       - name: Build C++ backend (Linux)
         run: |

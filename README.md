@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / Gladia) and local ASR (NVIDIA Parakeet). It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible, Anthropic, and Google AI Studio (Gemini/Gemma) APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
+SubFlow is a real-time speech captioning tool built with cloud ASR (Deepgram / Gladia) and NVIDIA Parakeet ASR (run locally or via a self-hosted remote server). It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible, Anthropic, and Google AI Studio APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
 
 [中文](README.zh.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [License](LICENSE)
 
@@ -24,13 +24,12 @@ SubFlow is a real-time speech captioning tool built with cloud STT (Deepgram / G
 
 ## Features
 
-- **Real-time transcription** — Deepgram Nova-3, Gladia Solaria-1, or NVIDIA Parakeet local ASR (switchable in settings)
-- **Local ASR (Parakeet)** — Offline speech-to-text via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages; no API key needed
-- **Remote Parakeet server** — Point the app at a self-hosted Parakeet inference server (`remote_parakeet` provider): one loaded model is shared across all clients, available models are listed in-app, and VAD is tunable per connection at runtime
-- **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription for cleaner results
+- **Real-time transcription** — Deepgram Nova-3, Gladia Solaria-1, NVIDIA Parakeet local ASR, or a remote Parakeet server
+- **Local ASR (Parakeet)** — Offline speech recognition via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages
+- **Remote Parakeet server** — Point the app at a self-hosted Parakeet inference server: one loaded model is shared across all clients, available models are listed in-app, and VAD is tunable per connection at runtime
+- **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription. Note: denoising often *hurts* accuracy rather than helping — enable it only when background noise is significant
 - **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
-- **Optional LLM layer** — translation & post-processing via OpenAI-compatible, Anthropic, or Google AI Studio (Gemini/Gemma) APIs; scene prompts, history context, per-provider API keys, and a toggle to translate interim results or only final lines (skip interim to stay within rate limits)
-- **Gladia-specific features** — Server-side audio enhancer, live translation, sentiment analysis, named entity recognition, custom vocabulary, code switching
+- **Optional LLM layer** — translation & post-processing via OpenAI-compatible, Anthropic, or Google AI Studio APIs; scene prompts, history context, per-provider API keys, and a toggle to translate interim results or only final lines (skip interim to stay within rate limits)
 - **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel; optional interim results display
 - **Multiple subtitle modes** — Original, translated, or bilingual display
 - **Dark / light / system theme** — Follows desktop appearance; supports wallpaper accent colors
@@ -68,7 +67,7 @@ Download from [Releases](../../releases).
 **Linux (Fedora):**
 
 ```bash
-sudo dnf install gcc-c++ clang cmake ninja-build \
+sudo dnf install git curl gcc-c++ clang cmake ninja-build \
   openssl-devel pipewire-devel \
   nodejs npm
 ```
@@ -76,7 +75,7 @@ sudo dnf install gcc-c++ clang cmake ninja-build \
 **Linux (Debian/Ubuntu):**
 
 ```bash
-sudo apt install build-essential clang cmake ninja-build \
+sudo apt install git curl build-essential clang cmake ninja-build \
   libssl-dev libpipewire-0.3-dev \
   nodejs npm
 ```
@@ -84,15 +83,15 @@ sudo apt install build-essential clang cmake ninja-build \
 ### Build
 
 ```bash
-git clone --recursive https://github.com/mochizuki0323/subflow.git
+git clone https://github.com/mochizuki0323/subflow.git
 cd subflow
 npm install
 
+# Fetch vendored deps (uWebSockets + uSockets, nlohmann/json, Boost headers)
+bash scripts/setup-deps.sh
+
 # Download pre-built sherpa-onnx libraries (required for denoising / Parakeet)
 bash scripts/setup-sherpa-onnx.sh
-
-# Vendor Boost headers (required by the backend's WebSocket/HTTP layer)
-bash scripts/setup-boost.sh
 
 # Build everything (backend + frontend)
 bash scripts/build.sh
