@@ -31,7 +31,12 @@ private:
     int port_;
     std::thread server_thread_;
     struct us_listen_socket_t* listen_socket_ = nullptr;
+
+    // loop_ lives in the server thread (freed when that thread exits); guard it
+    // and refuse broadcasts once stop() has begun so no defer() hits a dead loop.
+    std::mutex loop_mutex_;
     uWS::Loop* loop_ = nullptr;
+    bool stopped_ = false;
 
     std::mutex handlers_mutex_;
     std::map<std::string, CommandHandler> handlers_;

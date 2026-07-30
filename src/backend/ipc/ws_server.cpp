@@ -60,17 +60,25 @@ void WsServer::start() {
             }
         });
 
-        loop_ = uWS::Loop::get();
+        {
+            std::lock_guard<std::mutex> lock(loop_mutex_);
+            loop_ = uWS::Loop::get();
+        }
         app.run();
     });
 }
 
 void WsServer::stop() {
-    if (loop_ && listen_socket_) {
-        loop_->defer([this]() {
-            us_listen_socket_close(0, listen_socket_);
-            listen_socket_ = nullptr;
-        });
+    {
+        std::lock_guard<std::mutex> lock(loop_mutex_);
+        stopped_ = true;
+        if (loop_ && listen_socket_) {
+            loop_->defer([this]() {
+                us_listen_socket_close(0, listen_socket_);
+                listen_socket_ = nullptr;
+            });
+        }
+        loop_ = nullptr;
     }
     if (server_thread_.joinable()) {
         server_thread_.join();
@@ -78,9 +86,10 @@ void WsServer::stop() {
 }
 
 void WsServer::broadcast(const json& message) {
-    if (!loop_) return;
     std::string payload = message.dump();
 
+    std::lock_guard<std::mutex> lock(loop_mutex_);
+    if (stopped_ || !loop_) return;
     loop_->defer([this, payload]() {
         std::lock_guard<std::mutex> lock(clients_mutex_);
         for (auto* ws : clients_) {

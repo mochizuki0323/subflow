@@ -93,15 +93,37 @@ void Engine::stop() {
         pipeline_thread_.join();
     }
     audio_source_->stop_capture();
+    // Detach log forwarding before the WS server dies — later logs (including
+    // "Shutdown complete.") must not broadcast into a torn-down loop.
+    Logger::instance().set_callback(nullptr);
     ws_server_.stop();
+}
+
+void Engine::enqueue_command(std::function<void()> command) {
+    std::lock_guard<std::mutex> lock(command_mutex_);
+    pending_commands_.push_back(std::move(command));
+}
+
+void Engine::drain_commands() {
+    std::vector<std::function<void()>> commands;
+    {
+        std::lock_guard<std::mutex> lock(command_mutex_);
+        commands.swap(pending_commands_);
+    }
+    for (auto& command : commands) {
+        command();
+    }
 }
 
 void Engine::setup_command_handlers() {
     ws_server_.on_command(cmd::LIST_SOURCES, [this](const json& /*data*/) {
+        enqueue_command([this]() {
         send_source_list();
+        });
     });
 
     ws_server_.on_command(cmd::SELECT_SOURCE, [this](const json& data) {
+        enqueue_command([this, data]() {
         uint32_t id = data.value("id", 0u);
         if (id > 0) {
             // Find source name for UI display
@@ -118,9 +140,11 @@ void Engine::setup_command_handlers() {
             current_state_ = "capturing";
             send_status();
         }
+        });
     });
 
     ws_server_.on_command(cmd::LOAD_MODEL, [this](const json& data) {
+        enqueue_command([this, data]() {
         std::string key = data.value("api_key", "");
         if (!key.empty()) {
             if (config_.provider == "gladia") {
@@ -145,37 +169,47 @@ void Engine::setup_command_handlers() {
             }
             send_status();
         }
+        });
     });
 
     ws_server_.on_command(cmd::SET_LANGUAGE, [this](const json& data) {
+        enqueue_command([this, data]() {
         config_.language = data.value("language", "auto");
         transcriber_->set_language(config_.language);
         LOG_INFO("Language set to: " + config_.language);
         send_status();
+        });
     });
 
     ws_server_.on_command(cmd::SET_TRANSLATE, [this](const json& data) {
+        enqueue_command([this, data]() {
         config_.translate = data.value("translate", false);
         transcriber_->set_translate(config_.translate);
         LOG_INFO(std::string("Translate: ") + (config_.translate ? "on" : "off"));
         send_status();
+        });
     });
 
     ws_server_.on_command(cmd::SET_SUBTITLE_MODE, [this](const json& data) {
+        enqueue_command([this, data]() {
         config_.subtitle_mode = data.value("mode", "original");
         LOG_INFO("Subtitle mode set to: " + config_.subtitle_mode);
         send_status();
+        });
     });
 
     ws_server_.on_command(cmd::SET_DENOISE, [this](const json& data) {
+        enqueue_command([this, data]() {
         bool enabled = data.value("enabled", false);
         std::string model_path = data.value("model_path", "");
         std::string architecture = data.value("architecture", "");
         apply_denoise_config(model_path, architecture, enabled);
         send_status();
+        });
     });
 
     ws_server_.on_command(cmd::SET_VAD, [this](const json& data) {
+        enqueue_command([this, data]() {
         // VAD tuning applies to the local Parakeet transcriber and the remote one.
         if (!transcriber_) return;
         ParakeetVadParams p;
@@ -189,17 +223,22 @@ void Engine::setup_command_handlers() {
         } else if (config_.provider == "remote_parakeet") {
             static_cast<RemoteParakeetTranscriber*>(transcriber_.get())->set_vad_params(p);
         }
+        });
     });
 
     ws_server_.on_command(cmd::START, [this](const json& /*data*/) {
+        enqueue_command([this]() {
         current_state_ = "running";
         send_status();
+        });
     });
 
     ws_server_.on_command(cmd::STOP, [this](const json& /*data*/) {
+        enqueue_command([this]() {
         audio_source_->stop_capture();
         current_state_ = "idle";
         send_status();
+        });
     });
 }
 
@@ -212,6 +251,8 @@ void Engine::pipeline_loop() {
     bool was_connected = transcriber_->is_model_loaded();
 
     while (running_) {
+        drain_commands();
+
         auto& buffer = audio_source_->get_buffer();
         size_t read = buffer.read(chunk.data(), CHUNK_SIZE);
 

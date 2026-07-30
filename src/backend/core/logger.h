@@ -2,6 +2,7 @@
 #include <string>
 #include <functional>
 #include <cstdio>
+#include <mutex>
 
 // windows.h defines ERROR as a macro; ensure it never breaks this header if included later.
 #ifdef ERROR
@@ -22,12 +23,20 @@ public:
         return logger;
     }
 
-    void set_callback(LogCallback cb) { callback_ = std::move(cb); }
+    void set_callback(LogCallback cb) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        callback_ = std::move(cb);
+    }
 
     void log(Level level, const std::string& message) {
         const char* prefix[] = {"DEBUG", "INFO", "WARN", "ERROR"};
         std::fprintf(stderr, "[%s] %s\n", prefix[static_cast<int>(level)], message.c_str());
-        if (callback_) callback_(level, message);
+        LogCallback cb;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            cb = callback_;
+        }
+        if (cb) cb(level, message);
     }
 
     void debug(const std::string& msg) { log(Level::DEBUG, msg); }
@@ -37,6 +46,7 @@ public:
 
 private:
     Logger() = default;
+    std::mutex mutex_;
     LogCallback callback_;
 };
 
