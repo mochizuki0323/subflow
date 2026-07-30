@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { RemoteParakeetConfig, RemoteParakeetModelInfo, ParakeetVadConfig } from '../shared/types';
 import { t } from '../shared/i18n';
+import { usePending } from '../shared/pending';
+import { PendingBar } from './PendingBar';
 
 const VAD_DEFAULTS: ParakeetVadConfig = {
   threshold: 0.3,
@@ -22,49 +24,48 @@ const VAD_FIELDS: Array<{ key: keyof ParakeetVadConfig; min: number; max: number
 const tk = (key: string): string => t(key as Parameters<typeof t>[0]);
 
 export function RemoteParakeetSettings() {
-  const [config, setConfig] = useState<RemoteParakeetConfig>({ serverUrl: '', apiKey: '', model: '', vad: { ...VAD_DEFAULTS } });
-  const [dirty, setDirty] = useState(false);
+  const [saved, setSaved] = useState<RemoteParakeetConfig | null>(null);
+  const { draft: config, edit, commit, discard, changed } = usePending<RemoteParakeetConfig>('remoteParakeet', saved);
   const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [modelOptions, setModelOptions] = useState<RemoteParakeetModelInfo[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [vadDirty, setVadDirty] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [vadSaving, setVadSaving] = useState(false);
-  const [vadMsg, setVadMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    window.electronAPI.getRemoteParakeetConfig().then(setConfig);
+    window.electronAPI.getRemoteParakeetConfig().then(setSaved);
   }, []);
 
-  const update = (patch: Partial<RemoteParakeetConfig>) => {
-    setConfig(prev => ({ ...prev, ...patch }));
-    setDirty(true);
-    setSaveMsg(null);
-  };
+  const update = (patch: Partial<RemoteParakeetConfig>) => edit(patch);
 
-  const urlValid = /^wss?:\/\/.+/i.test(config.serverUrl.trim());
+  const urlValid = /^wss?:\/\/.+/i.test((config.serverUrl || '').trim());
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveMsg(null);
+  // Only the connection fields respawn the backend; the VAD is a live command.
+  const restartKeys: Array<keyof RemoteParakeetConfig> = ['serverUrl', 'apiKey', 'model'];
+  const needsRestart = changed.some((k) => restartKeys.includes(k));
+  const cost = needsRestart ? 'restart' : 'reconnect';
+
+  const handleApply = async () => {
+    setApplying(true);
     try {
-      await window.electronAPI.setRemoteParakeetConfig({
-        serverUrl: config.serverUrl.trim(),
-        apiKey: config.apiKey,
-        model: config.model,
-      });
-      setSaveMsg({ ok: true, text: t('remoteParakeet.saved') });
-      setDirty(false);
-    } catch {
-      setSaveMsg({ ok: false, text: t('remoteParakeet.saveFailed') });
+      if (needsRestart) {
+        await window.electronAPI.setRemoteParakeetConfig({
+          serverUrl: (config.serverUrl || '').trim(),
+          apiKey: config.apiKey,
+          model: config.model,
+        });
+      }
+      if (changed.includes('vad')) await window.electronAPI.setRemoteParakeetVadConfig(config.vad);
+      commit(config);
     } finally {
-      setSaving(false);
+      setApplying(false);
     }
   };
+
 
   const handleFetchModels = async () => {
     setFetchingModels(true);
@@ -86,27 +87,12 @@ export function RemoteParakeetSettings() {
   };
 
   const updateVad = (key: keyof ParakeetVadConfig, value: number) => {
-    setConfig(prev => ({ ...prev, vad: { ...prev.vad, [key]: value } }));
-    setVadDirty(true);
-    setVadMsg(null);
+    edit({ vad: { ...config.vad, [key]: value } });
   };
 
-  const handleApplyVad = async () => {
-    setVadSaving(true);
-    setVadMsg(null);
-    try {
-      const res = await window.electronAPI.setRemoteParakeetVadConfig(config.vad);
-      setVadMsg(res.applied === false ? t('settings.queued') : t('parakeet.vad.applied'));
-      setVadDirty(false);
-    } finally {
-      setVadSaving(false);
-    }
-  };
 
   const handleResetVad = () => {
-    setConfig(prev => ({ ...prev, vad: { ...VAD_DEFAULTS } }));
-    setVadDirty(true);
-    setVadMsg(null);
+    edit({ vad: { ...VAD_DEFAULTS } });
   };
 
   const handleTest = async () => {
@@ -126,6 +112,13 @@ export function RemoteParakeetSettings() {
 
   return (
     <>
+      <PendingBar
+        count={changed.length}
+        cost={cost}
+        applying={applying}
+        onApply={handleApply}
+        onDiscard={discard}
+      />
       <h2>{t('remoteParakeet.title')}</h2>
       <p className="hint">{t('remoteParakeet.hint')}</p>
 
@@ -195,19 +188,11 @@ export function RemoteParakeetSettings() {
       </div>
 
       <div className="form-group" style={{ marginTop: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn-primary" onClick={handleSave} disabled={saving || !dirty || !urlValid}>
-          {saving ? t('remoteParakeet.saving') : t('remoteParakeet.save')}
-        </button>
         <button className="btn-secondary" onClick={handleTest} disabled={testing || !urlValid}>
           {testing ? t('remoteParakeet.testing') : t('remoteParakeet.test')}
         </button>
       </div>
 
-      {saveMsg && (
-        <div className={`test-result ${saveMsg.ok ? 'test-success' : 'test-error'}`} style={{ marginTop: 8 }}>
-          {saveMsg.text}
-        </div>
-      )}
       {testMsg && (
         <div className={`test-result ${testMsg.ok ? 'test-success' : 'test-error'}`} style={{ marginTop: 8 }}>
           {testMsg.text}
@@ -254,13 +239,9 @@ export function RemoteParakeetSettings() {
           })}
 
           <div className="vad-actions">
-            <button className="btn-primary" onClick={handleApplyVad} disabled={vadSaving || !vadDirty}>
-              {t('parakeet.vad.apply')}
-            </button>
-            <button className="btn-secondary" onClick={handleResetVad} disabled={vadSaving}>
+            <button className="btn-secondary" onClick={handleResetVad} disabled={applying}>
               {t('parakeet.vad.reset')}
             </button>
-            {vadMsg && <span className="vad-applied">{vadMsg}</span>}
           </div>
         </div>
       )}

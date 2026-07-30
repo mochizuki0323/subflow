@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ParakeetConfig, ParakeetVadConfig, ParakeetModelInfo } from '../shared/types';
 import { t, getLang } from '../shared/i18n';
+import { usePending } from '../shared/pending';
+import { PendingBar } from './PendingBar';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -34,17 +36,14 @@ const VAD_FIELDS: Array<{
 const tk = (key: string): string => t(key as Parameters<typeof t>[0]);
 
 export function ParakeetSettings() {
-  const [config, setConfig] = useState<ParakeetConfig>({ modelId: '', vad: { ...VAD_DEFAULTS } });
+  const [saved, setSaved] = useState<ParakeetConfig | null>(null);
+  const { draft: config, edit, commit, discard, changed, dirty } = usePending<ParakeetConfig>('parakeet', saved);
   const [models, setModels] = useState<ParakeetModelInfo[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [dirty, setDirty] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [vadDirty, setVadDirty] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [vadSaving, setVadSaving] = useState(false);
-  const [vadMsg, setVadMsg] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<{ modelId: string; message: string } | null>(null);
   const downloadingRef = useRef<string | null>(null);
 
@@ -54,7 +53,7 @@ export function ParakeetSettings() {
       window.electronAPI.getParakeetModels(),
       window.electronAPI.getParakeetDownloadStatus(),
     ]);
-    setConfig(cfg);
+    setSaved(cfg);
     setModels(mdls);
     if (dlStatus.length > 0) {
       const active = dlStatus[0];
@@ -96,8 +95,7 @@ export function ParakeetSettings() {
       const updatedModels = await window.electronAPI.getParakeetModels();
       setModels(updatedModels);
       if (!config.modelId) {
-        setConfig(prev => ({ ...prev, modelId }));
-        setDirty(true);
+        edit({ modelId });
       }
     } else {
       setDownloadError({ modelId, message: result.error || t('parakeet.downloadFailed') });
@@ -110,47 +108,31 @@ export function ParakeetSettings() {
     setModels(updatedModels);
     if (config.modelId === modelId) {
       const remaining = updatedModels.filter(m => m.downloaded);
-      setConfig(prev => ({ ...prev, modelId: remaining.length > 0 ? remaining[0].id : '' }));
-      setDirty(true);
+      edit({ modelId: remaining.length > 0 ? remaining[0].id : '' });
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveMsg(null);
-    try {
-      await window.electronAPI.setParakeetConfig(config);
-      setSaveMsg({ ok: true, text: t('parakeet.saved') });
-      setDirty(false);
-    } catch {
-      setSaveMsg({ ok: false, text: t('parakeet.saveFailed') });
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const updateVad = (key: keyof ParakeetVadConfig, value: number) => {
-    setConfig(prev => ({ ...prev, vad: { ...prev.vad, [key]: value } }));
-    setVadDirty(true);
-    setVadMsg(null);
+    edit({ vad: { ...config.vad, [key]: value } });
   };
 
-  const handleApplyVad = async () => {
-    setVadSaving(true);
-    setVadMsg(null);
+
+  const handleResetVad = () => edit({ vad: { ...VAD_DEFAULTS } });
+
+  // The model respawns the backend; the VAD is a live command. Applying them
+  // together means the panel's one button can never leave half the page behind.
+  const cost = changed.includes('modelId') ? 'restart' : 'reconnect';
+
+  const handleApply = async () => {
+    setApplying(true);
     try {
-      const res = await window.electronAPI.setParakeetVadConfig(config.vad);
-      setVadMsg(res.applied === false ? t('settings.queued') : t('parakeet.vad.applied'));
-      setVadDirty(false);
+      if (changed.includes('modelId')) await window.electronAPI.setParakeetConfig({ modelId: config.modelId });
+      if (changed.includes('vad')) await window.electronAPI.setParakeetVadConfig(config.vad);
+      commit(config);
     } finally {
-      setVadSaving(false);
+      setApplying(false);
     }
-  };
-
-  const handleResetVad = () => {
-    setConfig(prev => ({ ...prev, vad: { ...VAD_DEFAULTS } }));
-    setVadDirty(true);
-    setVadMsg(null);
   };
 
   const lang = getLang();
@@ -159,6 +141,13 @@ export function ParakeetSettings() {
 
   return (
     <>
+      <PendingBar
+        count={changed.length}
+        cost={cost}
+        applying={applying}
+        onApply={handleApply}
+        onDiscard={discard}
+      />
       <h2>{t('parakeet.title')}</h2>
       <p className="hint">{t('parakeet.hint')}</p>
 
@@ -169,11 +158,7 @@ export function ParakeetSettings() {
           <select
             className="select"
             value={config.modelId}
-            onChange={(e) => {
-              setConfig(prev => ({ ...prev, modelId: e.target.value }));
-              setDirty(true);
-              setSaveMsg(null);
-            }}
+            onChange={(e) => edit({ modelId: e.target.value })}
           >
             {downloadedModels.map(m => (
               <option key={m.id} value={m.id}>
@@ -193,21 +178,6 @@ export function ParakeetSettings() {
         )}
       </div>
 
-      {/* Save button */}
-      <div className="form-group" style={{ marginTop: 16 }}>
-        <button
-          className="btn-primary"
-          onClick={handleSave}
-          disabled={saving || !dirty || !isDownloaded}
-        >
-          {saving ? t('parakeet.saving') : t('parakeet.save')}
-        </button>
-        {saveMsg && (
-          <div className={`test-result ${saveMsg.ok ? 'test-success' : 'test-error'}`} style={{ marginTop: 8 }}>
-            {saveMsg.text}
-          </div>
-        )}
-      </div>
 
       <div className="divider" />
 
@@ -252,13 +222,9 @@ export function ParakeetSettings() {
           })}
 
           <div className="vad-actions">
-            <button className="btn-primary" onClick={handleApplyVad} disabled={vadSaving || !vadDirty}>
-              {t('parakeet.vad.apply')}
-            </button>
-            <button className="btn-secondary" onClick={handleResetVad} disabled={vadSaving}>
+            <button className="btn-secondary" onClick={handleResetVad} disabled={applying}>
               {t('parakeet.vad.reset')}
             </button>
-            {vadMsg && <span className="vad-applied">{vadMsg}</span>}
           </div>
         </div>
       )}

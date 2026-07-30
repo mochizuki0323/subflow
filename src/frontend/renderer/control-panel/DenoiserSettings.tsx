@@ -12,9 +12,7 @@ export function DenoiserSettings() {
   const [models, setModels] = useState<DenoiseModelInfo[]>([]);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [dirty, setDirty] = useState(false);
   const [downloadError, setDownloadError] = useState<{ modelId: string; message: string } | null>(null);
   const downloadingRef = useRef<string | null>(null);
 
@@ -59,8 +57,7 @@ export function DenoiserSettings() {
     setModels(updatedModels);
     if (config.modelId === modelId) {
       const remaining = updatedModels.filter(m => m.downloaded);
-      setConfig(prev => ({ ...prev, modelId: remaining.length > 0 ? remaining[0].id : prev.modelId }));
-      setDirty(true);
+      apply({ ...config, modelId: remaining.length > 0 ? remaining[0].id : config.modelId });
     }
   };
 
@@ -80,20 +77,16 @@ export function DenoiserSettings() {
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    setSaveMsg(null);
-    try {
-      const res = await window.electronAPI.setDenoiserConfig(config);
-      // A dropped command is not a failure — it is queued and replayed on reconnect —
-      // but it is not "applied" either, and saying so would be a lie.
-      setSaveMsg({ ok: true, text: res.applied === false ? t('settings.queued') : t('denoise.saved') });
-      setDirty(false);
-    } catch {
-      setSaveMsg({ ok: false, text: t('denoise.saveFailed') });
-    } finally {
-      setSaving(false);
-    }
+  /**
+   * Denoising is a live command with no restart behind it, so there was never
+   * anything for a Save button to defer. Applying on change is both simpler and
+   * honest; the only thing worth reporting is a command that could not be
+   * delivered, which the reconnect will replay.
+   */
+  const apply = async (next: DenoiserConfig) => {
+    setConfig(next);
+    const res = await window.electronAPI.setDenoiserConfig(next);
+    setSaveMsg(res.applied === false ? { ok: true, text: t('settings.queued') } : null);
   };
 
   const lang = getLang();
@@ -118,8 +111,7 @@ export function DenoiserSettings() {
             type="checkbox"
             checked={config.enabled}
             onChange={(e) => {
-              setConfig(prev => ({ ...prev, enabled: e.target.checked }));
-              setDirty(true);
+              apply({ ...config, enabled: e.target.checked });
               setSaveMsg(null);
             }}
           />
@@ -137,8 +129,7 @@ export function DenoiserSettings() {
             className="select"
             value={config.modelId}
             onChange={(e) => {
-              setConfig(prev => ({ ...prev, modelId: e.target.value }));
-              setDirty(true);
+              apply({ ...config, modelId: e.target.value });
               setSaveMsg(null);
             }}
           >
@@ -156,15 +147,7 @@ export function DenoiserSettings() {
         <p className="hint">{t('denoise.model.hint')}</p>
       </div>
 
-      {/* Save button */}
-      <div className="form-group" style={{ marginTop: 16 }}>
-        <button
-          className="btn-primary"
-          onClick={handleSave}
-          disabled={saving || !dirty || (config.enabled && !isDownloaded)}
-        >
-          {saving ? t('denoise.saving') : t('denoise.save')}
-        </button>
+      <div className="form-group">
         {saveMsg && (
           <div className={`test-result ${saveMsg.ok ? 'test-success' : 'test-error'}`} style={{ marginTop: 8 }}>
             {saveMsg.text}

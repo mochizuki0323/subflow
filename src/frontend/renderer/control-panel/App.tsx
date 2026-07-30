@@ -7,6 +7,7 @@ import { OutputSettings } from './OutputSettings';
 import { LogViewer } from './LogViewer';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
 import { setLang, t } from '../shared/i18n';
+import { pendingTotal } from '../shared/pending';
 import type {
   AudioSource,
   BackendStatus,
@@ -162,6 +163,20 @@ export function App() {
     });
 
     window.electronAPI.listSources();
+  }, []);
+
+  // Drafts survive tab switches, so leaving a page costs nothing. Closing the window
+  // is the one exit that would still discard them.
+  useEffect(() => {
+    const guard = (e: BeforeUnloadEvent) => {
+      if (pendingTotal() === 0) return undefined;
+      if (window.confirm(t('pending.onClose'))) return undefined;
+      e.preventDefault();
+      e.returnValue = false;
+      return false;
+    };
+    window.addEventListener('beforeunload', guard);
+    return () => window.removeEventListener('beforeunload', guard);
   }, []);
 
   useEffect(() => {
