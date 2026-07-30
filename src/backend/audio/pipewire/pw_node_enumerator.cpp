@@ -3,6 +3,7 @@
 #include "core/logger.h"
 
 #include <spa/utils/dict.h>
+#include <cstdlib>
 #include <cstring>
 
 namespace ais {
@@ -50,14 +51,29 @@ std::string PwNodeEnumerator::get_media_class(uint32_t id) const {
     return "";
 }
 
+std::vector<PwPortInfo> PwNodeEnumerator::get_ports(uint32_t node_id, bool is_output) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<PwPortInfo> result;
+    for (const auto& [id, port] : ports_) {
+        if (port.node_id == node_id && port.is_output == is_output) result.push_back(port);
+    }
+    return result;
+}
+
 void PwNodeEnumerator::on_registry_global(void* data, uint32_t id, uint32_t /*permissions*/,
                                            const char* type, uint32_t /*version*/,
                                            const struct spa_dict* props) {
     auto* self = static_cast<PwNodeEnumerator*>(data);
+    if (!props) return;
 
-    if (std::strcmp(type, PW_TYPE_INTERFACE_Node) != 0 || !props)
-        return;
+    if (std::strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
+        self->add_node(id, props);
+    } else if (std::strcmp(type, PW_TYPE_INTERFACE_Port) == 0) {
+        self->add_port(id, props);
+    }
+}
 
+void PwNodeEnumerator::add_node(uint32_t id, const struct spa_dict* props) {
     const char* media_class = spa_dict_lookup(props, PW_KEY_MEDIA_CLASS);
     if (!media_class)
         return;
@@ -78,22 +94,46 @@ void PwNodeEnumerator::on_registry_global(void* data, uint32_t id, uint32_t /*pe
     if (!desc) desc = name;
 
     {
-        std::lock_guard<std::mutex> lock(self->mutex_);
-        self->nodes_[id] = {id, name, desc, media_class};
+        std::lock_guard<std::mutex> lock(mutex_);
+        nodes_[id] = {id, name, desc, media_class};
     }
 
     LOG_INFO("Found audio node: [" + std::to_string(id) + "] " + name + " (" + media_class + ")");
 
-    if (self->change_cb_) self->change_cb_();
+    if (change_cb_) change_cb_();
+}
+
+void PwNodeEnumerator::add_port(uint32_t id, const struct spa_dict* props) {
+    const char* direction = spa_dict_lookup(props, PW_KEY_PORT_DIRECTION);
+    const char* node_id = spa_dict_lookup(props, PW_KEY_NODE_ID);
+    if (!direction || !node_id) return;
+
+    const char* channel = spa_dict_lookup(props, PW_KEY_AUDIO_CHANNEL);
+
+    PwPortInfo port;
+    port.id = id;
+    port.node_id = static_cast<uint32_t>(std::strtoul(node_id, nullptr, 10));
+    port.is_output = (std::strcmp(direction, "out") == 0);
+    port.channel = channel ? channel : "";
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ports_[id] = port;
+    }
+
+    // Fired outside the lock: the handler calls back into get_ports().
+    if (port_cb_) port_cb_(port);
 }
 
 void PwNodeEnumerator::on_registry_global_remove(void* data, uint32_t id) {
     auto* self = static_cast<PwNodeEnumerator*>(data);
+    bool was_node = false;
     {
         std::lock_guard<std::mutex> lock(self->mutex_);
-        self->nodes_.erase(id);
+        was_node = self->nodes_.erase(id) > 0;
+        self->ports_.erase(id);
     }
-    if (self->change_cb_) self->change_cb_();
+    if (was_node && self->change_cb_) self->change_cb_();
 }
 
 } // namespace ais
