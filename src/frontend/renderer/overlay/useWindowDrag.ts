@@ -11,6 +11,9 @@ import { useCallback } from 'react';
 export function useDragBarPointerDown(): (e: React.PointerEvent<HTMLDivElement>) => void {
   return useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    // Presses on interactive children (the lock button) must stay clicks:
+    // capturing the pointer here would swallow their click event.
+    if ((e.target as HTMLElement).closest('button, input, select, a')) return;
     e.preventDefault();
     const el = e.currentTarget;
     const startX = e.screenX;
