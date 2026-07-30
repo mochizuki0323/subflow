@@ -3,6 +3,7 @@ import { SourceSelector } from './SourceSelector';
 import { ModelManager } from './ModelManager';
 import { DenoiserSettings } from './DenoiserSettings';
 import { LanguageSettings } from './LanguageSettings';
+import { OutputSettings } from './OutputSettings';
 import { LogViewer } from './LogViewer';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
 import { setLang, t } from '../shared/i18n';
@@ -18,7 +19,7 @@ import type {
   UiThemePayload,
 } from '../shared/types';
 
-type Tab = 'sources' | 'denoise' | 'recognition' | 'language' | 'history' | 'logs' | 'about';
+type Tab = 'sources' | 'denoise' | 'recognition' | 'translation' | 'output' | 'history' | 'logs' | 'about';
 
 const ACCENT_STATUS_KEY: Record<string, string> = {
   wallpaper: 'theme.accentFrom.wallpaper',
@@ -38,18 +39,19 @@ const TAB_META: Record<Tab, { titleKey: string; navKey: string }> = {
   sources: { titleKey: 'tab.sources', navKey: 'tab.sources.nav' },
   recognition: { titleKey: 'tab.recognition', navKey: 'tab.recognition.nav' },
   denoise: { titleKey: 'tab.denoise', navKey: 'tab.denoise.nav' },
-  language: { titleKey: 'tab.language', navKey: 'tab.language.nav' },
+  translation: { titleKey: 'tab.translation', navKey: 'tab.translation.nav' },
+  output: { titleKey: 'tab.output', navKey: 'tab.output.nav' },
   history: { titleKey: 'tab.history', navKey: 'tab.history.nav' },
   logs: { titleKey: 'tab.logs', navKey: 'tab.logs.nav' },
   about: { titleKey: 'tab.about', navKey: 'tab.about.nav' },
 };
 
 /**
- * These four are not categories, they are the stages audio actually passes through,
+ * These five are not categories, they are the stages audio actually passes through,
  * in order — which is why they are numbered and drawn on a bus. The rest are tools
  * and get no number, because they are not part of any sequence.
  */
-const PIPELINE: Tab[] = ['sources', 'denoise', 'recognition', 'language'];
+const PIPELINE: Tab[] = ['sources', 'denoise', 'recognition', 'translation', 'output'];
 const TOOLS: Tab[] = ['history', 'logs', 'about'];
 
 const SCOPE_BARS = 150;
@@ -301,13 +303,20 @@ export function App() {
         if (!backendUp) return { mode: 'waiting', state: t('rail.backendDown') };
         return { mode: 'fault', state: t('rail.modelNotReady') };
       }
-      case 'language': {
+      case 'translation': {
         if (!translator?.enabled) return { mode: 'bypass', state: t('rail.off') };
         if (!translator.apiKey) return { mode: 'fault', state: t('rail.noKey') };
-        // Translation is gated on the subtitle mode in the main process, so an
-        // enabled translator with mode "original" produces nothing and says nothing.
+        // Enabling translation now switches the subtitle mode off "original" for
+        // you, so this only trips if it was deliberately set back afterwards.
         if (subtitleMode === 'original') return { mode: 'fault', state: t('rail.needSubtitleMode') };
         return { mode: 'active', state: `${translator.apiFormat} · →${translator.targetLanguage}` };
+      }
+      case 'output': {
+        const on = [overlayVisible && t('out.overlay'), historyVisible && t('out.history')].filter(Boolean);
+        // Both windows closed means nothing reaches the screen — the single most
+        // common reason someone thinks the app is broken.
+        if (on.length === 0) return { mode: 'fault', state: t('rail.noOutput') };
+        return { mode: 'active', state: on.join(' · ') };
       }
       default:
         return { mode: 'bypass', state: '' };
@@ -580,30 +589,30 @@ export function App() {
 
         <main className="content-card tab-content">
           {tab === 'sources' && (
-            <SourceSelector
-              sources={sources}
-              status={status}
-              capturing={capturing}
+            <SourceSelector sources={sources} status={status} capturing={capturing} />
+          )}
+          {tab === 'recognition' && <ModelManager onProviderChange={setSttProvider} />}
+          {tab === 'denoise' && <DenoiserSettings />}
+          {tab === 'translation' && <LanguageSettings status={status} />}
+          {tab === 'output' && (
+            <OutputSettings
               overlayVisible={overlayVisible}
               onToggleOverlay={setOverlayVisible}
               historyVisible={historyVisible}
               onToggleHistory={setHistoryVisible}
-              dragMode={dragMode}
-              onToggleDragMode={setDragMode}
               showPartials={showPartials}
               onToggleShowPartials={(v) => {
                 setShowPartials(v);
                 window.electronAPI.setShowPartials(v);
               }}
-            />
-          )}
-          {tab === 'recognition' && <ModelManager onProviderChange={setSttProvider} />}
-          {tab === 'denoise' && <DenoiserSettings />}
-          {tab === 'language' && (
-            <LanguageSettings
-              status={status}
+              dragMode={dragMode}
+              onToggleDragMode={setDragMode}
               subtitleMode={subtitleMode}
-              onSubtitleModeChange={setSubtitleMode}
+              onSubtitleModeChange={(mode) => {
+                setSubtitleMode(mode);
+                window.electronAPI.setSubtitleMode(mode);
+              }}
+              translatorEnabled={!!translator?.enabled}
             />
           )}
           {tab === 'history' && (
@@ -668,21 +677,21 @@ export function App() {
         </main>
       </div>
 
-      {/* Output is a real stage of the chain but has no settings page of its own, so it
-          reports here rather than being invisible. */}
+      {/* The rail carries configuration; this line carries what is happening right
+          now, including the one mode that is otherwise invisible from every page. */}
       <div className="chain-bar">
-        <span className={overlayVisible ? 'on' : ''}>
-          {t('out.overlay')} {overlayVisible ? t('out.on') : t('out.off')}
+        <span className={capturing ? 'on' : ''}>
+          {capturing ? `${t('mon.capturing')} · ${status?.capture_source_name ?? ''}` : t('mon.idle')}
         </span>
-        <span className={historyVisible ? 'on' : ''}>
-          {t('out.history')} {historyVisible ? t('out.on') : t('out.off')}
-        </span>
-        <span className={showPartials ? 'on' : ''}>
-          {t('out.partials')} {showPartials ? t('out.on') : t('out.off')}
-        </span>
-        <span className="spacer" />
         {capturing && <span>16 kHz · MONO</span>}
-        <span>{finalCount}</span>
+        <span>{t('mon.lines')} {finalCount}</span>
+        {dragMode && (
+          <span className="bad" onClick={() => window.electronAPI.exitDragMode()} style={{ cursor: 'pointer' }}>
+            {t('out.placement.active')}
+          </span>
+        )}
+        <span className="spacer" />
+        {errorCount > 0 && <span className="bad">{errorCount}</span>}
       </div>
     </div>
   );

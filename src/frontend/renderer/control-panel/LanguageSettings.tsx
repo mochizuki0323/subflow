@@ -3,11 +3,6 @@ import type { BackendStatus, TranslatorConfig, SubtitleMode, ApiFormat, AppSetti
 import { BUILTIN_HISTORY_SYSTEM_HINT_BODY } from '../../main/translator-defaults';
 import { t } from '../shared/i18n';
 
-const SOURCE_LANG_CODES = [
-  'auto', 'zh', 'en', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru',
-  'it', 'nl', 'pl', 'tr', 'ar', 'hi', 'th', 'vi', 'uk', 'sv',
-] as const;
-
 const TARGET_LANG_CODES = ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru'] as const;
 
 // Per-format API endpoint + default model. Switching format auto-fills these
@@ -29,22 +24,13 @@ const API_KEY_PLACEHOLDERS: Record<ApiFormat, string> = {
 
 interface Props {
   status: BackendStatus | null;
-  subtitleMode: SubtitleMode;
-  onSubtitleModeChange: (mode: SubtitleMode) => void;
 }
 
 type TestState = null | 'testing' | 'success' | 'error';
 
-interface VerifyResult {
-  language: { ui: string; backend: string; match: boolean };
-  subtitleMode: { ui: string; backend: string; match: boolean };
-  modelLoaded: boolean;
-}
 
-export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitleModeChange }: Props) {
+export function LanguageSettings({ status }: Props) {
   const [sttProvider, setSttProvider] = useState<SttProvider>('parakeet');
-  const [language, setLanguage] = useState('auto');
-  const [localMode, setLocalMode] = useState<SubtitleMode>(initialMode);
   const [showApiKey, setShowApiKey] = useState(false);
   const [translatorConfig, setTranslatorConfig] = useState<TranslatorConfig>({
     baseUrl: 'https://openrouter.ai/api',
@@ -70,11 +56,8 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
   const [saveMsg, setSaveMsg] = useState('');
 
   // Verify state
-  const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
 
   // Snapshot of saved values for dirty tracking
-  const [savedLanguage, setSavedLanguage] = useState('auto');
-  const [savedMode, setSavedMode] = useState<SubtitleMode>(initialMode);
   const [savedTranslatorConfig, setSavedTranslatorConfig] = useState<TranslatorConfig | null>(null);
 
   useEffect(() => {
@@ -83,29 +66,11 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
       setSavedTranslatorConfig(config);
     });
     window.electronAPI.getAppSettings().then((s: AppSettings) => {
-      setLanguage(s.sourceLanguage);
-      setSavedLanguage(s.sourceLanguage);
-      setLocalMode(s.subtitleMode);
-      setSavedMode(s.subtitleMode);
     });
     window.electronAPI.getSttProvider().then(setSttProvider);
   }, []);
 
-  useEffect(() => {
-    setLocalMode(initialMode);
-  }, [initialMode]);
 
-  const handleLanguageChange = (lang: string) => {
-    setLanguage(lang);
-    setDirty(true);
-    setSaveMsg('');
-  };
-
-  const handleModeChange = (mode: SubtitleMode) => {
-    setLocalMode(mode);
-    setDirty(true);
-    setSaveMsg('');
-  };
 
   const updateTranslatorConfig = (partial: Partial<TranslatorConfig>) => {
     const updated = { ...translatorConfig, ...partial };
@@ -150,17 +115,7 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
     setSaving(true);
     setSaveMsg('');
     try {
-      if (language !== savedLanguage) {
-        window.electronAPI.setLanguage(language);
-      }
-      if (localMode !== savedMode) {
-        window.electronAPI.setSubtitleMode(localMode);
-        window.electronAPI.setTranslate(false);
-        onSubtitleModeChange(localMode);
-      }
       window.electronAPI.setTranslatorConfig(translatorConfig);
-      setSavedLanguage(language);
-      setSavedMode(localMode);
       setSavedTranslatorConfig({ ...translatorConfig });
       setDirty(false);
       setSaveMsg('success');
@@ -187,76 +142,11 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
     }
   };
 
-  const handleVerify = async () => {
-    const saved = await window.electronAPI.getAppSettings();
-    if (!status) {
-      setVerifyResult(null);
-      return;
-    }
-    setVerifyResult({
-      language: {
-        ui: saved.sourceLanguage,
-        backend: status.language || 'auto',
-        match: saved.sourceLanguage === (status.language || 'auto'),
-      },
-      subtitleMode: {
-        ui: saved.subtitleMode,
-        backend: status.subtitle_mode || 'original',
-        match: saved.subtitleMode === (status.subtitle_mode || 'original'),
-      },
-      modelLoaded: !!status.model_loaded,
-    });
-  };
 
   const canTest = translatorConfig.enabled && currentApiKey && translatorConfig.baseUrl;
 
   return (
     <div className="panel">
-      <h2>{t('lang.title')}</h2>
-
-      <div className="form-group">
-        <label htmlFor="language">{t('lang.source')}</label>
-        <select
-          id="language"
-          value={language}
-          onChange={(e) => handleLanguageChange(e.target.value)}
-          className="select"
-        >
-          {SOURCE_LANG_CODES.map((code) => (
-            <option key={code} value={code}>
-              {t(`lang.${code}` as any)}
-            </option>
-          ))}
-        </select>
-        <p className="hint">{t('lang.source.hint')}</p>
-      </div>
-
-      <div className="form-group">
-        <label>{t('lang.subtitleMode')}</label>
-        <div className="radio-group">
-          {([
-            { value: 'original' as const, labelKey: 'lang.mode.original' },
-            { value: 'translated' as const, labelKey: 'lang.mode.translated' },
-            { value: 'bilingual' as const, labelKey: 'lang.mode.bilingual' },
-          ]).map(({ value, labelKey }) => (
-            <label
-              key={value}
-              className={localMode === value ? 'active' : ''}
-              onClick={() => handleModeChange(value)}
-            >
-              <span>{t(labelKey as any)}</span>
-            </label>
-          ))}
-        </div>
-        <p className="hint">
-          {localMode === 'original' && t('lang.mode.original.desc')}
-          {localMode === 'translated' && t('lang.mode.translated.desc')}
-          {localMode === 'bilingual' && t('lang.mode.bilingual.desc')}
-        </p>
-      </div>
-
-      <div className="divider" />
-
       <h2>{t('lang.translator.title')}</h2>
       <p className="hint">{t('lang.translator.hint')}</p>
 
@@ -478,12 +368,6 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
           {testState === 'testing' ? t('lang.translator.testing') : t('lang.translator.testConnection')}
         </button>
 
-        <button
-          onClick={handleVerify}
-          className="btn-secondary"
-        >
-          {t('lang.verify')}
-        </button>
       </div>
 
       {saveMsg === 'success' && (
@@ -507,19 +391,6 @@ export function LanguageSettings({ status, subtitleMode: initialMode, onSubtitle
         </p>
       )}
 
-      {verifyResult && (
-        <div className="verify-result" style={{ marginTop: 12 }}>
-          <div className={verifyResult.language.match ? 'test-result test-success' : 'test-result test-error'}>
-            {t('lang.verify.language')}: {verifyResult.language.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.language.ui}, ${t('lang.verify.backend')}: ${verifyResult.language.backend})`}
-          </div>
-          <div className={verifyResult.subtitleMode.match ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
-            {t('lang.verify.subtitleMode')}: {verifyResult.subtitleMode.match ? t('lang.verify.match') : `${t('lang.verify.mismatch')} (UI: ${verifyResult.subtitleMode.ui}, ${t('lang.verify.backend')}: ${verifyResult.subtitleMode.backend})`}
-          </div>
-          <div className={verifyResult.modelLoaded ? 'test-result test-success' : 'test-result test-error'} style={{ marginTop: 4 }}>
-            {t('lang.verify.stt')}: {verifyResult.modelLoaded ? t('lang.verify.match') : t('lang.verify.mismatch')}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

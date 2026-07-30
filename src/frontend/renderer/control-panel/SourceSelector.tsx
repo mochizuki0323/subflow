@@ -7,14 +7,6 @@ interface Props {
   status: BackendStatus | null;
   /** Owned by App so the monitor, the rail and this list cannot disagree. */
   capturing: boolean;
-  overlayVisible: boolean;
-  onToggleOverlay: (visible: boolean) => void;
-  historyVisible: boolean;
-  onToggleHistory: (visible: boolean) => void;
-  dragMode: boolean;
-  onToggleDragMode: (active: boolean) => void;
-  showPartials: boolean;
-  onToggleShowPartials: (show: boolean) => void;
 }
 
 /** A sink mixes every application; an application stream is only that application. */
@@ -24,14 +16,6 @@ export function SourceSelector({
   sources,
   status,
   capturing,
-  overlayVisible,
-  onToggleOverlay,
-  historyVisible,
-  onToggleHistory,
-  dragMode,
-  onToggleDragMode,
-  showPartials,
-  onToggleShowPartials,
 }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -54,19 +38,6 @@ export function SourceSelector({
   const handleStop = () => {
     window.electronAPI.stopCapture();
   };
-
-  const handleToggleOverlay = async () => {
-    onToggleOverlay(await window.electronAPI.toggleOverlay());
-  };
-
-  const handleToggleHistory = async () => {
-    onToggleHistory(await window.electronAPI.toggleHistory());
-  };
-
-  const handleToggleDragMode = async () => {
-    onToggleDragMode(await window.electronAPI.toggleDragMode());
-  };
-
 
 
   const renderGroup = (label: string, list: AudioSource[], hint?: string) =>
@@ -123,56 +94,9 @@ export function SourceSelector({
         </>
       )}
 
-      {/* The label states what the thing is; the switch states whether it is on. Neither
-          one has to change under the other. */}
-      <div className="section">
-        <div className="block-key">{t('out.title')}</div>
-        <div className="toggle-row" onClick={handleToggleOverlay}>
-          <div>
-            <div className="toggle-label">{t('out.overlay')}</div>
-            <div className="toggle-desc">{t('out.overlay.desc')}</div>
-          </div>
-          <label className="switch" onClick={(e) => e.stopPropagation()}>
-            <input type="checkbox" checked={overlayVisible} onChange={handleToggleOverlay} />
-            <span className="switch-slider" />
-          </label>
-        </div>
-        <div className="toggle-row" onClick={handleToggleHistory}>
-          <div>
-            <div className="toggle-label">{t('out.history')}</div>
-            <div className="toggle-desc">{t('out.history.desc')}</div>
-          </div>
-          <label className="switch" onClick={(e) => e.stopPropagation()}>
-            <input type="checkbox" checked={historyVisible} onChange={handleToggleHistory} />
-            <span className="switch-slider" />
-          </label>
-        </div>
-        <div className="toggle-row" onClick={() => onToggleShowPartials(!showPartials)}>
-          <div>
-            <div className="toggle-label">{t('out.partials')}</div>
-            <div className="toggle-desc">{t('out.partials.desc')}</div>
-          </div>
-          <label className="switch" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="checkbox"
-              checked={showPartials}
-              onChange={() => onToggleShowPartials(!showPartials)}
-            />
-            <span className="switch-slider" />
-          </label>
-        </div>
-      </div>
-
       <div className="controls">
         <button onClick={handleStop} disabled={!capturing} className="btn-danger">
           {t('source.stop')}
-        </button>
-        <button
-          onClick={handleToggleDragMode}
-          className={dragMode ? 'btn-overlay-on' : 'btn-secondary'}
-          title={t('source.dragMode.title')}
-        >
-          {dragMode ? t('source.dragMode.unlocked') : t('source.dragMode.adjust')}
         </button>
       </div>
     </div>
