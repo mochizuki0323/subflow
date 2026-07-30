@@ -34,15 +34,26 @@ const STATUS_KEY: Record<string, string> = {
   capturing: 'status.capturing',
 };
 
-const TAB_META: Record<Tab, { titleKey: string; navKey: string; icon: string }> = {
-  sources: { titleKey: 'tab.sources', navKey: 'tab.sources.nav', icon: '◆' },
-  deepgram: { titleKey: 'tab.deepgram', navKey: 'tab.deepgram.nav', icon: '◎' },
-  denoise: { titleKey: 'tab.denoise', navKey: 'tab.denoise.nav', icon: '◈' },
-  language: { titleKey: 'tab.language', navKey: 'tab.language.nav', icon: '◇' },
-  history: { titleKey: 'tab.history', navKey: 'tab.history.nav', icon: '☰' },
-  logs: { titleKey: 'tab.logs', navKey: 'tab.logs.nav', icon: '※' },
-  about: { titleKey: 'tab.about', navKey: 'tab.about.nav', icon: 'ⓘ' },
+const TAB_META: Record<Tab, { titleKey: string; navKey: string }> = {
+  sources: { titleKey: 'tab.sources', navKey: 'tab.sources.nav' },
+  deepgram: { titleKey: 'tab.deepgram', navKey: 'tab.deepgram.nav' },
+  denoise: { titleKey: 'tab.denoise', navKey: 'tab.denoise.nav' },
+  language: { titleKey: 'tab.language', navKey: 'tab.language.nav' },
+  history: { titleKey: 'tab.history', navKey: 'tab.history.nav' },
+  logs: { titleKey: 'tab.logs', navKey: 'tab.logs.nav' },
+  about: { titleKey: 'tab.about', navKey: 'tab.about.nav' },
 };
+
+/**
+ * These four are not categories, they are the stages audio actually passes through,
+ * in order — which is why they are numbered and drawn on a bus. The rest are tools
+ * and get no number, because they are not part of any sequence.
+ */
+const PIPELINE: Tab[] = ['sources', 'denoise', 'deepgram', 'language'];
+const TOOLS: Tab[] = ['history', 'logs', 'about'];
+
+const SCOPE_BARS = 150;
+const dbLabel = (v: number) => (v <= 0.0005 ? '—' : `${(20 * Math.log10(v)).toFixed(1)}`);
 
 export function App() {
   const [tab, setTab] = useState<Tab>('sources');
@@ -58,6 +69,13 @@ export function App() {
   const [history, setHistory] = useState<Array<{ text: string; translated?: string; speaker?: number; ts: string; partial: boolean }>>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [peak, setPeak] = useState(0);
+  const [denoiser, setDenoiser] = useState<{ enabled: boolean; modelId: string } | null>(null);
+  const [translator, setTranslator] = useState<{ enabled: boolean; apiKey: string; targetLanguage: string; apiFormat: string } | null>(null);
+  const scopeRef = useRef<HTMLDivElement>(null);
+  const barsRef = useRef<HTMLElement[]>([]);
+  const traceRef = useRef<number[]>(new Array(SCOPE_BARS).fill(0));
   const [uiLang, setUiLang] = useState<UiLanguage>('zh');
   const [localAppearance, setLocalAppearance] = useState<AppearanceMode>('system');
   const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
@@ -149,7 +167,121 @@ export function App() {
     }
   }, [history, tab]);
 
+  const capturing = status?.state === 'capturing';
+
+  /** Repaints the scope imperatively — pushing 150 nodes through React on every audio
+   *  frame would cost far more than the trace is worth. */
+  const paintScope = () => {
+    const bars = barsRef.current;
+    const trace = traceRef.current;
+    for (let i = 0; i < bars.length; i++) {
+      const height = 1 + Math.min(1, trace[i] / 0.3) * 46;
+      bars[i].style.height = `${height.toFixed(1)}px`;
+      // Colour marks recency, not amplitude: only the live edge is warm, and the
+      // trace behind it decays like phosphor.
+      if (i > bars.length - 4) {
+        bars[i].style.background = 'var(--accent)';
+        bars[i].style.opacity = '1';
+      } else {
+        bars[i].style.background = 'var(--text-secondary)';
+        bars[i].style.opacity = (0.1 + 0.9 * (i / bars.length) ** 3).toFixed(3);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const el = scopeRef.current;
+    if (!el) return;
+    el.replaceChildren();
+    barsRef.current = Array.from({ length: SCOPE_BARS }, () => {
+      const bar = document.createElement('i');
+      el.appendChild(bar);
+      return bar;
+    });
+    paintScope();
+  }, []);
+
+  useEffect(() => {
+    window.electronAPI.removeListeners('audio_level');
+    window.electronAPI.onAudioLevel(({ level }) => {
+      setAudioLevel(level);
+      setPeak((prev) => Math.max(prev * 0.985, level));
+      const trace = traceRef.current;
+      trace.push(level);
+      trace.shift();
+      paintScope();
+    });
+    return () => window.electronAPI.removeListeners('audio_level');
+  }, []);
+
+  // Stopping drains the trace instead of blanking it, so the signal is seen to leave.
+  useEffect(() => {
+    if (capturing) return;
+    setPeak(0);
+    const drain = setInterval(() => {
+      const trace = traceRef.current;
+      trace.push(0);
+      trace.shift();
+      paintScope();
+    }, 40);
+    const done = setTimeout(() => clearInterval(drain), SCOPE_BARS * 40 + 200);
+    return () => {
+      clearInterval(drain);
+      clearTimeout(done);
+    };
+  }, [capturing]);
+
+  // The settings tabs own these; poll so the rail keeps telling the truth about the
+  // chain without threading a change event through every one of them.
+  useEffect(() => {
+    const load = () => {
+      window.electronAPI.getDenoiserConfig().then((c) =>
+        setDenoiser({ enabled: !!c.enabled, modelId: c.modelId }),
+      );
+      window.electronAPI.getTranslatorConfig().then((c) =>
+        setTranslator({
+          enabled: !!c.enabled,
+          apiKey: c.apiKey,
+          targetLanguage: c.targetLanguage,
+          apiFormat: c.apiFormat,
+        }),
+      );
+    };
+    load();
+    const timer = setInterval(load, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
   const errorCount = logs.filter((l) => l.level === 'error').length;
+  const finalCount = history.filter((h) => !h.partial).length;
+  const latest = history[history.length - 1];
+
+  /** What a pipeline stage is currently doing, and whether the signal reaches it. */
+  const stageInfo = (id: Tab): { cls: string; state: string } => {
+    switch (id) {
+      case 'sources': {
+        const name = status?.capture_source_name;
+        if (!name) return { cls: 'off', state: t('rail.noSource') };
+        return { cls: capturing ? 'done armed' : 'done', state: name };
+      }
+      case 'denoise':
+        return denoiser?.enabled
+          ? { cls: 'done', state: denoiser.modelId }
+          : { cls: 'off', state: t('rail.off') };
+      case 'deepgram': {
+        const label = `${sttProvider}${status?.language ? ` · ${status.language}` : ''}`;
+        if (!deepgramConnected) return { cls: 'pending', state: label };
+        return { cls: capturing ? 'done armed' : 'done', state: label };
+      }
+      case 'language': {
+        if (!translator?.enabled) return { cls: 'off', state: t('rail.off') };
+        if (!translator.apiKey) return { cls: 'pending', state: t('rail.noKey') };
+        return { cls: 'done', state: `${translator.apiFormat} · →${translator.targetLanguage}` };
+      }
+      default:
+        return { cls: '', state: '' };
+    }
+  };
 
   const setAppearance = async (appearance: AppearanceMode) => {
     setLocalAppearance(appearance);
@@ -184,59 +316,76 @@ export function App() {
     window.electronAPI.getAppVersion().then(setAppVersion);
   }, []);
 
-  const tabs: Tab[] = ['sources', 'deepgram', 'denoise', 'language', 'history', 'logs', 'about'];
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src={new URL('../../../../resources/icon.svg', import.meta.url).href} alt="SubFlow" style={{ width: 96, height: 96, flexShrink: 0 }} />
-            <div className="sidebar-brand-title">SubFlow</div>
-          </div>
+          <span className="sidebar-brand-title">SubFlow</span>
+          <span className="sidebar-version">{appVersion}</span>
         </div>
+
+        <div className="rail-key">{t('rail.pipeline')}</div>
         <nav className="sidebar-nav" aria-label={t('nav.label')}>
-          {tabs.map((id) => (
+          {PIPELINE.map((id, i) => {
+            const info = stageInfo(id);
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`nav-item ${info.cls} ${i === PIPELINE.length - 1 ? 'tail' : ''} ${tab === id ? 'active' : ''}`}
+                onClick={() => setTab(id)}
+              >
+                <span className="nav-icon" aria-hidden />
+                <span className="nav-body">
+                  <span className="nav-head">
+                    <span className="nav-num">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="nav-name">{t(TAB_META[id].navKey as any)}</span>
+                  </span>
+                  <span className="nav-state" title={info.state}>{info.state}</span>
+                </span>
+              </button>
+            );
+          })}
+
+          <div className="rail-key rail-key-inline">{t('rail.tools')}</div>
+          {TOOLS.map((id) => (
             <button
               key={id}
               type="button"
-              className={`nav-item ${tab === id ? 'active' : ''}`}
+              className={`nav-item tool ${tab === id ? 'active' : ''}`}
               onClick={() => setTab(id)}
             >
-              <span className="nav-icon" aria-hidden>{TAB_META[id].icon}</span>
-              <span>{t(TAB_META[id].navKey as any)}</span>
-              {id === 'history' && history.length > 0 && (
-                <span className="badge" style={{ marginLeft: 'auto', fontSize: 10 }}>
-                  {history.filter((h) => !h.partial).length}
+              <span className="nav-icon" aria-hidden />
+              <span className="nav-body">
+                <span className="nav-head">
+                  <span className="nav-name">{t(TAB_META[id].navKey as any)}</span>
+                  {id === 'history' && finalCount > 0 && <span className="nav-num">{finalCount}</span>}
+                  {id === 'logs' && errorCount > 0 && <span className="error-count">{errorCount}</span>}
                 </span>
-              )}
-              {id === 'logs' && errorCount > 0 && (
-                <span className="error-count" style={{ marginLeft: 'auto' }}>{errorCount}</span>
-              )}
+              </span>
             </button>
           ))}
         </nav>
+
         <div className="sidebar-theme">
-          <div className="theme-label">{t('ui.interfaceLanguage')}</div>
-          <div className="segmented-inline" style={{ marginBottom: 12 }}>
-            <button
-              type="button"
-              className={`segment-btn ${localUiLang === 'zh' ? 'active' : ''}`}
-              onClick={() => changeUiLanguage('zh')}
-            >
-              中文
-            </button>
-            <button
-              type="button"
-              className={`segment-btn ${localUiLang === 'en' ? 'active' : ''}`}
-              onClick={() => changeUiLanguage('en')}
-            >
-              English
-            </button>
+          <div className="theme-row">
+            <span className="theme-label">{t('ui.interfaceLanguage')}</span>
+            <span className="segmented-inline">
+              {(['zh', 'en'] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  className={`segment-btn ${localUiLang === l ? 'active' : ''}`}
+                  onClick={() => changeUiLanguage(l)}
+                >
+                  {l === 'zh' ? '中文' : 'EN'}
+                </button>
+              ))}
+            </span>
           </div>
-          <div className="theme-label">{t('theme.appearance')}</div>
-          <div className="segmented">
-            <div className="segmented-inline">
+          <div className="theme-row">
+            <span className="theme-label">{t('theme.appearance')}</span>
+            <span className="segmented-inline">
               {(['light', 'dark', 'system'] as const).map((m) => (
                 <button
                   key={m}
@@ -247,25 +396,27 @@ export function App() {
                   {t(`theme.${m}` as any)}
                 </button>
               ))}
-            </div>
+            </span>
           </div>
-          <div className="theme-label">{t('theme.accent')}</div>
-          <div className="segmented-inline">
-            <button
-              type="button"
-              className={`segment-btn ${localAccentSource === 'default' ? 'active' : ''}`}
-              onClick={() => setAccentSource('default')}
-            >
-              {t('theme.default')}
-            </button>
-            <button
-              type="button"
-              className={`segment-btn ${localAccentSource === 'wallpaper' ? 'active' : ''}`}
-              onClick={() => setAccentSource('wallpaper')}
-              title={t('theme.wallpaper.title')}
-            >
-              {t('theme.wallpaper')}
-            </button>
+          <div className="theme-row">
+            <span className="theme-label">{t('theme.accent')}</span>
+            <span className="segmented-inline">
+              <button
+                type="button"
+                className={`segment-btn ${localAccentSource === 'default' ? 'active' : ''}`}
+                onClick={() => setAccentSource('default')}
+              >
+                {t('theme.default')}
+              </button>
+              <button
+                type="button"
+                className={`segment-btn ${localAccentSource === 'wallpaper' ? 'active' : ''}`}
+                onClick={() => setAccentSource('wallpaper')}
+                title={t('theme.wallpaper.title')}
+              >
+                {t('theme.wallpaper')}
+              </button>
+            </span>
           </div>
           <button
             type="button"
@@ -317,6 +468,64 @@ export function App() {
             )}
           </div>
         </header>
+
+        {/* The product's own output, made visible: the failure this app hides worst is
+            "it stopped working and nobody noticed". */}
+        <section className="monitor cut">
+          <span className="bracket tr" aria-hidden />
+          <span className="bracket bl" aria-hidden />
+          <div className="mon-top">
+            <div>
+              <div className="mon-state">
+                <span className={`status-dot ${capturing ? 'capturing' : 'idle'}`} />
+                <span className={`mon-word ${capturing ? '' : 'off'}`}>
+                  {capturing ? t('mon.capturing') : t('mon.idle')}
+                </span>
+              </div>
+              <div className="mon-src">{status?.capture_source_name || t('rail.noSource')}</div>
+            </div>
+            <div className="tele">
+              <div className="cell">
+                <div className="cell-k">{t('mon.level')}</div>
+                <div className="cell-v">{capturing ? dbLabel(audioLevel) : '—'}</div>
+              </div>
+              <div className="cell">
+                <div className="cell-k">{t('mon.peak')}</div>
+                <div className="cell-v">{capturing ? dbLabel(peak) : '—'}</div>
+              </div>
+              <div className="cell">
+                <div className="cell-k">{t('mon.rate')}</div>
+                <div className="cell-v">{capturing ? '16k' : '—'}</div>
+              </div>
+              <div className="cell">
+                <div className="cell-k">{t('mon.lines')}</div>
+                <div className={`cell-v ${finalCount > 0 ? 'warn' : ''}`}>{finalCount}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="scope">
+            <div className="grat" aria-hidden>
+              <span data-db="0" style={{ top: '6%' }} />
+              <span data-db="−12" style={{ top: '28%' }} />
+              <span className="mid" style={{ top: '50%' }} />
+              <span data-db="−12" style={{ top: '72%' }} />
+              <span data-db="0" style={{ top: '94%' }} />
+            </div>
+            <div className="meter" ref={scopeRef} aria-hidden />
+          </div>
+
+          <div className="cap">
+            <span className="cap-time">{latest ? latest.ts : '--:--:--'}</span>
+            <div>
+              <div className={`cap-text ${latest?.partial ? 'interim' : 'settled'}`}>
+                {latest ? latest.text : <span style={{ color: 'var(--text-muted)' }}>{t('mon.waiting')}</span>}
+                {latest?.partial && <span className="caret" aria-hidden />}
+              </div>
+              {latest?.translated && <div className="cap-sub">{latest.translated}</div>}
+            </div>
+          </div>
+        </section>
 
         <main className="content-card tab-content">
           {tab === 'sources' && (
@@ -405,6 +614,23 @@ export function App() {
             </div>
           )}
         </main>
+      </div>
+
+      {/* Output is a real stage of the chain but has no settings page of its own, so it
+          reports here rather than being invisible. */}
+      <div className="chain-bar">
+        <span className={overlayVisible ? 'on' : ''}>
+          {t('out.overlay')} {overlayVisible ? t('out.on') : t('out.off')}
+        </span>
+        <span className={historyVisible ? 'on' : ''}>
+          {t('out.history')} {historyVisible ? t('out.on') : t('out.off')}
+        </span>
+        <span className={showPartials ? 'on' : ''}>
+          {t('out.partials')} {showPartials ? t('out.on') : t('out.off')}
+        </span>
+        <span className="spacer" />
+        {capturing && <span>16 kHz · MONO</span>}
+        <span>{finalCount}</span>
       </div>
     </div>
   );

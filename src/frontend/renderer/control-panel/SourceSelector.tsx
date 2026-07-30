@@ -15,9 +15,22 @@ interface Props {
   onToggleShowPartials: (show: boolean) => void;
 }
 
-export function SourceSelector({ sources, status, overlayVisible, onToggleOverlay, historyVisible, onToggleHistory, dragMode, onToggleDragMode, showPartials, onToggleShowPartials }: Props) {
+/** A sink mixes every application; an application stream is only that application. */
+const isDevice = (source: AudioSource) => source.class.includes('Audio/Sink');
+
+export function SourceSelector({
+  sources,
+  status,
+  overlayVisible,
+  onToggleOverlay,
+  historyVisible,
+  onToggleHistory,
+  dragMode,
+  onToggleDragMode,
+  showPartials,
+  onToggleShowPartials,
+}: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [audioLevel, setAudioLevel] = useState(0);
 
   // Sync selectedId from backend status
   useEffect(() => {
@@ -25,17 +38,6 @@ export function SourceSelector({ sources, status, overlayVisible, onToggleOverla
       setSelectedId(status.capture_source_id);
     }
   }, [status?.capture_source_id]);
-
-  useEffect(() => {
-    // Remove any stale listeners from previous mounts before adding a new one.
-    window.electronAPI.removeListeners('audio_level');
-    window.electronAPI.onAudioLevel((data) => {
-      setAudioLevel(data.level);
-    });
-    return () => {
-      window.electronAPI.removeListeners('audio_level');
-    };
-  }, []);
 
   const handleRefresh = () => {
     window.electronAPI.listSources();
@@ -51,24 +53,46 @@ export function SourceSelector({ sources, status, overlayVisible, onToggleOverla
   };
 
   const handleToggleOverlay = async () => {
-    const newState = await window.electronAPI.toggleOverlay();
-    onToggleOverlay(newState);
+    onToggleOverlay(await window.electronAPI.toggleOverlay());
   };
 
   const handleToggleHistory = async () => {
-    const newState = await window.electronAPI.toggleHistory();
-    onToggleHistory(newState);
+    onToggleHistory(await window.electronAPI.toggleHistory());
   };
 
   const handleToggleDragMode = async () => {
-    const newState = await window.electronAPI.toggleDragMode();
-    onToggleDragMode(newState);
+    onToggleDragMode(await window.electronAPI.toggleDragMode());
   };
 
   const isCapturing = status?.state === 'capturing' || status?.state === 'running';
-  const captureName = status?.capture_source_name;
-  // Map RMS to 0-100 percentage (RMS 0.0-0.3 range mapped to visual bar)
-  const levelPercent = Math.min(100, Math.round(audioLevel / 0.3 * 100));
+
+  const renderGroup = (label: string, list: AudioSource[], hint?: string) =>
+    list.length === 0 ? null : (
+      <div className="section" key={label}>
+        <div className="block-key">{label}</div>
+        <ul className="source-list">
+          {list.map((source) => (
+            <li
+              key={source.id}
+              className={`source-item ${selectedId === source.id ? 'selected' : ''}`}
+              onClick={() => handleSelect(source.id)}
+            >
+              <span className="bracket tr" aria-hidden />
+              <span className="bracket bl" aria-hidden />
+              <span>
+                <div className="source-name">{source.name}</div>
+                <div className="source-desc">
+                  {source.desc}
+                  {hint ? ` · ${hint}` : ''}
+                </div>
+              </span>
+              <span className="source-id">NODE {source.id}</span>
+              <span className="chip">{t('source.capturingBadge')}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
 
   return (
     <div className="panel">
@@ -79,92 +103,71 @@ export function SourceSelector({ sources, status, overlayVisible, onToggleOverla
         </button>
       </div>
 
-      {/* Model not loaded warning */}
       {isCapturing && status && !status.model_loaded && (
-        <div className="current-model-banner warn" style={{ marginBottom: 8 }}>
-          {t('source.modelNotLoaded')}
-        </div>
-      )}
-
-      {/* Capture status banner */}
-      {isCapturing && captureName ? (
-        <div className="current-model-banner">
-          {t('source.capturing')} <strong>{captureName}</strong>
-          <div className="audio-level-bar" style={{ marginTop: 6 }}>
-            <div className="audio-level-label">{t('source.volume')}</div>
-            <div className="audio-level-track">
-              <div
-                className={`audio-level-fill ${levelPercent > 5 ? 'active' : ''}`}
-                style={{ width: `${levelPercent}%` }}
-              />
-            </div>
-            <div className="audio-level-value">{levelPercent}%</div>
-          </div>
-        </div>
-      ) : (
-        <div className="current-model-banner warn">
-          {t('source.notCapturing')}
-        </div>
+        <div className="current-model-banner warn">{t('source.modelNotLoaded')}</div>
       )}
 
       {sources.length === 0 ? (
         <p className="empty-state">
-          {status
-            ? t('source.noSources')
-            : t('source.backendDisconnected')}
+          {status ? t('source.noSources') : t('source.backendDisconnected')}
         </p>
       ) : (
-        <ul className="source-list">
-          {sources.map((source) => {
-            const isActive = isCapturing && selectedId === source.id;
-            return (
-              <li
-                key={source.id}
-                className={`source-item ${selectedId === source.id ? 'selected' : ''} ${isActive ? 'source-active' : ''}`}
-                onClick={() => handleSelect(source.id)}
-              >
-                <div className="source-name">
-                  {source.name}
-                  {isActive && <span className="badge badge-loaded" style={{ marginLeft: 8 }}>{t('source.capturingBadge')}</span>}
-                </div>
-                <div className="source-desc">{source.desc}</div>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {renderGroup(t('src.apps'), sources.filter((s) => !isDevice(s)))}
+          {renderGroup(t('src.devices'), sources.filter(isDevice), t('src.deviceHint'))}
+        </>
       )}
+
+      {/* The label states what the thing is; the switch states whether it is on. Neither
+          one has to change under the other. */}
+      <div className="section">
+        <div className="block-key">{t('out.title')}</div>
+        <div className="toggle-row" onClick={handleToggleOverlay}>
+          <div>
+            <div className="toggle-label">{t('out.overlay')}</div>
+            <div className="toggle-desc">{t('out.overlay.desc')}</div>
+          </div>
+          <label className="switch" onClick={(e) => e.stopPropagation()}>
+            <input type="checkbox" checked={overlayVisible} onChange={handleToggleOverlay} />
+            <span className="switch-slider" />
+          </label>
+        </div>
+        <div className="toggle-row" onClick={handleToggleHistory}>
+          <div>
+            <div className="toggle-label">{t('out.history')}</div>
+            <div className="toggle-desc">{t('out.history.desc')}</div>
+          </div>
+          <label className="switch" onClick={(e) => e.stopPropagation()}>
+            <input type="checkbox" checked={historyVisible} onChange={handleToggleHistory} />
+            <span className="switch-slider" />
+          </label>
+        </div>
+        <div className="toggle-row" onClick={() => onToggleShowPartials(!showPartials)}>
+          <div>
+            <div className="toggle-label">{t('out.partials')}</div>
+            <div className="toggle-desc">{t('out.partials.desc')}</div>
+          </div>
+          <label className="switch" onClick={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={showPartials}
+              onChange={() => onToggleShowPartials(!showPartials)}
+            />
+            <span className="switch-slider" />
+          </label>
+        </div>
+      </div>
 
       <div className="controls">
         <button onClick={handleStop} disabled={!isCapturing} className="btn-danger">
           {t('source.stop')}
         </button>
         <button
-          onClick={handleToggleOverlay}
-          className={overlayVisible ? 'btn-overlay-on' : 'btn-secondary'}
-        >
-          {overlayVisible ? t('source.overlay.on') : t('source.overlay.off')}
-        </button>
-        <button
-          onClick={handleToggleHistory}
-          className={historyVisible ? 'btn-overlay-on' : 'btn-secondary'}
-        >
-          {historyVisible ? t('source.history.on') : t('source.history.off')}
-        </button>
-      </div>
-      <div className="controls" style={{ marginTop: 6 }}>
-        <button
           onClick={handleToggleDragMode}
           className={dragMode ? 'btn-overlay-on' : 'btn-secondary'}
           title={t('source.dragMode.title')}
         >
           {dragMode ? t('source.dragMode.unlocked') : t('source.dragMode.adjust')}
-        </button>
-        <button
-          onClick={() => onToggleShowPartials(!showPartials)}
-          className={showPartials ? 'btn-overlay-on' : 'btn-secondary'}
-          title={t('ui.showPartials.desc')}
-        >
-          {showPartials ? t('ui.showPartials.on') : t('ui.showPartials.off')}
         </button>
       </div>
     </div>

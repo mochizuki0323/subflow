@@ -263,7 +263,12 @@ if (!gotSingleInstanceLock) {
     wsClient.on('status', (data) => safeSend(mainWindow, 'status', data));
     wsClient.on('log', (data) => safeSend(mainWindow, 'log', data));
     wsClient.on('model_loaded', (data) => safeSend(mainWindow, 'model_loaded', data));
-    wsClient.on('audio_level', (data) => safeSend(mainWindow, 'audio_level', data));
+    // The overlay needs this too: its level tick is the only thing telling the user
+    // the pipeline is still alive while they are looking at something else.
+    wsClient.on('audio_level', (data) => {
+      safeSend(mainWindow, 'audio_level', data);
+      safeSend(overlayWindow, 'audio_level', data);
+    });
 
     registerAppIpc(ctx);
     registerSttIpc(ctx);

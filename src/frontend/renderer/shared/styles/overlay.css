@@ -1,3 +1,7 @@
+/*
+  The overlay follows the same two rules as the control panel, but subtractively:
+  the machine layer stays hidden until you reach for it. At rest there is only speech.
+*/
 * {
   margin: 0;
   padding: 0;
@@ -5,13 +9,16 @@
 }
 
 :root {
-  --subtitle-glass: rgba(12, 14, 18, 0.82);
-  --subtitle-text: #f4f4f5;
-  --subtitle-translated: #5eead4;
-  --overlay-bar-bg: rgba(20, 35, 55, 0.78);
-  --overlay-tint: rgba(45, 212, 191, 0.22);
-  --history-translated: #7ee7dc;
-  --accent-rgb: 45, 212, 191;
+  --subtitle-glass: rgba(6, 8, 7, 0.86);
+  --subtitle-text: #f4f6f2;
+  --subtitle-translated: rgba(244, 246, 242, 0.62);
+  --overlay-bar-bg: rgba(6, 8, 7, 0.7);
+  --overlay-tint: rgba(255, 167, 36, 0.14);
+  --history-translated: rgba(244, 246, 242, 0.62);
+  --accent: #ffa724;
+  --accent-rgb: 255, 167, 36;
+  --font-ui: 'IBM Plex Mono', ui-monospace, 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', monospace;
+  --font-human: 'Archivo', 'Noto Sans JP', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
 html,
@@ -21,6 +28,7 @@ body,
   height: 100%;
   background: transparent;
   overflow: hidden;
+  font-family: var(--font-ui);
 }
 
 .subtitle-container {
@@ -28,116 +36,247 @@ body,
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 8px 5% 0 5%;
-}
-
-.subtitle-lines {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding-bottom: 24px;
-  gap: 4px;
+  padding: 0 4% 16px;
+  position: relative;
+}
+
+/* One scrim behind the whole block — not a box per line. */
+.subtitle-lines {
+  position: relative;
+  max-width: 96%;
+  padding: 13px 20px 15px 34px;
+  background: var(--subtitle-glass);
+  backdrop-filter: blur(12px) saturate(0.85);
+  -webkit-backdrop-filter: blur(12px) saturate(0.85);
+  /* the same chamfer the control panel's monitor uses: one instrument, two surfaces */
+  clip-path: polygon(
+    0 12px,
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/* The smallest possible level meter, and the only thing that never hides: the failure
+   this window exists to prevent is the pipeline dying without anyone noticing. */
+.subtitle-tick {
+  position: absolute;
+  left: 15px;
+  top: 20px;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  transform-origin: center;
+  transition: transform 70ms linear, opacity 200ms;
 }
 
 .subtitle-group {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 2px;
-  animation: fadeIn 0.2s ease-in;
+  animation: fadeIn 0.18s ease-out;
 }
 
 .subtitle-line {
-  font-family: 'Noto Sans SC', 'Noto Sans CJK SC', 'Noto Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  text-align: center;
-  line-height: 1.4;
-  padding: 6px 18px;
-  background: var(--subtitle-glass);
-  border-radius: 10px;
-  max-width: 90%;
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 22%, transparent);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 color-mix(in srgb, rgb(var(--accent-rgb)) 15%, transparent);
-
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.65),
-    0 0 20px color-mix(in srgb, rgb(var(--accent-rgb)) 12%, transparent);
+  font-family: var(--font-human);
+  line-height: 1.34;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 .subtitle-original {
-  font-size: clamp(12px, 15vh, 64px);
-  font-weight: 600;
+  font-size: clamp(15px, 8.5vh, 46px);
+  font-weight: 700;
+  letter-spacing: -0.012em;
   color: var(--subtitle-text);
 }
 
+/* Quieter, never a different hue — colour stays reserved for signal. */
 .subtitle-translated {
-  font-size: clamp(10px, 11vh, 48px);
+  font-size: clamp(12px, 6vh, 32px);
   font-weight: 500;
   color: var(--subtitle-translated);
-  opacity: 0.95;
 }
 
-/* ---- Drag mode bar ---- */
+.subtitle-group.interim .subtitle-original {
+  color: var(--subtitle-translated);
+}
+.subtitle-group.settled .subtitle-original {
+  animation: settle 0.45s ease-out;
+}
+@keyframes settle {
+  0% {
+    color: var(--accent);
+  }
+  100% {
+    color: var(--subtitle-text);
+  }
+}
+
+.subtitle-caret {
+  display: inline-block;
+  width: 0.44em;
+  height: 0.9em;
+  background: var(--accent);
+  vertical-align: -0.08em;
+  margin-left: 0.07em;
+  animation: blink 0.9s step-end infinite;
+}
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.subtitle-speaker-label {
+  font-family: var(--font-ui);
+  font-size: 0.46em;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ---- Machine layer: only while positioning the window ---- */
 .drag-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--overlay-bar-bg);
-  border-radius: 10px;
+  gap: 16px;
   width: 100%;
-  box-sizing: border-box;
+  max-width: 96%;
+  padding: 0 2px 6px;
   cursor: grab;
   user-select: none;
-  margin-bottom: 4px;
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 35%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--overlay-tint) 50%, transparent);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  color: rgba(244, 246, 242, 0.62);
 }
 
 .drag-title {
-  color: color-mix(in srgb, rgb(var(--accent-rgb)) 55%, #e8eaef);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  font-weight: 600;
+  color: var(--accent);
+  font-weight: 500;
 }
 
 .drag-lock-btn {
-  background: color-mix(in srgb, rgb(var(--accent-rgb)) 18%, rgba(255, 255, 255, 0.1));
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 40%, rgba(255, 255, 255, 0.25));
-  color: var(--subtitle-text);
-  border-radius: 6px;
-  padding: 3px 12px;
-  font-size: 11px;
-  font-weight: 600;
+  font-family: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: var(--overlay-bar-bg);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 3px 10px;
   cursor: pointer;
   transition: background 0.15s;
 }
-
 .drag-lock-btn:hover {
-  background: color-mix(in srgb, rgb(var(--accent-rgb)) 30%, rgba(255, 255, 255, 0.15));
+  background: var(--overlay-tint);
 }
 
-/* ---- Resize handles ---- */
+/* Corners double as the resize affordance, replacing eight always-visible handles. */
 .resize-handle {
   position: absolute;
   z-index: 9999;
-  background: color-mix(in srgb, rgb(var(--accent-rgb)) 28%, rgba(100, 160, 255, 0.25));
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 50%, rgba(100, 160, 255, 0.55));
-  border-radius: 2px;
-  transition: background 0.12s;
+  background: transparent;
+  border: 0;
 }
-.resize-handle:hover {
-  background: color-mix(in srgb, rgb(var(--accent-rgb)) 45%, rgba(100, 160, 255, 0.55));
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--accent);
 }
-.resize-handle-nw { top: 0;    left: 0;    width: 12px; height: 12px; }
-.resize-handle-ne { top: 0;    right: 0;   width: 12px; height: 12px; }
-.resize-handle-sw { bottom: 0; left: 0;    width: 12px; height: 12px; }
-.resize-handle-se { bottom: 0; right: 0;   width: 12px; height: 12px; }
-.resize-handle-n  { top: 0;    left: 14px; right: 14px; height: 6px;  }
-.resize-handle-s  { bottom: 0; left: 14px; right: 14px; height: 6px;  }
-.resize-handle-w  { top: 14px; bottom: 14px; left: 0;   width: 6px;   }
-.resize-handle-e  { top: 14px; bottom: 14px; right: 0;  width: 6px;   }
+.resize-handle-nw {
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+}
+.resize-handle-nw::after {
+  top: 0;
+  left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+.resize-handle-ne {
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+}
+.resize-handle-ne::after {
+  top: 0;
+  right: 0;
+  border-left: 0;
+  border-bottom: 0;
+}
+.resize-handle-sw {
+  bottom: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+}
+.resize-handle-sw::after {
+  bottom: 0;
+  left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+.resize-handle-se {
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+}
+.resize-handle-se::after {
+  bottom: 0;
+  right: 0;
+  border-left: 0;
+  border-top: 0;
+}
+.resize-handle-n {
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 5px;
+}
+.resize-handle-s {
+  bottom: 0;
+  left: 18px;
+  right: 18px;
+  height: 5px;
+}
+.resize-handle-w {
+  top: 18px;
+  bottom: 18px;
+  left: 0;
+  width: 5px;
+}
+.resize-handle-e {
+  top: 18px;
+  bottom: 18px;
+  right: 0;
+  width: 5px;
+}
+:is(.resize-handle-n, .resize-handle-s, .resize-handle-w, .resize-handle-e)::after {
+  display: none;
+}
+:is(.resize-handle-n, .resize-handle-s, .resize-handle-w, .resize-handle-e):hover {
+  background: var(--overlay-tint);
+}
 
 /* ---- History window ---- */
 .history-container {
@@ -145,8 +284,8 @@ body,
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 6px 8px 8px 8px;
-  box-sizing: border-box;
+  padding: 6px 8px 8px;
+  background: var(--subtitle-glass);
 }
 
 .history-scroll {
@@ -155,67 +294,75 @@ body,
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 6px;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, rgb(var(--accent-rgb)) 35%, transparent) transparent;
+  scrollbar-color: rgba(var(--accent-rgb), 0.35) transparent;
 }
-
 .history-scroll::-webkit-scrollbar {
   width: 4px;
 }
-
 .history-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, rgb(var(--accent-rgb)) 35%, rgba(255, 255, 255, 0.2));
-  border-radius: 2px;
+  background: rgba(var(--accent-rgb), 0.35);
 }
 
 .history-entry {
-  font-family: 'Noto Sans SC', 'Noto Sans CJK SC', 'Noto Sans', sans-serif;
-  background: var(--subtitle-glass);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: clamp(10px, 3.5vw, 22px);
+  padding: 6px 8px;
+  font-size: clamp(11px, 3.2vw, 19px);
   line-height: 1.45;
   color: var(--subtitle-text);
-  word-break: break-all;
-  border: 1px solid color-mix(in srgb, rgb(var(--accent-rgb)) 18%, transparent);
+  word-break: break-word;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .history-ts {
-  color: color-mix(in srgb, var(--subtitle-text) 42%, transparent);
-  font-size: clamp(9px, 2.4vw, 14px);
-  margin-right: 6px;
+  font-family: var(--font-ui);
+  color: rgba(244, 246, 242, 0.42);
+  font-size: clamp(9px, 2.2vw, 13px);
+  margin-right: 8px;
   flex-shrink: 0;
 }
 
 .history-text {
+  font-family: var(--font-human);
+  font-weight: 600;
   color: var(--subtitle-text);
 }
 
 .history-translated {
+  font-family: var(--font-human);
   color: var(--history-translated);
-  font-size: clamp(9px, 3vw, 18px);
+  font-size: clamp(9px, 2.8vw, 16px);
   margin-top: 2px;
   padding-left: 4px;
 }
 
 .history-empty {
-  color: color-mix(in srgb, var(--subtitle-text) 35%, transparent);
-  font-size: clamp(10px, 3vw, 14px);
+  font-family: var(--font-ui);
+  color: rgba(244, 246, 242, 0.4);
+  font-size: 11px;
+  letter-spacing: 0.1em;
   text-align: center;
   margin-top: 20px;
 }
 
-.subtitle-speaker-label {
-  font-size: 0.6em;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  margin-right: 6px;
-  vertical-align: middle;
-  opacity: 0.9;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .subtitle-caret {
+    display: none;
+  }
 }

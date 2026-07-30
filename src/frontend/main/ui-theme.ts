@@ -104,54 +104,84 @@ function darken(hex: string, amount: number): string {
   return rgbToHex(m.r, m.g, m.b);
 }
 
+/**
+ * Only two chromatic roles exist: the accent is the signal (live, armed, selected)
+ * and `fault` is a break in it. Everything the UI calls "success" or "warning" is
+ * really "the signal is present", so it tracks the accent rather than introducing
+ * more hues — the discipline is what makes a colour mean something.
+ */
 const SEMANTIC_DARK: Record<string, string> = {
-  danger: '#f87171',
-  'danger-subtle': 'rgba(248,113,113,0.14)',
-  error: '#f87171',
-  success: '#4ade80',
-  'success-subtle': 'rgba(74,222,128,0.14)',
-  warning: '#fbbf24',
-  'warning-subtle': 'rgba(251,191,36,0.14)',
+  danger: '#e8503c',
+  'danger-subtle': 'rgba(232,80,60,0.14)',
+  error: '#e8503c',
+  fault: '#e8503c',
+  success: 'var(--accent)',
+  'success-subtle': 'var(--accent-subtle)',
+  warning: 'var(--accent)',
+  'warning-subtle': 'var(--accent-subtle)',
 };
 
 const SEMANTIC_LIGHT: Record<string, string> = {
-  danger: '#dc2626',
-  'danger-subtle': 'rgba(220,38,38,0.12)',
-  error: '#dc2626',
-  success: '#16a34a',
-  'success-subtle': 'rgba(22,163,74,0.12)',
-  warning: '#d97706',
-  'warning-subtle': 'rgba(217,119,6,0.12)',
+  danger: '#b33320',
+  'danger-subtle': 'rgba(179,51,32,0.12)',
+  error: '#b33320',
+  fault: '#b33320',
+  success: 'var(--accent)',
+  'success-subtle': 'var(--accent-subtle)',
+  warning: 'var(--accent)',
+  'warning-subtle': 'var(--accent-subtle)',
 };
 
+/**
+ * Cool graphite rather than warm neutrals: the accent is a lamp, and a lamp only
+ * reads as one against a cold surface. `ink` is phosphor grey, never pure white.
+ */
 const BASE_DARK: Record<string, string> = {
-  'bg-primary': '#0c0e12',
-  'bg-secondary': '#12151c',
-  'bg-card': '#181c26',
-  'bg-hover': '#1e2430',
-  'text-primary': '#e8eaef',
-  'text-secondary': '#9aa3b2',
-  'text-muted': '#6b7280',
-  border: 'rgba(255,255,255,0.08)',
-  'border-subtle': 'rgba(255,255,255,0.05)',
+  void: '#0a0c0b',
+  surface: '#0f1211',
+  'surface-2': '#151917',
+  rule: '#232825',
+  'rule-2': '#1a1e1c',
+  ink: '#c6cdc7',
+  'ink-2': '#8a928c',
+  mute: '#565e58',
+  // legacy names, kept so every existing component inherits the new palette
+  'bg-primary': '#0a0c0b',
+  'bg-secondary': '#0f1211',
+  'bg-card': '#151917',
+  'bg-hover': '#1b201d',
+  'text-primary': '#c6cdc7',
+  'text-secondary': '#8a928c',
+  'text-muted': '#565e58',
+  border: '#232825',
+  'border-subtle': '#1a1e1c',
   ...SEMANTIC_DARK,
 };
 
 const BASE_LIGHT: Record<string, string> = {
-  'bg-primary': '#f4f2ee',
-  'bg-secondary': '#ebe8e3',
-  'bg-card': '#ffffff',
-  'bg-hover': '#e5e2dc',
-  'text-primary': '#1a1d24',
-  'text-secondary': '#4b5563',
-  'text-muted': '#6b7280',
-  border: 'rgba(0,0,0,0.08)',
-  'border-subtle': 'rgba(0,0,0,0.05)',
+  void: '#dde1dc',
+  surface: '#f0f2ee',
+  'surface-2': '#fafbf8',
+  rule: '#c2c9be',
+  'rule-2': '#d9ded4',
+  ink: '#141714',
+  'ink-2': '#424a44',
+  mute: '#6d756e',
+  'bg-primary': '#dde1dc',
+  'bg-secondary': '#f0f2ee',
+  'bg-card': '#fafbf8',
+  'bg-hover': '#e7ebe4',
+  'text-primary': '#141714',
+  'text-secondary': '#424a44',
+  'text-muted': '#6d756e',
+  border: '#c2c9be',
+  'border-subtle': '#d9ded4',
   ...SEMANTIC_LIGHT,
 };
 
-const DEFAULT_ACCENT_DARK = '#2dd4bf';
-const DEFAULT_ACCENT_LIGHT = '#0d9488';
+/** Lamp amber. Reserved for signal; replaced wholesale by the wallpaper accent. */
+const DEFAULT_ACCENT_DARK = '#ffa724';
+const DEFAULT_ACCENT_LIGHT = '#96500a';
 
 function accentDerived(accent: string, mode: 'light' | 'dark'): Record<string, string> {
   const hover = mode === 'dark' ? lighten(accent, 0.18) : darken(accent, 0.08);
@@ -195,18 +225,14 @@ export async function resolveUiTheme(
     hexToRgb(accent) ??
     hexToRgb(effectiveDark ? DEFAULT_ACCENT_DARK : DEFAULT_ACCENT_LIGHT)!;
   vars['accent-rgb'] = `${rgb.r},${rgb.g},${rgb.b}`;
-  vars['overlay-tint'] = effectiveDark
-    ? `rgba(${Math.min(255, rgb.r + 20)},${Math.min(255, rgb.g + 25)},${Math.min(255, rgb.b + 30)},0.22)`
-    : `rgba(${rgb.r},${rgb.g},${rgb.b},0.18)`;
-  vars['overlay-bar-bg'] = effectiveDark
-    ? `rgba(${Math.max(0, rgb.r - 40)},${Math.max(0, rgb.g - 35)},${Math.max(0, rgb.b - 30)},0.78)`
-    : `rgba(${Math.min(255, rgb.r + 80)},${Math.min(255, rgb.g + 80)},${Math.min(255, rgb.b + 80)},0.82)`;
-  vars['subtitle-glass'] = effectiveDark
-    ? `rgba(12,14,18,0.82)`
-    : `rgba(255,255,255,0.88)`;
-  vars['subtitle-text'] = effectiveDark ? '#f4f4f5' : '#111827';
-  vars['subtitle-translated'] = effectiveDark ? derived['accent-hover'] : darken(accent, 0.15);
-  vars['history-translated'] = effectiveDark ? lighten(accent, 0.35) : darken(accent, 0.05);
+  vars['overlay-tint'] = `rgba(${rgb.r},${rgb.g},${rgb.b},0.14)`;
+  vars['overlay-bar-bg'] = effectiveDark ? 'rgba(6,8,7,0.70)' : 'rgba(247,248,245,0.78)';
+  // A single scrim behind the whole caption block rather than a box per line.
+  vars['subtitle-glass'] = effectiveDark ? 'rgba(6,8,7,0.86)' : 'rgba(247,248,245,0.90)';
+  vars['subtitle-text'] = effectiveDark ? '#f4f6f2' : '#141714';
+  // The translation is quieter, not a different hue — colour stays reserved for signal.
+  vars['subtitle-translated'] = effectiveDark ? 'rgba(244,246,242,0.62)' : 'rgba(20,23,20,0.66)';
+  vars['history-translated'] = effectiveDark ? 'rgba(244,246,242,0.62)' : 'rgba(20,23,20,0.66)';
 
   return {
     appearance: prefs.appearance,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
@@ -37,6 +37,20 @@ function SubtitleDisplay() {
   const [dragMode, setDragMode] = useState(false);
   const handleDragBarPointerDown = useDragBarPointerDown();
   const [, setI18nTick] = useState(0);
+  const tickRef = useRef<HTMLSpanElement>(null);
+
+  // The tick is written straight to the DOM: a level event should never cost a render
+  // in the window the user is actually watching.
+  useEffect(() => {
+    window.electronAPI.onAudioLevel(({ level }) => {
+      const el = tickRef.current;
+      if (!el) return;
+      const v = Math.min(1, level / 0.3);
+      el.style.transform = `scale(${(0.6 + v * 2.2).toFixed(2)})`;
+      el.style.opacity = (0.35 + v * 0.65).toFixed(2);
+    });
+    return () => window.electronAPI.removeListeners('audio_level');
+  }, []);
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
@@ -101,8 +115,10 @@ function SubtitleDisplay() {
     return () => clearTimeout(timer);
   }, [lines]);
 
+  const visible = lines.filter((l) => showPartials || !l.partial);
+
   return (
-    <div className="subtitle-container" style={{ position: 'relative' }}>
+    <div className="subtitle-container">
       {dragMode && <ResizeHandles />}
       {dragMode && (
         <div className="drag-bar" onPointerDown={handleDragBarPointerDown}>
@@ -115,47 +131,44 @@ function SubtitleDisplay() {
           </button>
         </div>
       )}
-      <div className="subtitle-lines">
-      {lines.filter((l) => showPartials || !l.partial).map((line, i) => {
-        const hasSpeaker = line.speaker !== undefined && line.speaker >= 0;
-        const color = hasSpeaker ? speakerColor(line.speaker!) : undefined;
-        const label = hasSpeaker ? `S${line.speaker! + 1}` : undefined;
-        return (
-          <div key={`${i}-${line.text.slice(0, 20)}`} className="subtitle-group" style={line.partial ? { opacity: 0.6 } : undefined}>
-            {(mode === 'original' || mode === 'bilingual') && (
-              <div className="subtitle-line subtitle-original">
-                {label && (
-                  <span className="subtitle-speaker-label" style={{ color }}>
-                    {label}
-                  </span>
+      {/* No speech, no scrim: an empty overlay should be nothing at all. */}
+      {(visible.length > 0 || dragMode) && (
+        <div className="subtitle-lines">
+          <span className="subtitle-tick" ref={tickRef} aria-hidden />
+          {visible.map((line, i) => {
+            const hasSpeaker = line.speaker !== undefined && line.speaker >= 0;
+            const color = hasSpeaker ? speakerColor(line.speaker!) : undefined;
+            const label = hasSpeaker ? `S${line.speaker! + 1}` : undefined;
+            const isLast = i === visible.length - 1;
+            const speakerTag = label && (
+              <span className="subtitle-speaker-label" style={{ color }}>
+                {label}
+              </span>
+            );
+            return (
+              <div
+                key={`${i}-${line.text.slice(0, 20)}`}
+                className={`subtitle-group ${line.partial ? 'interim' : 'settled'}`}
+              >
+                {(mode === 'original' || mode === 'bilingual' || !line.translatedText) && (
+                  <div className="subtitle-line subtitle-original">
+                    {speakerTag}
+                    {line.text}
+                    {/* the caret marks text the recogniser has not committed to yet */}
+                    {line.partial && isLast && <span className="subtitle-caret" aria-hidden />}
+                  </div>
                 )}
-                {line.text}
-              </div>
-            )}
-            {(mode === 'translated' || mode === 'bilingual') && line.translatedText && (
-              <div className="subtitle-line subtitle-translated">
-                {label && (
-                  <span className="subtitle-speaker-label" style={{ color }}>
-                    {label}
-                  </span>
+                {(mode === 'translated' || mode === 'bilingual') && line.translatedText && (
+                  <div className="subtitle-line subtitle-translated">
+                    {mode === 'translated' && speakerTag}
+                    {line.translatedText}
+                  </div>
                 )}
-                {line.translatedText}
               </div>
-            )}
-            {mode === 'translated' && !line.translatedText && (
-              <div className="subtitle-line subtitle-original">
-                {label && (
-                  <span className="subtitle-speaker-label" style={{ color }}>
-                    {label}
-                  </span>
-                )}
-                {line.text}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
