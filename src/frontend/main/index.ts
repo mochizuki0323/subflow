@@ -26,6 +26,22 @@ import { registerTranslatorIpc } from './ipc/translator-ipc';
 import { registerWindowIpc, type WindowIpc } from './ipc/window-ipc';
 import path from 'path';
 
+if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland') {
+  // With ozone forced to x11 below, XDG_SESSION_TYPE=wayland (always set in
+  // Wayland sessions) still sends Chromium's GL init down a Wayland path that
+  // fails and falls back to broken software presentation — windows are
+  // created but never painted. Chromium reads the variable before this script
+  // runs, so mutating process.env here is too late for this process: respawn
+  // ourselves once with the session type aligned to the platform we force.
+  const { spawn } = require('child_process') as typeof import('child_process');
+  spawn(process.execPath, process.argv.slice(1), {
+    env: { ...process.env, XDG_SESSION_TYPE: 'x11' },
+    detached: true,
+    stdio: 'ignore',
+  }).unref();
+  process.exit(0);
+}
+
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
   // Force XWayland: Electron 41 defaults to native Wayland in Wayland
