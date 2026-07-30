@@ -32,6 +32,12 @@ if (process.platform === 'linux') {
   // sessions, where xdg-shell has no client positioning — setPosition is a
   // no-op, so window dragging, position restore, and always-on-top all break.
   app.commandLine.appendSwitch('ozone-platform', 'x11');
+  // The GPU process segfaults in a loop under XWayland on some virtio/VM
+  // setups (exit_code=139, no frame ever painted → invisible windows), and
+  // fully disabling the GPU breaks transparent-window presentation
+  // (XGetWindowAttributes failures). SwiftShader keeps the normal GPU
+  // pipeline but rasterizes in software — plenty for subtitle overlays.
+  app.commandLine.appendSwitch('use-angle', 'swiftshader');
 }
 
 const WS_PORT = 9876;
