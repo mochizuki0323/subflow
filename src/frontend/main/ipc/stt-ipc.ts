@@ -187,10 +187,15 @@ export function registerSttIpc(ctx: IpcContext): void {
   ipcMain.handle('set-parakeet-vad-config', (_event, vad: Partial<ParakeetVadConfig>) => {
     ctx.config.updateParakeet({ vad: vad as ParakeetVadConfig });
     const updated = ctx.config.getParakeet();
-    // VAD tuning applies at runtime (no restart) when Parakeet is active.
-    ctx.ws.send({ type: 'set_vad', data: vadCommandData(updated.vad) });
-    ctx.backend.setParakeetVadParams(updated.vad);
-    return { success: true, vad: updated.vad };
+    // VAD tuning applies at runtime (no restart) when Parakeet is active. Guarding on
+    // the provider keeps the shared BackendManager VAD field from being overwritten
+    // by a panel for a provider that is not running.
+    let applied = false;
+    if (ctx.config.getProvider() === 'parakeet') {
+      applied = ctx.ws.send({ type: 'set_vad', data: vadCommandData(updated.vad) });
+      ctx.backend.setParakeetVadParams(updated.vad);
+    }
+    return { success: true, applied, vad: updated.vad };
   });
 
   // ---- Remote Parakeet config ----
@@ -216,11 +221,12 @@ export function registerSttIpc(ctx: IpcContext): void {
   ipcMain.handle('set-remote-parakeet-vad-config', (_event, vad: Partial<ParakeetVadConfig>) => {
     ctx.config.updateRemoteParakeet({ vad: vad as ParakeetVadConfig });
     const updated = ctx.config.getRemoteParakeet();
+    let applied = false;
     if (ctx.config.getProvider() === 'remote_parakeet') {
-      ctx.ws.send({ type: 'set_vad', data: vadCommandData(updated.vad) });
+      applied = ctx.ws.send({ type: 'set_vad', data: vadCommandData(updated.vad) });
       ctx.backend.setParakeetVadParams(updated.vad);
     }
-    return { success: true, vad: updated.vad };
+    return { success: true, applied, vad: updated.vad };
   });
 
   // Probe the server's /healthz (HTTP derived from the ws/wss URL).

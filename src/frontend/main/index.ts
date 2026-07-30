@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
 import { buildExtraParams, buildGladiaConfig } from './model-manager';
@@ -70,6 +70,7 @@ let windowIpc: WindowIpc | null = null;
 
 let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original', showPartials: false };
 let lastCaptureSourceId = 0;
+let backendState: { state: string; code?: number | null } = { state: 'connecting' };
 
 function safeSend(win: BrowserWindow | null, channel: string, ...args: unknown[]): void {
   if (!win || win.isDestroyed()) return;
@@ -174,6 +175,8 @@ if (!gotSingleInstanceLock) {
     },
     setLastCaptureSourceId: (id) => { lastCaptureSourceId = id; },
     restartBackend: (opts: BackendRestartOptions) => {
+      backendState = { state: 'restarting' };
+      safeSend(mainWindow, 'backend-state', backendState);
       wsClient.disconnect();
       backendManager.restart(opts);
       setTimeout(() => wsClient.connect(), 2000);
@@ -247,15 +250,68 @@ if (!gotSingleInstanceLock) {
       safeSend(mainWindow, 'subtitle', data);
     });
 
-    wsClient.on('connected', () => {
+    /**
+     * Everything the backend needs to match the config, replayed on every connect.
+     *
+     * A fresh process starts from its CLI args and a reconnect starts from nothing,
+     * so anything applied as a live command has to be re-sent here. Denoise and VAD
+     * used to be missing, which meant any change made during the ~2.5 s restart
+     * window was silently dropped while the UI reported success.
+     */
+    // The renderer is created after the socket already connected, so it would miss
+    // the first event entirely. Keep the value and let it be fetched on mount.
+    const setBackendState = (state: string, code?: number | null) => {
+      backendState = { state, code };
+      safeSend(mainWindow, 'backend-state', backendState);
+    };
+
+    const applyLiveState = () => {
       wsClient.send({ type: 'set_language', data: { language: appSettings.sourceLanguage } });
       wsClient.send({ type: 'set_subtitle_mode', data: { mode: appSettings.subtitleMode } });
+
+      const denoise = configManager.getDenoiser();
+      const denoiseModel = denoise.enabled ? findDenoiseModel(denoise.modelId) : null;
+      if (denoiseModel && isModelDownloaded(configDir, denoiseModel)) {
+        wsClient.send({
+          type: 'set_denoise',
+          data: {
+            enabled: true,
+            model_path: getModelPath(configDir, denoiseModel),
+            architecture: denoiseModel.architecture,
+          },
+        });
+      } else {
+        wsClient.send({ type: 'set_denoise', data: { enabled: false, model_path: '', architecture: '' } });
+      }
+
+      const activeProvider = configManager.getProvider();
+      if (activeProvider === 'parakeet' || activeProvider === 'remote_parakeet') {
+        const vad = activeProvider === 'remote_parakeet'
+          ? configManager.getRemoteParakeet().vad
+          : configManager.getParakeet().vad;
+        wsClient.send({ type: 'set_vad', data: vad });
+      }
+
+      // Only resume capture if the user did not stop it. `lastCaptureSourceId` is
+      // cleared by stop-capture precisely so a restart cannot revive a session the
+      // user ended.
       if (lastCaptureSourceId > 0) {
         setTimeout(() => {
           wsClient.send({ type: 'select_source', data: { id: lastCaptureSourceId } });
         }, 300);
       }
+    };
+
+    wsClient.on('connected', () => {
+      applyLiveState();
+      setBackendState('connected');
     });
+
+    wsClient.on('disconnected', () => setBackendState('disconnected'));
+
+    backendManager.on('exited', (code: number | null) => setBackendState('exited', code));
+
+    ipcMain.handle('get-backend-state', () => backendState);
 
     wsClient.connect();
 

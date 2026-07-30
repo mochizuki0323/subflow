@@ -7,6 +7,8 @@ import { DEFAULT_PARAKEET_VAD } from './unified-config';
 
 export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
+  /** Bumped on every spawn and every kill, so a late 'exit' can be ignored. */
+  private generation = 0;
   private binaryPath: string;
   private port: number;
   private provider: string;
@@ -85,6 +87,7 @@ export class BackendManager extends EventEmitter {
     if (this.process) return;
 
     this.shuttingDown = false;
+    this.generation++;
 
     const args = ['--port', String(this.port), '--provider', this.provider];
     if (this.provider === 'parakeet') {
@@ -154,6 +157,12 @@ export class BackendManager extends EventEmitter {
       }
     });
 
+    // A child killed by restart() can take longer to exit than the 500 ms respawn
+    // delay. Without this tag its late 'exit' would null out the reference to the
+    // process that already replaced it and schedule yet another spawn, leaving an
+    // orphan holding the port and the audio device.
+    const generation = this.generation;
+
     this.process.on('exit', (code, signal) => {
       const hexCode = code === null ? 'null' : `0x${code.toString(16).toUpperCase()}`;
       let hint = '';
@@ -161,10 +170,15 @@ export class BackendManager extends EventEmitter {
         hint = ' (STATUS_DLL_NOT_FOUND: backend binary is missing runtime DLL dependency)';
       }
       console.log(`Backend exited: code=${code} (${hexCode}), signal=${signal}${hint}`);
+      if (generation !== this.generation) {
+        console.log('  (stale generation — a newer backend has already taken over)');
+        return;
+      }
       if (!this.shuttingDown) {
         this.emit('log', `Backend exited: code=${code} (${hexCode}), signal=${signal}${hint}`);
       }
       this.process = null;
+      this.emit('exited', code);
 
       if (this.shouldRestart && code !== 0) {
         console.log('Restarting backend in 2 seconds...');
@@ -174,10 +188,12 @@ export class BackendManager extends EventEmitter {
 
     this.process.on('error', (err) => {
       console.error(`Backend spawn error: ${err.message}`);
+      if (generation !== this.generation) return;
       if (!this.shuttingDown) {
         this.emit('log', `Backend spawn error: ${err.message}`);
       }
       this.process = null;
+      this.emit('exited', null);
     });
   }
 
@@ -223,13 +239,17 @@ export class BackendManager extends EventEmitter {
   kill(): void {
     this.shouldRestart = false;
     this.shuttingDown = true;
-    if (this.process) {
+    // Retire this generation before dropping the reference, so the child's own exit
+    // handler can tell it is no longer the current backend.
+    this.generation++;
+    const child = this.process;
+    this.process = null;
+    if (child) {
       if (process.platform === 'win32') {
-        this.process.kill();
+        child.kill();
       } else {
-        this.process.kill('SIGTERM');
+        child.kill('SIGTERM');
       }
-      this.process = null;
     }
   }
 

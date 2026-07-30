@@ -38,6 +38,7 @@ export class WsClient extends EventEmitter {
     this.ws.on('close', () => {
       console.log('WebSocket disconnected');
       this.ws = null;
+      this.emit('disconnected');
       this.scheduleReconnect();
     });
 
@@ -49,10 +50,17 @@ export class WsClient extends EventEmitter {
     });
   }
 
-  send(msg: object): void {
+  /** @returns false when the socket was not open, i.e. the message was dropped. */
+  send(msg: object): boolean {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
+      return true;
     }
+    return false;
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   disconnect(): void {

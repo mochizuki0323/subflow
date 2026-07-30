@@ -69,6 +69,7 @@ export function App() {
   const [history, setHistory] = useState<Array<{ text: string; translated?: string; speaker?: number; ts: string; partial: boolean }>>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
+  const [backendState, setBackendState] = useState<string>('connecting');
   const [audioLevel, setAudioLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const [denoiser, setDenoiser] = useState<{ enabled: boolean; modelId: string } | null>(null);
@@ -167,7 +168,11 @@ export function App() {
     }
   }, [history, tab]);
 
-  const capturing = status?.state === 'capturing';
+  // One definition, used by the monitor, the rail and the source list alike — they
+  // used to disagree about whether `running` counted, so the monitor said "idle"
+  // while the page below it said "capturing".
+  const backendUp = backendState === 'connected';
+  const capturing = backendUp && (status?.state === 'capturing' || status?.state === 'running');
 
   /** Repaints the scope imperatively — pushing 150 nodes through React on every audio
    *  frame would cost far more than the trace is worth. */
@@ -231,25 +236,34 @@ export function App() {
     };
   }, [capturing]);
 
-  // The settings tabs own these; poll so the rail keeps telling the truth about the
-  // chain without threading a change event through every one of them.
+  // Reload the chain's configuration on the events that can actually change it —
+  // leaving a settings tab, and the backend coming back — instead of polling on a
+  // timer, which showed stale state for seconds right after a save.
   useEffect(() => {
-    const load = () => {
-      window.electronAPI.getDenoiserConfig().then((c) =>
-        setDenoiser({ enabled: !!c.enabled, modelId: c.modelId }),
-      );
-      window.electronAPI.getTranslatorConfig().then((c) =>
-        setTranslator({
-          enabled: !!c.enabled,
-          apiKey: c.apiKey,
-          targetLanguage: c.targetLanguage,
-          apiFormat: c.apiFormat,
-        }),
-      );
-    };
-    load();
-    const timer = setInterval(load, 4000);
-    return () => clearInterval(timer);
+    window.electronAPI.getDenoiserConfig().then((c) =>
+      setDenoiser({ enabled: !!c.enabled, modelId: c.modelId }),
+    );
+    window.electronAPI.getTranslatorConfig().then((c) =>
+      setTranslator({
+        enabled: !!c.enabled,
+        apiKey: c.apiKey,
+        targetLanguage: c.targetLanguage,
+        apiFormat: c.apiFormat,
+      }),
+    );
+  }, [tab, backendState]);
+
+  // Backend liveness is pushed, not inferred. Without it a dead backend left the UI
+  // showing "connected / capturing" from the last status frame, forever.
+  useEffect(() => {
+    // Seed first: the socket connects before this window exists, so the initial
+    // event has already been emitted by the time we subscribe.
+    window.electronAPI.getBackendState().then(({ state }) => setBackendState(state));
+    window.electronAPI.onBackendState(({ state }) => {
+      setBackendState(state);
+      if (state !== 'connected') setDeepgramConnected(false);
+    });
+    return () => window.electronAPI.removeListeners('backend-state');
   }, []);
 
   const errorCount = logs.filter((l) => l.level === 'error').length;
@@ -282,12 +296,17 @@ export function App() {
       case 'deepgram': {
         const label = `${sttProvider}${status?.language ? ` · ${status.language}` : ''}`;
         if (deepgramConnected) return { mode: 'active', state: label };
-        // Before the backend answers we do not know yet, so we do not accuse it.
-        return { mode: status ? 'fault' : 'waiting', state: label };
+        // A backend that is down is not a misconfigured stage; only accuse the stage
+        // once the backend is up and still reports no usable model.
+        if (!backendUp) return { mode: 'waiting', state: t('rail.backendDown') };
+        return { mode: 'fault', state: t('rail.modelNotReady') };
       }
       case 'language': {
         if (!translator?.enabled) return { mode: 'bypass', state: t('rail.off') };
         if (!translator.apiKey) return { mode: 'fault', state: t('rail.noKey') };
+        // Translation is gated on the subtitle mode in the main process, so an
+        // enabled translator with mode "original" produces nothing and says nothing.
+        if (subtitleMode === 'original') return { mode: 'fault', state: t('rail.needSubtitleMode') };
         return { mode: 'active', state: `${translator.apiFormat} · →${translator.targetLanguage}` };
       }
       default:
@@ -474,7 +493,18 @@ export function App() {
         <header className="main-header">
           <div className="main-header-title">{t(TAB_META[tab].titleKey as any)}</div>
           <div className="status-bar">
-            {status ? (
+            {!backendUp ? (
+              <>
+                <span className={`status-dot ${backendState === 'exited' ? 'fault' : 'idle'}`} />
+                <span className="status-text">
+                  {backendState === 'exited'
+                    ? t('status.backendExited')
+                    : backendState === 'restarting'
+                      ? t('status.backendRestarting')
+                      : t('status.connecting')}
+                </span>
+              </>
+            ) : status ? (
               <>
                 <span className={`status-dot ${status.state}`} />
                 <span className="status-text">{t((STATUS_KEY[status.state] || status.state) as any)}</span>
@@ -563,6 +593,7 @@ export function App() {
             <SourceSelector
               sources={sources}
               status={status}
+              capturing={capturing}
               overlayVisible={overlayVisible}
               onToggleOverlay={setOverlayVisible}
               historyVisible={historyVisible}

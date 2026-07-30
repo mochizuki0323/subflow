@@ -30,7 +30,13 @@ export function registerAppIpc(ctx: IpcContext): void {
   });
 
   ipcMain.on('start-capture', () => ctx.ws.send({ type: 'start' }));
-  ipcMain.on('stop-capture', () => ctx.ws.send({ type: 'stop' }));
+  ipcMain.on('stop-capture', () => {
+    // Forget the source as well as telling the backend to stop. Otherwise the next
+    // reconnect — which happens after every settings save and after any crash —
+    // replays select_source and starts capturing the user's audio again unasked.
+    ctx.setLastCaptureSourceId(0);
+    ctx.ws.send({ type: 'stop' });
+  });
 
   // ---- App info ----
   ipcMain.handle('get-app-version', () => app.getVersion());

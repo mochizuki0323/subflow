@@ -483,6 +483,9 @@ body,
 .status-dot.idle {
   background: var(--text-muted);
 }
+.status-dot.fault {
+  background: var(--fault);
+}
 @keyframes breathe {
   0%,
   100% {
@@ -897,10 +900,6 @@ body,
   color: var(--accent);
   background: var(--accent-subtle);
   padding: 2px 7px;
-  visibility: hidden;
-}
-.source-item.selected .chip {
-  visibility: visible;
 }
 
 /* ---- Audio level (legacy inline meter) ---- */

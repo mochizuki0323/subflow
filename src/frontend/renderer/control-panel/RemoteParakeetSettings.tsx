@@ -95,8 +95,8 @@ export function RemoteParakeetSettings() {
     setVadSaving(true);
     setVadMsg(null);
     try {
-      await window.electronAPI.setRemoteParakeetVadConfig(config.vad);
-      setVadMsg(t('parakeet.vad.applied'));
+      const res = await window.electronAPI.setRemoteParakeetVadConfig(config.vad);
+      setVadMsg(res.applied === false ? t('settings.queued') : t('parakeet.vad.applied'));
       setVadDirty(false);
     } finally {
       setVadSaving(false);

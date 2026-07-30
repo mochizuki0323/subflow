@@ -213,7 +213,7 @@ export interface ElectronAPI {
   openExternal: (url: string) => Promise<void>;
 
   getDenoiserConfig: () => Promise<DenoiserConfig>;
-  setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean }>;
+  setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean; applied?: boolean }>;
   getDenoiserModels: () => Promise<DenoiseModelInfo[]>;
   downloadDenoiserModel: (modelId: string) => Promise<{ success: boolean; localPath?: string; error?: string }>;
   deleteDenoiserModel: (modelId: string) => Promise<{ success: boolean }>;
@@ -222,7 +222,7 @@ export interface ElectronAPI {
 
   getParakeetConfig: () => Promise<ParakeetConfig>;
   setParakeetConfig: (config: Partial<ParakeetConfig>) => Promise<{ success: boolean }>;
-  setParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
+  setParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; applied?: boolean; vad?: ParakeetVadConfig }>;
   getParakeetModels: () => Promise<ParakeetModelInfo[]>;
   downloadParakeetModel: (modelId: string) => Promise<{ success: boolean; localDir?: string; error?: string }>;
   deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;
@@ -241,7 +241,7 @@ export interface ElectronAPI {
   setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
   testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;
   fetchRemoteParakeetModels: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; models?: RemoteParakeetModelInfo[]; error?: string }>;
-  setRemoteParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; vad?: ParakeetVadConfig }>;
+  setRemoteParakeetVadConfig: (vad: ParakeetVadConfig) => Promise<{ success: boolean; applied?: boolean; vad?: ParakeetVadConfig }>;
   getTranslatorConfig: () => Promise<TranslatorConfig>;
   getAppSettings: () => Promise<AppSettings>;
   setUiLanguage: (lang: UiLanguage) => Promise<AppSettings>;
@@ -263,6 +263,9 @@ export interface ElectronAPI {
   onDragMode: (callback: (enabled: boolean) => void) => void;
   onTranslatorError: (callback: (error: string) => void) => void;
   onAudioLevel: (callback: (data: { level: number }) => void) => void;
+  getBackendState: () => Promise<{ state: string; code?: number | null }>;
+  /** Backend process/socket liveness: connected | disconnected | restarting | exited. */
+  onBackendState: (callback: (data: { state: string; code?: number | null }) => void) => void;
   removeListeners: (channel: string) => void;
 }
 

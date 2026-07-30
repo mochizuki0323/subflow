@@ -27,22 +27,28 @@ export function registerModelsIpc(ctx: IpcContext): void {
 
   ipcMain.handle('get-denoiser-models', () => getModelStatus(ctx.configDir));
 
-  ipcMain.handle('set-denoiser-config', (_event, config: { enabled?: boolean; modelId?: string }) => {
-    ctx.config.updateDenoiser(config);
+  /** Push the stored denoise config to the backend. Reports whether it landed. */
+  function pushDenoise(): boolean {
     const updated = ctx.config.getDenoiser();
     const model = findDenoiseModel(updated.modelId);
 
     if (updated.enabled && model && isModelDownloaded(ctx.configDir, model)) {
-      ctx.ws.send({
+      const path = getModelPath(ctx.configDir, model);
+      ctx.backend.setDenoiseParams(true, path, model.architecture, getModelsDir(ctx.configDir));
+      return ctx.ws.send({
         type: 'set_denoise',
-        data: { enabled: true, model_path: getModelPath(ctx.configDir, model), architecture: model.architecture },
+        data: { enabled: true, model_path: path, architecture: model.architecture },
       });
-      ctx.backend.setDenoiseParams(true, getModelPath(ctx.configDir, model), model.architecture, getModelsDir(ctx.configDir));
-    } else {
-      ctx.ws.send({ type: 'set_denoise', data: { enabled: false, model_path: '', architecture: '' } });
-      ctx.backend.setDenoiseParams(false, '', '', getModelsDir(ctx.configDir));
     }
-    return { success: true };
+    ctx.backend.setDenoiseParams(false, '', '', getModelsDir(ctx.configDir));
+    return ctx.ws.send({ type: 'set_denoise', data: { enabled: false, model_path: '', architecture: '' } });
+  }
+
+  ipcMain.handle('set-denoiser-config', (_event, config: { enabled?: boolean; modelId?: string }) => {
+    ctx.config.updateDenoiser(config);
+    // `applied: false` means the socket was down; the config is saved and will be
+    // replayed on reconnect, so the UI must say "will apply", not "applied".
+    return { success: true, applied: pushDenoise() };
   });
 
   ipcMain.handle('get-download-status', () => denoiserDownloads.status());
@@ -54,6 +60,13 @@ export function registerModelsIpc(ctx: IpcContext): void {
 
   ipcMain.handle('delete-denoiser-model', (_event, modelId: string) => {
     deleteModel(ctx.configDir, modelId);
+    // Deleting the model that is in use used to leave the config pointing at it, so
+    // the next launch quietly ran without denoising while the UI still claimed it
+    // was on. Reconcile here, where we know what was removed.
+    if (ctx.config.getDenoiser().modelId === modelId) {
+      ctx.config.updateDenoiser({ enabled: false, modelId: '' });
+      pushDenoise();
+    }
     return { success: true };
   });
 
@@ -76,6 +89,11 @@ export function registerModelsIpc(ctx: IpcContext): void {
 
   ipcMain.handle('delete-parakeet-model', (_event, modelId: string) => {
     deleteParakeetModel(ctx.configDir, modelId);
+    // Same reconciliation as denoise: a provider left pointing at a deleted model
+    // respawns with an empty --parakeet-model-dir and transcribes nothing at all.
+    if (ctx.config.getParakeet().modelId === modelId) {
+      ctx.config.updateParakeet({ modelId: '' });
+    }
     return { success: true };
   });
 }

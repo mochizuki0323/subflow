@@ -84,8 +84,10 @@ export function DenoiserSettings() {
     setSaving(true);
     setSaveMsg(null);
     try {
-      await window.electronAPI.setDenoiserConfig(config);
-      setSaveMsg({ ok: true, text: t('denoise.saved') });
+      const res = await window.electronAPI.setDenoiserConfig(config);
+      // A dropped command is not a failure — it is queued and replayed on reconnect —
+      // but it is not "applied" either, and saying so would be a lie.
+      setSaveMsg({ ok: true, text: res.applied === false ? t('settings.queued') : t('denoise.saved') });
       setDirty(false);
     } catch {
       setSaveMsg({ ok: false, text: t('denoise.saveFailed') });

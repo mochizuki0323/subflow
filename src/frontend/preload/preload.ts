@@ -121,6 +121,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onTranslatorError: (callback: (error: string) => void) => {
     ipcRenderer.on('translator-error', (_event, error) => callback(error));
   },
+  getBackendState: () => ipcRenderer.invoke('get-backend-state'),
+
+  onBackendState: (callback: (data: { state: string; code?: number | null }) => void) => {
+    ipcRenderer.on('backend-state', (_event, data) => callback(data));
+  },
+
   onAudioLevel: (callback: (data: { level: number }) => void) => {
     ipcRenderer.on('audio_level', (_event, data) => callback(data));
   },

@@ -5,6 +5,8 @@ import { t } from '../shared/i18n';
 interface Props {
   sources: AudioSource[];
   status: BackendStatus | null;
+  /** Owned by App so the monitor, the rail and this list cannot disagree. */
+  capturing: boolean;
   overlayVisible: boolean;
   onToggleOverlay: (visible: boolean) => void;
   historyVisible: boolean;
@@ -21,6 +23,7 @@ const isDevice = (source: AudioSource) => source.class.includes('Audio/Sink');
 export function SourceSelector({
   sources,
   status,
+  capturing,
   overlayVisible,
   onToggleOverlay,
   historyVisible,
@@ -64,7 +67,7 @@ export function SourceSelector({
     onToggleDragMode(await window.electronAPI.toggleDragMode());
   };
 
-  const isCapturing = status?.state === 'capturing' || status?.state === 'running';
+
 
   const renderGroup = (label: string, list: AudioSource[], hint?: string) =>
     list.length === 0 ? null : (
@@ -74,7 +77,7 @@ export function SourceSelector({
           {list.map((source) => (
             <li
               key={source.id}
-              className={`source-item ${selectedId === source.id ? 'selected' : ''}`}
+              className={`source-item ${selectedId === source.id ? 'selected' : ''} ${capturing && selectedId === source.id ? 'live' : ''}`}
               onClick={() => handleSelect(source.id)}
             >
               <span className="bracket tr" aria-hidden />
@@ -87,7 +90,9 @@ export function SourceSelector({
                 </div>
               </span>
               <span className="source-id">NODE {source.id}</span>
-              <span className="chip">{t('source.capturingBadge')}</span>
+              {capturing && selectedId === source.id && (
+                <span className="chip">{t('source.capturingBadge')}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -103,7 +108,7 @@ export function SourceSelector({
         </button>
       </div>
 
-      {isCapturing && status && !status.model_loaded && (
+      {capturing && status && !status.model_loaded && (
         <div className="current-model-banner warn">{t('source.modelNotLoaded')}</div>
       )}
 
@@ -159,7 +164,7 @@ export function SourceSelector({
       </div>
 
       <div className="controls">
-        <button onClick={handleStop} disabled={!isCapturing} className="btn-danger">
+        <button onClick={handleStop} disabled={!capturing} className="btn-danger">
           {t('source.stop')}
         </button>
         <button
