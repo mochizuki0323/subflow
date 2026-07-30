@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, screen } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
 import { buildExtraParams, buildGladiaConfig } from './model-manager';
@@ -198,17 +198,30 @@ if (!gotSingleInstanceLock) {
       });
     });
 
-    // Restore saved positions
+    // Restore saved positions. Positions persisted by older builds running
+    // native Wayland are garbage (clients can't know their position there) —
+    // drop any rect that doesn't intersect a display instead of restoring it.
+    const isOnSomeDisplay = (x: number, y: number, w: number, h: number): boolean =>
+      screen.getAllDisplays().some((d) => {
+        const a = d.workArea;
+        return x < a.x + a.width && x + w > a.x && y < a.y + a.height && y + h > a.y;
+      });
     const positions = configManager.getWindowPositions();
     if (positions.overlay) {
       const { x, y, width, height } = positions.overlay;
-      if (width && height) overlayWindow!.setBounds({ x, y, width, height });
-      else overlayWindow!.setPosition(x, y);
+      const [dw, dh] = overlayWindow!.getSize();
+      if (isOnSomeDisplay(x, y, width || dw, height || dh)) {
+        if (width && height) overlayWindow!.setBounds({ x, y, width, height });
+        else overlayWindow!.setPosition(x, y);
+      }
     }
     if (positions.history) {
       const { x, y, width, height } = positions.history;
-      if (width && height) historyWindow!.setBounds({ x, y, width, height });
-      else historyWindow!.setPosition(x, y);
+      const [dw, dh] = historyWindow!.getSize();
+      if (isOnSomeDisplay(x, y, width || dw, height || dh)) {
+        if (width && height) historyWindow!.setBounds({ x, y, width, height });
+        else historyWindow!.setPosition(x, y);
+      }
     }
 
     // Route backend messages to renderers
