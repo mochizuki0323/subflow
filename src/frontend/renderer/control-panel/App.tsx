@@ -256,32 +256,59 @@ export function App() {
   const finalCount = history.filter((h) => !h.partial).length;
   const latest = history[history.length - 1];
 
-  /** What a pipeline stage is currently doing, and whether the signal reaches it. */
-  const stageInfo = (id: Tab): { cls: string; state: string } => {
+  /**
+   * A stage is doing one of four things, and only one of them is a break.
+   *
+   *  active   — enabled and configured; it processes the signal
+   *  bypass   — switched off on purpose; the signal passes through untouched
+   *  waiting  — nothing chosen yet, so there is nothing to pass on
+   *  fault    — switched on but unusable, which is the only case that stops output
+   *
+   * Turning denoising or translation off is a configuration, not a failure: the
+   * captions still come out, so the chain must stay unbroken through them.
+   */
+  type StageMode = 'active' | 'bypass' | 'waiting' | 'fault';
+
+  const stageInfo = (id: Tab): { mode: StageMode; state: string } => {
     switch (id) {
       case 'sources': {
         const name = status?.capture_source_name;
-        if (!name) return { cls: 'off', state: t('rail.noSource') };
-        return { cls: capturing ? 'done armed' : 'done', state: name };
+        return name ? { mode: 'active', state: name } : { mode: 'waiting', state: t('rail.noSource') };
       }
       case 'denoise':
         return denoiser?.enabled
-          ? { cls: 'done', state: denoiser.modelId }
-          : { cls: 'off', state: t('rail.off') };
+          ? { mode: 'active', state: denoiser.modelId }
+          : { mode: 'bypass', state: t('rail.off') };
       case 'deepgram': {
         const label = `${sttProvider}${status?.language ? ` · ${status.language}` : ''}`;
-        if (!deepgramConnected) return { cls: 'pending', state: label };
-        return { cls: capturing ? 'done armed' : 'done', state: label };
+        if (deepgramConnected) return { mode: 'active', state: label };
+        // Before the backend answers we do not know yet, so we do not accuse it.
+        return { mode: status ? 'fault' : 'waiting', state: label };
       }
       case 'language': {
-        if (!translator?.enabled) return { cls: 'off', state: t('rail.off') };
-        if (!translator.apiKey) return { cls: 'pending', state: t('rail.noKey') };
-        return { cls: 'done', state: `${translator.apiFormat} · →${translator.targetLanguage}` };
+        if (!translator?.enabled) return { mode: 'bypass', state: t('rail.off') };
+        if (!translator.apiKey) return { mode: 'fault', state: t('rail.noKey') };
+        return { mode: 'active', state: `${translator.apiFormat} · →${translator.targetLanguage}` };
       }
       default:
-        return { cls: '', state: '' };
+        return { mode: 'bypass', state: '' };
     }
   };
+
+  /**
+   * Each stage reports only on itself: its line is intact unless *it* is what stops
+   * the signal. Propagating a break downstream would paint the whole rail dashed for
+   * one unset stage and hide where the actual problem is.
+   */
+  const rail = PIPELINE.map((id) => {
+    const info = stageInfo(id);
+    return {
+      id,
+      ...info,
+      carries: info.mode !== 'fault' && info.mode !== 'waiting',
+      live: capturing && info.mode === 'active',
+    };
+  });
 
   const setAppearance = async (appearance: AppearanceMode) => {
     setLocalAppearance(appearance);
@@ -326,26 +353,30 @@ export function App() {
 
         <div className="rail-key">{t('rail.pipeline')}</div>
         <nav className="sidebar-nav" aria-label={t('nav.label')}>
-          {PIPELINE.map((id, i) => {
-            const info = stageInfo(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                className={`nav-item ${info.cls} ${i === PIPELINE.length - 1 ? 'tail' : ''} ${tab === id ? 'active' : ''}`}
-                onClick={() => setTab(id)}
-              >
-                <span className="nav-icon" aria-hidden />
-                <span className="nav-body">
-                  <span className="nav-head">
-                    <span className="nav-num">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="nav-name">{t(TAB_META[id].navKey as any)}</span>
-                  </span>
-                  <span className="nav-state" title={info.state}>{info.state}</span>
+          {rail.map((stage, i) => (
+            <button
+              key={stage.id}
+              type="button"
+              className={[
+                'nav-item',
+                `is-${stage.mode}`,
+                stage.carries ? 'carries' : '',
+                stage.live ? 'live' : '',
+                i === rail.length - 1 ? 'tail' : '',
+                tab === stage.id ? 'active' : '',
+              ].join(' ')}
+              onClick={() => setTab(stage.id)}
+            >
+              <span className="nav-icon" aria-hidden />
+              <span className="nav-body">
+                <span className="nav-head">
+                  <span className="nav-num">{String(i + 1).padStart(2, '0')}</span>
+                  <span className="nav-name">{t(TAB_META[stage.id].navKey as any)}</span>
                 </span>
-              </button>
-            );
-          })}
+                <span className="nav-state" title={stage.state}>{stage.state}</span>
+              </span>
+            </button>
+          ))}
 
           <div className="rail-key rail-key-inline">{t('rail.tools')}</div>
           {TOOLS.map((id) => (

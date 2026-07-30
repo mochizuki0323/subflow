@@ -215,7 +215,8 @@ body,
   color: inherit;
   cursor: pointer;
 }
-/* the bus between stages: solid where the signal passes, broken where it does not */
+/* The bus answers one question: does the path still reach the next stage. A stage
+   that is switched off does not break it — the signal passes straight through. */
 .nav-item::before {
   content: '';
   position: absolute;
@@ -223,15 +224,15 @@ body,
   top: 16px;
   bottom: 0;
   width: 1px;
-  background: var(--accent);
+  background: none;
+  border-left: 1px dashed var(--border);
   transform-origin: top;
   transform: scaleY(1);
   transition: transform 260ms ease-out;
 }
-.nav-item.pending::before,
-.nav-item.off::before {
-  background: none;
-  border-left: 1px dashed var(--border);
+.nav-item.carries::before {
+  background: var(--accent);
+  border-left: 0;
 }
 /* the bus ends with the pipeline; tools are not stages and carry no line */
 .nav-item.tail::before,
@@ -265,23 +266,29 @@ body,
   position: relative;
   z-index: 1;
 }
-.nav-item.done .nav-icon {
-  background: color-mix(in srgb, var(--accent) 72%, #000);
-  border-color: color-mix(in srgb, var(--accent) 72%, #000);
-}
-.nav-item.armed .nav-icon {
-  background: var(--accent);
+/* The node answers a different question: what is this stage doing. */
+.nav-item.is-active .nav-icon {
   border-color: var(--accent);
+}
+.nav-item.live .nav-icon {
+  background: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-subtle);
 }
-.nav-item.pending .nav-icon {
-  border-color: var(--fault);
-  background: var(--surface);
+/* Bypassed: the bus runs straight through the node, the way a bypass is drawn. */
+.nav-item.is-bypass .nav-icon::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 4px;
+  height: 1px;
+  background: var(--border);
 }
-.nav-item.off .nav-icon {
-  background: var(--surface);
-  border-color: var(--border);
-  box-shadow: none;
+.nav-item.is-bypass.carries .nav-icon::after {
+  background: var(--accent);
+}
+.nav-item.is-fault .nav-icon {
+  border-color: var(--fault);
 }
 
 .nav-body {
@@ -304,7 +311,7 @@ body,
   color: var(--text-secondary);
 }
 .nav-item.active .nav-name,
-.nav-item.armed .nav-name {
+.nav-item.live .nav-name {
   color: var(--text-primary);
 }
 .nav-state {
@@ -315,7 +322,7 @@ body,
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.nav-item.pending .nav-state {
+.nav-item.is-fault .nav-state {
   color: var(--fault);
 }
 /* "you are here" is a separate signal from "this stage is configured" */
