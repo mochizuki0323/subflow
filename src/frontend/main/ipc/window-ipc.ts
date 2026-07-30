@@ -40,19 +40,37 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
     ctx.safeSend(history, 'drag-mode', enabled);
   }
 
+  // Overlay windows must stay above everything. The topmost flag can be lost
+  // on both platforms (new topmost windows, hide/show cycles, WM quirks), so
+  // re-assert it whenever a window is shown and periodically while visible.
+  function assertOnTop(win: BrowserWindow | null): void {
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.moveTop();
+  }
+
+  setInterval(() => {
+    assertOnTop(ctx.overlayWindow());
+    assertOnTop(ctx.historyWindow());
+  }, 2000);
+
   // ---- Window toggles ----
   ipcMain.handle('toggle-overlay', () => {
     const overlay = ctx.overlayWindow();
     if (!overlay) return false;
     if (overlay.isVisible()) { overlay.hide(); return false; }
-    overlay.show(); return true;
+    overlay.show();
+    assertOnTop(overlay);
+    return true;
   });
 
   ipcMain.handle('toggle-history', () => {
     const history = ctx.historyWindow();
     if (!history) return false;
     if (history.isVisible()) { history.hide(); return false; }
-    history.show(); return true;
+    history.show();
+    assertOnTop(history);
+    return true;
   });
 
   ipcMain.handle('toggle-drag-mode', () => {
@@ -71,12 +89,17 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
   let dragStartCursor = { x: 0, y: 0 };
   let dragStartWin = { x: 0, y: 0 };
 
-  ipcMain.on('start-window-drag', (event, { startX, startY }: { startX: number; startY: number }) => {
+  // Anchor the drag from the main-process cursor, NOT the renderer's
+  // screenX/screenY: on some Linux WMs (GNOME scaling, frameless transparent
+  // windows) renderer screen coords disagree with getCursorScreenPoint(),
+  // which made the delta wrong and the window undraggable.
+  ipcMain.on('start-window-drag', (event) => {
     if (dragInterval) clearInterval(dragInterval);
     dragWin = BrowserWindow.fromWebContents(event.sender);
     if (!dragWin) return;
     const [wx, wy] = dragWin.getPosition();
-    dragStartCursor = { x: startX, y: startY };
+    const cur = screen.getCursorScreenPoint();
+    dragStartCursor = { x: cur.x, y: cur.y };
     dragStartWin = { x: wx, y: wy };
     dragInterval = setInterval(() => {
       if (!dragWin) return;
@@ -102,12 +125,13 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
   let rsStartCursor = { x: 0, y: 0 };
   let rsStartBounds = { x: 0, y: 0, width: 0, height: 0 };
 
-  ipcMain.on('start-window-resize', (event, { direction, startX, startY }: { direction: string; startX: number; startY: number }) => {
+  ipcMain.on('start-window-resize', (event, { direction }: { direction: string }) => {
     if (resizeInterval) clearInterval(resizeInterval);
     resizeWin = BrowserWindow.fromWebContents(event.sender);
     if (!resizeWin) return;
     rsStartBounds = resizeWin.getBounds();
-    rsStartCursor = { x: startX, y: startY };
+    const cur = screen.getCursorScreenPoint();
+    rsStartCursor = { x: cur.x, y: cur.y };
     resizeDir = direction;
     resizeInterval = setInterval(() => {
       if (!resizeWin) return;

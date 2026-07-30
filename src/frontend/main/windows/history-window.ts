@@ -29,7 +29,7 @@ export function createHistoryWindow(): BrowserWindow {
 
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setIgnoreMouseEvents(true);
-  win.setVisibleOnAllWorkspaces(true);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   win.loadFile(getRendererPage('overlay', 'history.html'));
 
