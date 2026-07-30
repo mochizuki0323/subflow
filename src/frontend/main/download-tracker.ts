@@ -23,6 +23,12 @@ export class DownloadTracker {
     const existing = this.active.get(modelId);
     if (existing) return existing;
 
+    // Seed 0% before the job starts: status queries must see the download
+    // during the pre-progress window (connect/redirect, VAD pre-download),
+    // or a remounted settings page shows the download button instead of the bar.
+    this.progress.set(modelId, 0);
+    this.notify(modelId, 0);
+
     const task = (async (): Promise<DownloadOutcome> => {
       try {
         const extra = await job((percent) => {
