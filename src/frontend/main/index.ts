@@ -28,6 +28,10 @@ import path from 'path';
 
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('enable-transparent-visuals');
+  // Force XWayland: Electron 41 defaults to native Wayland in Wayland
+  // sessions, where xdg-shell has no client positioning — setPosition is a
+  // no-op, so window dragging, position restore, and always-on-top all break.
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
 }
 
 const WS_PORT = 9876;
