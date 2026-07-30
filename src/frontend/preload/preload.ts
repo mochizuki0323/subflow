@@ -115,6 +115,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getBackendState: () => ipcRenderer.invoke('get-backend-state'),
 
+  getTranscriptLog: () => ipcRenderer.invoke('get-transcript-log'),
+  clearTranscriptLog: () => ipcRenderer.invoke('clear-transcript-log'),
+  exportTranscript: (format: 'srt' | 'txt') => ipcRenderer.invoke('export-transcript', format),
+  onTranscriptCleared: (callback: () => void) => {
+    ipcRenderer.on('transcript-cleared', () => callback());
+  },
+
   onBackendState: (callback: (data: { state: string; code?: number | null }) => void) => {
     ipcRenderer.on('backend-state', (_event, data) => callback(data));
   },

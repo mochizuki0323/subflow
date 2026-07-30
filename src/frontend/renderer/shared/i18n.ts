@@ -83,6 +83,8 @@ const translations = {
   'src.deviceHint': { en: 'mixes every application', zh: '全部应用混音' },
   'status.connecting': { en: 'Connecting...', zh: '连接中...' },
   'history.title': { en: 'Subtitle History', zh: '字幕历史' },
+  'history.exportSrt': { en: 'Export SRT', zh: '导出 SRT' },
+  'history.exportTxt': { en: 'Export text', zh: '导出文本' },
   'history.clear': { en: 'Clear', zh: '清空' },
   'history.empty': { en: 'No subtitle records yet. Start capturing to see subtitles here.', zh: '暂无字幕记录。开始采集后字幕将显示在此处。' },
   'history.partial': { en: '[partial]', zh: '[中间]' },

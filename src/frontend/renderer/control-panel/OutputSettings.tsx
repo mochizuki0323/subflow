@@ -79,15 +79,17 @@ export function OutputSettings({
         <div className="block-key">{t('out.content')}</div>
         <div className="form-group">
           <label>{t('lang.subtitleMode')}</label>
-          <div className="radio-group">
+          <div className="radio-group" role="group">
             {MODES.map(({ value, labelKey }) => (
-              <label
+              <button
                 key={value}
+                type="button"
                 className={subtitleMode === value ? 'active' : ''}
+                aria-pressed={subtitleMode === value}
                 onClick={() => onSubtitleModeChange(value)}
               >
-                <span>{t(labelKey as any)}</span>
-              </label>
+                {t(labelKey as any)}
+              </button>
             ))}
           </div>
           <p className="hint">

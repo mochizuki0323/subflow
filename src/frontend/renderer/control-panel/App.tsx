@@ -18,6 +18,7 @@ import type {
   SubtitleMode,
   UiLanguage,
   UiThemePayload,
+  TranscriptEntry,
 } from '../shared/types';
 
 type Tab = 'sources' | 'denoise' | 'recognition' | 'translation' | 'output' | 'history' | 'logs' | 'about';
@@ -69,7 +70,7 @@ export function App() {
   const [dragMode, setDragMode] = useState(false);
   const [recognizerReady, setRecognizerReady] = useState(false);
   const [sttProvider, setSttProvider] = useState<string>('parakeet');
-  const [history, setHistory] = useState<Array<{ text: string; translated?: string; speaker?: number; ts: string; partial: boolean }>>([]);
+  const [history, setHistory] = useState<TranscriptEntry[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
   const [backendState, setBackendState] = useState<string>('connecting');
@@ -122,16 +123,25 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // The record lives in the main process; this mirrors it rather than keeping a
+    // second, subtly different copy.
+    window.electronAPI.getTranscriptLog().then(setHistory);
+    window.electronAPI.onTranscriptCleared(() => setHistory([]));
     window.electronAPI.onSubtitle((data: TranscriptSegment) => {
       if (!data.text) return;
-      const ts = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const entry: TranscriptEntry = {
+        text: data.text.trim(),
+        translated: data.translated_text?.trim() || undefined,
+        speaker: data.speaker,
+        partial: !!data.partial,
+        t0: data.t0 ?? 0,
+        t1: data.t1 ?? 0,
+        at: Date.now(),
+      };
       setHistory((prev) => {
         const last = prev[prev.length - 1];
-        const entry = { text: data.text, translated: data.translated_text, speaker: data.speaker, ts, partial: data.partial };
-        if (last?.partial) {
-          return [...prev.slice(0, -1), entry];
-        }
-        return [...prev.slice(-199), entry];
+        if (last?.partial) return [...prev.slice(0, -1), entry];
+        return [...prev.slice(-1999), entry];
       });
     });
 
@@ -591,7 +601,7 @@ export function App() {
           </div>
 
           <div className="cap">
-            <span className="cap-time">{latest ? latest.ts : '--:--:--'}</span>
+            <span className="cap-time">{latest ? new Date(latest.at).toTimeString().slice(0, 8) : '--:--:--'}</span>
             <div>
               <div className={`cap-text ${latest?.partial ? 'interim' : 'settled'}`}>
                 {latest ? latest.text : <span style={{ color: 'var(--text-muted)' }}>{t('mon.waiting')}</span>}
@@ -634,7 +644,17 @@ export function App() {
             <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <h2 style={{ margin: 0 }}>{t('history.title')}</h2>
-                <button type="button" className="btn-secondary btn-sm" onClick={() => setHistory([])}>{t('history.clear')}</button>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => window.electronAPI.exportTranscript('srt')}>
+                    {t('history.exportSrt')}
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => window.electronAPI.exportTranscript('txt')}>
+                    {t('history.exportTxt')}
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm" onClick={() => window.electronAPI.clearTranscriptLog()}>
+                    {t('history.clear')}
+                  </button>
+                </span>
               </div>
               {history.length === 0 ? (
                 <p className="hint">{t('history.empty')}</p>
@@ -649,7 +669,9 @@ export function App() {
                     const speakerColor = hasSpeaker ? SPEAKER_COLORS[item.speaker! % SPEAKER_COLORS.length] : undefined;
                     return (
                       <div key={i} style={{ marginBottom: 6, opacity: item.partial ? 0.5 : 1 }}>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 8 }}>{item.ts}</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 8 }}>
+                          {new Date(item.at).toTimeString().slice(0, 8)}
+                        </span>
                         {hasSpeaker && (
                           <span style={{ color: speakerColor, fontWeight: 700, fontSize: 11, marginRight: 6 }}>
                             S{item.speaker! + 1}

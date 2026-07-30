@@ -25,6 +25,17 @@ export interface BackendStatus {
   audio_level?: number;
 }
 
+/** One line of the shared transcript record owned by the main process. */
+export interface TranscriptEntry {
+  text: string;
+  translated?: string;
+  speaker?: number;
+  partial: boolean;
+  t0: number;
+  t1: number;
+  at: number;
+}
+
 export interface LogEntry {
   level: string;
   message: string;
@@ -215,6 +226,10 @@ export interface ElectronAPI {
   onTranslatorError: (callback: (error: string) => void) => void;
   onAudioLevel: (callback: (data: { level: number }) => void) => void;
   getBackendState: () => Promise<{ state: string; code?: number | null }>;
+  getTranscriptLog: () => Promise<TranscriptEntry[]>;
+  clearTranscriptLog: () => Promise<{ success: boolean }>;
+  exportTranscript: (format: 'srt' | 'txt') => Promise<{ success: boolean; path?: string; error?: string }>;
+  onTranscriptCleared: (callback: () => void) => void;
   /** Backend process/socket liveness: connected | disconnected | restarting | exited. */
   onBackendState: (callback: (data: { state: string; code?: number | null }) => void) => void;
   removeListeners: (channel: string) => void;

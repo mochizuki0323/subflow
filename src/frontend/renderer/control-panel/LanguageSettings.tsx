@@ -169,19 +169,19 @@ export function LanguageSettings({ status }: Props) {
 
       <div className="form-row">
         <label>{t('lang.translator.apiFormat')}</label>
-        <div className="radio-group">
+        <div className="radio-group" role="group">
           {([
             { value: 'openai' as ApiFormat, labelKey: 'lang.translator.openaiCompat' },
             { value: 'anthropic' as ApiFormat, label: 'Anthropic' },
             { value: 'google' as ApiFormat, labelKey: 'lang.translator.googleAiStudio' },
           ]).map(({ value, labelKey, label }) => (
-            <label
+            <button type="button"
               key={value}
               className={translatorConfig.apiFormat === value ? 'active' : ''}
               onClick={() => handleApiFormatChange(value)}
             >
               <span>{labelKey ? t(labelKey as any) : label}</span>
-            </label>
+            </button>
           ))}
         </div>
       </div>

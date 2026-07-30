@@ -840,6 +840,10 @@ body,
 
 .source-item {
   position: relative;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
@@ -872,6 +876,7 @@ body,
 }
 
 .source-name {
+  display: block;
   font-family: var(--font-human);
   font-weight: 600;
   font-size: 14px;
@@ -879,6 +884,7 @@ body,
   color: var(--text-primary);
 }
 .source-desc {
+  display: block;
   font-size: 10.5px;
   color: var(--text-muted);
   margin-top: 2px;
@@ -1236,9 +1242,16 @@ button:disabled {
   flex-shrink: 0;
 }
 .switch input {
+  position: absolute;
+  inset: 0;
   opacity: 0;
-  width: 0;
-  height: 0;
+  margin: 0;
+  cursor: pointer;
+}
+/* Draw the ring on the visible part, since the real control is transparent. */
+.switch input:focus-visible + .switch-slider {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
 }
 .switch-slider {
   position: absolute;
@@ -1273,9 +1286,11 @@ button:disabled {
   border: 1px solid var(--border);
   width: fit-content;
 }
+.radio-group button,
 .radio-group label {
   display: flex;
   align-items: center;
+  font-family: inherit;
   padding: 6px 14px;
   font-size: 11.5px;
   color: var(--text-muted);
@@ -1288,15 +1303,18 @@ button:disabled {
   text-transform: none;
   letter-spacing: 0.02em;
 }
+.radio-group button:last-child,
 .radio-group label:last-child {
   border-right: none;
 }
+.radio-group button:hover,
 .radio-group label:hover {
   color: var(--text-primary);
 }
 .radio-group input[type='radio'] {
   display: none;
 }
+.radio-group button.active,
 .radio-group label.active {
   background: var(--accent);
   color: var(--bg-primary);

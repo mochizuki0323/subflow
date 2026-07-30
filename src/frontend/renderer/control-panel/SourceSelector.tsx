@@ -46,24 +46,29 @@ export function SourceSelector({
         <div className="block-key">{label}</div>
         <ul className="source-list">
           {list.map((source) => (
-            <li
-              key={source.id}
-              className={`source-item ${selectedId === source.id ? 'selected' : ''} ${capturing && selectedId === source.id ? 'live' : ''}`}
-              onClick={() => handleSelect(source.id)}
-            >
-              <span className="bracket tr" aria-hidden />
-              <span className="bracket bl" aria-hidden />
-              <span>
-                <div className="source-name">{source.name}</div>
-                <div className="source-desc">
-                  {source.desc}
-                  {hint ? ` · ${hint}` : ''}
-                </div>
-              </span>
-              <span className="source-id">NODE {source.id}</span>
-              {capturing && selectedId === source.id && (
-                <span className="chip">{t('source.capturingBadge')}</span>
-              )}
+            <li key={source.id}>
+              {/* A button rather than a clickable <li>: choosing a source is the
+                  primary action of this app and was reachable only by mouse. */}
+              <button
+                type="button"
+                className={`source-item ${selectedId === source.id ? 'selected' : ''} ${capturing && selectedId === source.id ? 'live' : ''}`}
+                aria-pressed={selectedId === source.id}
+                onClick={() => handleSelect(source.id)}
+              >
+                <span className="bracket tr" aria-hidden />
+                <span className="bracket bl" aria-hidden />
+                <span>
+                  <span className="source-name">{source.name}</span>
+                  <span className="source-desc">
+                    {source.desc}
+                    {hint ? ` · ${hint}` : ''}
+                  </span>
+                </span>
+                <span className="source-id">NODE {source.id}</span>
+                {capturing && selectedId === source.id && (
+                  <span className="chip">{t('source.capturingBadge')}</span>
+                )}
+              </button>
             </li>
           ))}
         </ul>

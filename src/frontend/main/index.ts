@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
 import { Translator } from './translator';
@@ -15,6 +15,7 @@ import {
 } from './app-config-dir';
 import type { AppSettings } from './app-settings';
 import { UnifiedConfigManager } from './unified-config';
+import { TranscriptLog, toSrt, toText } from './transcript-log';
 import { findDenoiseModel, getModelPath, getModelsDir, isModelDownloaded } from './denoiser-manager';
 import type { BackendRestartOptions, IpcContext } from './ipc/context';
 import { registerAppIpc } from './ipc/app-ipc';
@@ -70,6 +71,7 @@ let windowIpc: WindowIpc | null = null;
 let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original', showPartials: false };
 let lastCaptureSourceId = 0;
 let backendState: { state: string; code?: number | null } = { state: 'connecting' };
+const transcriptLog = new TranscriptLog();
 
 function safeSend(win: BrowserWindow | null, channel: string, ...args: unknown[]): void {
   if (!win || win.isDestroyed()) return;
@@ -235,6 +237,7 @@ if (!gotSingleInstanceLock) {
           safeSend(mainWindow, 'translator-error', errMsg);
         }
       }
+      transcriptLog.push(data);
       safeSend(overlayWindow, 'subtitle', data);
       safeSend(historyWindow, 'subtitle', data);
       safeSend(mainWindow, 'subtitle', data);
@@ -302,6 +305,32 @@ if (!gotSingleInstanceLock) {
     backendManager.on('exited', (code: number | null) => setBackendState('exited', code));
 
     ipcMain.handle('get-backend-state', () => backendState);
+
+    // Both history views read this one record instead of accumulating their own.
+    ipcMain.handle('get-transcript-log', () => transcriptLog.all());
+    ipcMain.handle('clear-transcript-log', () => {
+      transcriptLog.clear();
+      safeSend(mainWindow, 'transcript-cleared');
+      safeSend(historyWindow, 'transcript-cleared');
+      return { success: true };
+    });
+
+    ipcMain.handle('export-transcript', async (_event, format: 'srt' | 'txt') => {
+      const entries = transcriptLog.finals();
+      if (entries.length === 0) return { success: false, error: 'empty' };
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        defaultPath: `subflow-${stamp}.${format}`,
+        filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      });
+      if (canceled || !filePath) return { success: false, error: 'canceled' };
+      try {
+        fs.writeFileSync(filePath, format === 'srt' ? toSrt(entries) : toText(entries), 'utf-8');
+        return { success: true, path: filePath };
+      } catch (err: any) {
+        return { success: false, error: err?.message || String(err) };
+      }
+    });
 
     wsClient.connect();
 

@@ -3,7 +3,7 @@ import { useDragBarPointerDown } from './useWindowDrag';
 import { createRoot } from 'react-dom/client';
 import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
-import type { SubtitleMode } from '../shared/types';
+import type { SubtitleMode, TranscriptEntry } from '../shared/types';
 import { ResizeHandles } from './ResizeHandles';
 import { setLang, t } from '../shared/i18n';
 
@@ -12,16 +12,10 @@ const SPEAKER_COLORS = [
   '#c47ef4', '#f4e07e', '#7ef4f4', '#f4a07e',
 ];
 
-interface HistoryEntry {
-  text: string;
-  translatedText?: string;
-  speaker?: number;
-  ts: string;
-  partial: boolean;
-}
+
 
 function HistoryDisplay() {
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
+  const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const [mode, setMode] = useState<SubtitleMode>('original');
   const [showPartials, setShowPartials] = useState(false);
   const [dragMode, setDragMode] = useState(false);
@@ -56,22 +50,25 @@ function HistoryDisplay() {
   }, []);
 
   useEffect(() => {
+    // Seeded from the main process's record, so this window and the control panel's
+    // history tab can no longer drift apart in content, length or partial handling.
+    window.electronAPI.getTranscriptLog().then(setEntries);
+    window.electronAPI.onTranscriptCleared(() => setEntries([]));
     window.electronAPI.onSubtitle((segment) => {
       if (!segment.text) return;
-      const ts = new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-      });
       setEntries((prev) => {
-        const entry: HistoryEntry = {
+        const entry: TranscriptEntry = {
           text: segment.text.trim(),
-          translatedText: segment.translated_text?.trim(),
+          translated: segment.translated_text?.trim() || undefined,
           speaker: segment.speaker,
-          ts,
-          partial: segment.partial,
+          partial: !!segment.partial,
+          t0: segment.t0 ?? 0,
+          t1: segment.t1 ?? 0,
+          at: Date.now(),
         };
         const last = prev[prev.length - 1];
         if (last?.partial) return [...prev.slice(0, -1), entry];
-        return [...prev.slice(-99), entry];
+        return [...prev.slice(-1999), entry];
       });
     });
 
@@ -109,20 +106,20 @@ function HistoryDisplay() {
             const color = hasSpeaker ? SPEAKER_COLORS[entry.speaker! % SPEAKER_COLORS.length] : undefined;
             return (
               <div key={i} className="history-entry" style={entry.partial ? { opacity: 0.5 } : undefined}>
-                <span className="history-ts">{entry.ts}</span>
+                <span className="history-ts">{new Date(entry.at).toTimeString().slice(0, 8)}</span>
                 {hasSpeaker && (
                   <span className="subtitle-speaker-label" style={{ color }}>
                     S{entry.speaker! + 1}
                   </span>
                 )}
-                {(mode === 'original' || mode === 'bilingual' || !entry.translatedText) && (
+                {(mode === 'original' || mode === 'bilingual' || !entry.translated) && (
                   <span className="history-text">{entry.text}</span>
                 )}
-                {mode === 'translated' && entry.translatedText && (
-                  <span className="history-text">{entry.translatedText}</span>
+                {mode === 'translated' && entry.translated && (
+                  <span className="history-text">{entry.translated}</span>
                 )}
-                {mode === 'bilingual' && entry.translatedText && (
-                  <div className="history-translated">{entry.translatedText}</div>
+                {mode === 'bilingual' && entry.translated && (
+                  <div className="history-translated">{entry.translated}</div>
                 )}
               </div>
             );
