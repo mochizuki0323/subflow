@@ -2,8 +2,6 @@
 #include "core/engine.h"
 #include "ipc/protocol.h"
 #include "audio/audio_buffer.h"
-#include "transcriber/deepgram_transcriber.h"
-#include "transcriber/gladia_transcriber.h"
 #include "transcriber/parakeet_transcriber.h"
 #include "transcriber/remote_parakeet_transcriber.h"
 #include <chrono>
@@ -14,17 +12,7 @@ namespace ais {
 Engine::Engine(const Config& config)
     : config_(config), ws_server_(config.ws_port) {
     audio_source_ = create_audio_source();
-    if (config_.provider == "parakeet") {
-        ParakeetTranscriber::VadParams vp;
-        vp.threshold = config_.parakeet_vad_threshold;
-        vp.min_silence = config_.parakeet_vad_min_silence;
-        vp.min_speech = config_.parakeet_vad_min_speech;
-        vp.max_speech = config_.parakeet_vad_max_speech;
-        vp.partial_interval = config_.parakeet_partial_interval;
-        transcriber_ = std::make_unique<ParakeetTranscriber>(
-            config_.parakeet_model_dir, config_.parakeet_model_type,
-            config_.parakeet_vad_model, vp);
-    } else if (config_.provider == "remote_parakeet") {
+    if (config_.provider == "remote_parakeet") {
         ParakeetVadParams rvp;
         rvp.threshold = config_.parakeet_vad_threshold;
         rvp.min_silence = config_.parakeet_vad_min_silence;
@@ -34,12 +22,18 @@ Engine::Engine(const Config& config)
         transcriber_ = std::make_unique<RemoteParakeetTranscriber>(
             config_.remote_parakeet_url, config_.remote_parakeet_api_key,
             config_.remote_parakeet_model, rvp);
-    } else if (config_.provider == "gladia") {
-        transcriber_ = std::make_unique<GladiaTranscriber>(
-            config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
     } else {
-        transcriber_ = std::make_unique<DeepgramTranscriber>(
-            config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
+        // Local Parakeet is the default: an unknown provider string falls back to
+        // the one that needs no network and no credentials.
+        ParakeetTranscriber::VadParams vp;
+        vp.threshold = config_.parakeet_vad_threshold;
+        vp.min_silence = config_.parakeet_vad_min_silence;
+        vp.min_speech = config_.parakeet_vad_min_speech;
+        vp.max_speech = config_.parakeet_vad_max_speech;
+        vp.partial_interval = config_.parakeet_partial_interval;
+        transcriber_ = std::make_unique<ParakeetTranscriber>(
+            config_.parakeet_model_dir, config_.parakeet_model_type,
+            config_.parakeet_vad_model, vp);
     }
 
     // Forward log messages to WebSocket clients
@@ -138,35 +132,6 @@ void Engine::setup_command_handlers() {
             capture_source_id_ = id;
             audio_source_->start_capture(id);
             current_state_ = "capturing";
-            send_status();
-        }
-        });
-    });
-
-    ws_server_.on_command(cmd::LOAD_MODEL, [this](const json& data) {
-        enqueue_command([this, data]() {
-        std::string key = data.value("api_key", "");
-        if (!key.empty()) {
-            if (config_.provider == "gladia") {
-                config_.gladia_api_key = key;
-                transcriber_ = std::make_unique<GladiaTranscriber>(
-                    config_.gladia_api_key, config_.gladia_model, config_.gladia_config);
-            } else {
-                config_.deepgram_api_key = key;
-                transcriber_ = std::make_unique<DeepgramTranscriber>(
-                    config_.deepgram_api_key, config_.deepgram_model, config_.deepgram_extra_params);
-            }
-            transcriber_->set_language(config_.language);
-            if (transcriber_->load_model("")) {
-                ws_server_.broadcast(make_message(msg::MODEL_LOADED, {
-                    {"api_key_set", true},
-                    {"language", config_.language}
-                }));
-            } else {
-                ws_server_.broadcast(make_message(msg::ERR, {
-                    {"message", "Failed to start " + config_.provider + " connection (check API key)"}
-                }));
-            }
             send_status();
         }
         });

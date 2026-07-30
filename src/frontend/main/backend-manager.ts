@@ -12,13 +12,7 @@ export class BackendManager extends EventEmitter {
   private binaryPath: string;
   private port: number;
   private provider: string;
-  private apiKey: string;
-  private model: string;
-  private extraParams: string;
   private language: string;
-  private gladiaApiKey: string;
-  private gladiaModel: string;
-  private gladiaConfig: string;
   private parakeetModelDir: string;
   private parakeetModelType: string;
   private parakeetVadModel: string;
@@ -57,8 +51,7 @@ export class BackendManager extends EventEmitter {
   }
 
   constructor(binaryPath: string, port: number, options?: {
-    provider?: string; apiKey?: string; model?: string; extraParams?: string;
-    language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+    provider?: string; language?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
     remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
@@ -66,14 +59,8 @@ export class BackendManager extends EventEmitter {
     super();
     this.binaryPath = binaryPath;
     this.port = port;
-    this.provider = options?.provider || 'deepgram';
-    this.apiKey = options?.apiKey || '';
-    this.model = options?.model || 'nova-3';
-    this.extraParams = options?.extraParams || '';
+    this.provider = options?.provider || 'parakeet';
     this.language = options?.language || 'auto';
-    this.gladiaApiKey = options?.gladiaApiKey || '';
-    this.gladiaModel = options?.gladiaModel || 'solaria-1';
-    this.gladiaConfig = options?.gladiaConfig || '';
     this.parakeetModelDir = options?.parakeetModelDir || '';
     this.parakeetModelType = options?.parakeetModelType || '';
     this.parakeetVadModel = options?.parakeetVadModel || '';
@@ -99,11 +86,7 @@ export class BackendManager extends EventEmitter {
       args.push('--parakeet-vad-min-speech', String(this.parakeetVad.minSpeech));
       args.push('--parakeet-vad-max-speech', String(this.parakeetVad.maxSpeech));
       args.push('--parakeet-partial-interval', String(this.parakeetVad.partialInterval));
-    } else if (this.provider === 'gladia') {
-      if (this.gladiaApiKey) args.push('--gladia-api-key', this.gladiaApiKey);
-      if (this.gladiaModel) args.push('--gladia-model', this.gladiaModel);
-      if (this.gladiaConfig) args.push('--gladia-config', this.gladiaConfig);
-    } else if (this.provider === 'remote_parakeet') {
+    } else {
       if (this.remoteParakeetUrl) args.push('--remote-parakeet-url', this.remoteParakeetUrl);
       if (this.remoteParakeetApiKey) args.push('--remote-parakeet-api-key', this.remoteParakeetApiKey);
       if (this.remoteParakeetModel) args.push('--remote-parakeet-model', this.remoteParakeetModel);
@@ -114,10 +97,6 @@ export class BackendManager extends EventEmitter {
       args.push('--parakeet-vad-min-speech', String(this.parakeetVad.minSpeech));
       args.push('--parakeet-vad-max-speech', String(this.parakeetVad.maxSpeech));
       args.push('--parakeet-partial-interval', String(this.parakeetVad.partialInterval));
-    } else {
-      if (this.apiKey) args.push('--api-key', this.apiKey);
-      if (this.model) args.push('--model', this.model);
-      if (this.extraParams) args.push('--extra-params', this.extraParams);
     }
     if (this.language && this.language !== 'auto') {
       args.push('--language', this.language);
@@ -210,20 +189,13 @@ export class BackendManager extends EventEmitter {
   }
 
   restart(opts: {
-    provider?: string; apiKey?: string; model?: string; extraParams?: string;
-    language?: string; gladiaApiKey?: string; gladiaModel?: string; gladiaConfig?: string;
+    provider?: string; language?: string;
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
     remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
   }): void {
     if (opts.provider) this.provider = opts.provider;
-    if (opts.apiKey !== undefined) this.apiKey = opts.apiKey;
-    if (opts.model) this.model = opts.model;
-    if (opts.extraParams !== undefined) this.extraParams = opts.extraParams;
     if (opts.language) this.language = opts.language;
-    if (opts.gladiaApiKey !== undefined) this.gladiaApiKey = opts.gladiaApiKey;
-    if (opts.gladiaModel) this.gladiaModel = opts.gladiaModel;
-    if (opts.gladiaConfig !== undefined) this.gladiaConfig = opts.gladiaConfig;
     if (opts.parakeetModelDir !== undefined) this.parakeetModelDir = opts.parakeetModelDir;
     if (opts.parakeetModelType !== undefined) this.parakeetModelType = opts.parakeetModelType;
     if (opts.parakeetVadModel !== undefined) this.parakeetVadModel = opts.parakeetVadModel;

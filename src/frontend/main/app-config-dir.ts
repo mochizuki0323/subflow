@@ -4,7 +4,6 @@ import { app } from 'electron';
 
 /** Config file names migrated from legacy userData (excludes app-settings.json which is new) */
 const LEGACY_CONFIG_FILES = [
-  'deepgram-config.json',
   'translator-config.json',
   'window-positions.json',
   'ui-preferences.json',

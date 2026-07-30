@@ -1,7 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import type { DeepgramConfig, DeepgramFeatures, GladiaConfig, GladiaFeatures } from './model-manager';
-import { DEFAULT_FEATURES, DEFAULT_GLADIA, DEFAULT_GLADIA_FEATURES } from './model-manager';
 import type { AppSettings, SubtitleMode, UiLanguage } from './app-settings';
 import type { UiPreferences, AppearanceMode, AccentSource } from './ui-theme';
 import type { TranslatorConfig, ApiFormat } from './translator';
@@ -43,12 +41,10 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
-export type SttProvider = 'deepgram' | 'gladia' | 'parakeet' | 'remote_parakeet';
+export type SttProvider = 'parakeet' | 'remote_parakeet';
 
 export interface UnifiedConfig {
   provider: SttProvider;
-  deepgram: DeepgramConfig;
-  gladia: GladiaConfig;
   parakeet: ParakeetConfig;
   remoteParakeet: RemoteParakeetConfig;
   translator: TranslatorConfig;
@@ -58,11 +54,6 @@ export interface UnifiedConfig {
   denoiser: DenoiserConfig;
 }
 
-const DEFAULT_DEEPGRAM: DeepgramConfig = {
-  apiKey: '',
-  model: 'nova-3',
-  features: { ...DEFAULT_FEATURES },
-};
 
 const DEFAULT_TRANSLATOR: TranslatorConfig = {
   baseUrl: 'https://openrouter.ai/api',
@@ -157,9 +148,15 @@ function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): 
   };
 }
 
+/**
+ * Deepgram and Gladia were removed. A config written by an older build still names
+ * one of them, and silently leaving that string in place would spawn a backend with
+ * a provider it no longer implements — so anything unrecognised lands on the local
+ * model, which needs neither network nor credentials.
+ */
 function normalizeProvider(value: unknown): SttProvider {
-  if (value === 'deepgram' || value === 'gladia' || value === 'parakeet' || value === 'remote_parakeet') return value;
-  return 'deepgram';
+  if (value === 'parakeet' || value === 'remote_parakeet') return value;
+  return 'parakeet';
 }
 
 function clampFloat(value: unknown, min: number, max: number, fallback: number): number {
@@ -203,21 +200,10 @@ function mergeRemoteParakeet(
   };
 }
 
-function mergeGladia(base: GladiaConfig, partial: Partial<GladiaConfig>): GladiaConfig {
-  return {
-    ...base,
-    ...partial,
-    apiKey: typeof partial.apiKey === 'string' ? partial.apiKey : base.apiKey,
-    model: typeof partial.model === 'string' && partial.model ? partial.model : base.model,
-    features: { ...base.features, ...((partial as any).features || {}) } as GladiaFeatures,
-  };
-}
 
 function buildDefaults(): UnifiedConfig {
   return {
-    provider: 'deepgram',
-    deepgram: { ...DEFAULT_DEEPGRAM, features: { ...DEFAULT_FEATURES } },
-    gladia: { ...DEFAULT_GLADIA },
+    provider: 'parakeet',
     parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
     remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
     translator: { ...DEFAULT_TRANSLATOR },
@@ -228,13 +214,6 @@ function buildDefaults(): UnifiedConfig {
   };
 }
 
-function mergeDeepgram(base: DeepgramConfig, partial: Partial<DeepgramConfig>): DeepgramConfig {
-  return {
-    ...base,
-    ...partial,
-    features: { ...base.features, ...((partial as any).features || {}) } as DeepgramFeatures,
-  };
-}
 
 function mergeTranslator(base: TranslatorConfig, partial: Partial<TranslatorConfig>): TranslatorConfig {
   const apiFormat = normalizeApiFormat(partial.apiFormat ?? base.apiFormat);
@@ -296,7 +275,18 @@ export class UnifiedConfigManager {
     try {
       const raw = fs.readFileSync(this.configPath, 'utf-8');
       const parsed = JSON.parse(raw);
-      return this.normalize(parsed);
+      const config = this.normalize(parsed);
+      // A config written before the cloud engines were removed still names one of
+      // them and carries their now-dead sections. normalize() already ignores both,
+      // but leaving the file saying "deepgram" while the app runs Parakeet is a lie
+      // waiting to confuse whoever reads it next — so rewrite it once, here.
+      const stale =
+        parsed.provider !== config.provider || 'deepgram' in parsed || 'gladia' in parsed;
+      if (stale) {
+        this.config = config;
+        this.save();
+      }
+      return config;
     } catch {
       return this.migrate();
     }
@@ -306,8 +296,6 @@ export class UnifiedConfigManager {
     const defaults = buildDefaults();
     return {
       provider: normalizeProvider(parsed.provider),
-      deepgram: mergeDeepgram(defaults.deepgram, parsed.deepgram || {}),
-      gladia: mergeGladia(defaults.gladia, parsed.gladia || {}),
       parakeet: mergeParakeet(defaults.parakeet, parsed.parakeet || {}),
       remoteParakeet: mergeRemoteParakeet(defaults.remoteParakeet, parsed.remoteParakeet || {}),
       translator: mergeTranslator(defaults.translator, parsed.translator || {}),
@@ -321,9 +309,7 @@ export class UnifiedConfigManager {
   private migrate(): UnifiedConfig {
     const defaults = buildDefaults();
     const config: UnifiedConfig = {
-      provider: 'deepgram',
-      deepgram: mergeDeepgram(defaults.deepgram, this.readLegacy('deepgram-config.json')),
-      gladia: { ...DEFAULT_GLADIA },
+      provider: 'parakeet',
       parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
       remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
@@ -356,8 +342,6 @@ export class UnifiedConfigManager {
   get(): UnifiedConfig { return this.config; }
 
   getProvider(): SttProvider { return this.config.provider; }
-  getDeepgram(): DeepgramConfig { return this.config.deepgram; }
-  getGladia(): GladiaConfig { return this.config.gladia; }
   getParakeet(): ParakeetConfig { return this.config.parakeet; }
   getRemoteParakeet(): RemoteParakeetConfig { return this.config.remoteParakeet; }
   getTranslator(): TranslatorConfig { return this.config.translator; }
@@ -371,15 +355,7 @@ export class UnifiedConfigManager {
     this.save();
   }
 
-  updateDeepgram(partial: Partial<DeepgramConfig>): void {
-    this.config.deepgram = mergeDeepgram(this.config.deepgram, partial);
-    this.save();
-  }
 
-  updateGladia(partial: Partial<GladiaConfig>): void {
-    this.config.gladia = mergeGladia(this.config.gladia, partial);
-    this.save();
-  }
 
   updateParakeet(partial: Partial<ParakeetConfig>): void {
     this.config.parakeet = mergeParakeet(this.config.parakeet, partial);

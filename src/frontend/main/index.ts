@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, screen } from 'electron';
 import { BackendManager } from './backend-manager';
 import { WsClient } from './ws-client';
-import { buildExtraParams, buildGladiaConfig } from './model-manager';
 import { Translator } from './translator';
 import { createMainWindow } from './windows/main-window';
 import { createOverlayWindow } from './windows/overlay-window';
@@ -117,10 +116,7 @@ if (!gotSingleInstanceLock) {
   translator.setConfig(configManager.getTranslator());
 
   const provider = configManager.getProvider();
-  const dgConfig = configManager.getDeepgram();
-  const gdConfig = configManager.getGladia();
   const pkConfig = configManager.getParakeet();
-  const extraParams = buildExtraParams(dgConfig.features);
 
   // Resolve parakeet model directory, type, and VAD path
   const pkArgs = provider === 'parakeet'
@@ -129,13 +125,7 @@ if (!gotSingleInstanceLock) {
 
   backendManager = new BackendManager(backendPath, WS_PORT, {
     provider,
-    apiKey: dgConfig.apiKey || undefined,
-    model: dgConfig.model || 'nova-3',
-    extraParams: extraParams || undefined,
     language: appSettings.sourceLanguage,
-    gladiaApiKey: gdConfig.apiKey || undefined,
-    gladiaModel: gdConfig.model || 'solaria-1',
-    gladiaConfig: buildGladiaConfig(gdConfig.features),
     parakeetModelDir: pkArgs.modelDir || undefined,
     parakeetModelType: pkArgs.modelType || undefined,
     parakeetVadModel: pkArgs.vadModel || undefined,

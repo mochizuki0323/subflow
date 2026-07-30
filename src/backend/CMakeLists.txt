@@ -37,7 +37,7 @@ endif()
 # Boost (Beast + Asio + System) is header-only, so the same vendored headers
 # serve both the native build and the MinGW cross-compile. The Boost dependency
 # is confined to subflow_net's translation units; its public headers
-# (net/ws_client.h, net/http_client.h) are Boost-free.
+# (net/ws_client.h) are Boost-free.
 set(BOOST_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/extern/boost/include)
 if(NOT EXISTS "${BOOST_INCLUDE_DIR}/boost/beast.hpp")
     message(FATAL_ERROR
@@ -48,7 +48,6 @@ endif()
 
 add_library(subflow_net STATIC
     net/beast_ws_client.cpp
-    net/http_client.cpp
 )
 target_include_directories(subflow_net
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
@@ -69,8 +68,6 @@ set(BACKEND_SOURCES
     audio/audio_source.cpp
     audio/create_audio_source.cpp
     audio/denoiser.cpp
-    transcriber/deepgram_transcriber.cpp
-    transcriber/gladia_transcriber.cpp
     transcriber/parakeet_transcriber.cpp
     transcriber/remote_parakeet_transcriber.cpp
     ipc/ws_server.cpp

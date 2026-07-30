@@ -55,15 +55,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSttProvider: () => ipcRenderer.invoke('get-stt-provider'),
   setSttProvider: (provider: string) => ipcRenderer.invoke('set-stt-provider', provider),
 
-  // Deepgram config
-  getDeepgramConfig: () => ipcRenderer.invoke('get-deepgram-config'),
-  setDeepgramConfig: (config: any) => ipcRenderer.invoke('set-deepgram-config', config),
-  fetchDeepgramModels: () => ipcRenderer.invoke('fetch-deepgram-models'),
 
-  // Gladia config
-  getGladiaConfig: () => ipcRenderer.invoke('get-gladia-config'),
-  setGladiaConfig: (config: any) => ipcRenderer.invoke('set-gladia-config', config),
-  fetchGladiaModels: () => ipcRenderer.invoke('fetch-gladia-models'),
 
   // Remote Parakeet config
   getRemoteParakeetConfig: () => ipcRenderer.invoke('get-remote-parakeet-config'),

@@ -31,55 +31,12 @@ export interface LogEntry {
   timestamp?: string;
 }
 
-export interface DeepgramFeatures {
-  smart_format: boolean;
-  punctuate: boolean;
-  interim_results: boolean;
-  endpointing: number | false;
-  utterance_end_ms: number | false;
-  diarize: boolean;
-  vad_events: boolean;
-  numerals: boolean;
-}
 
-export interface DeepgramConfig {
-  apiKey: string;
-  model: string;
-  features: DeepgramFeatures;
-}
 
-export type SttProvider = 'deepgram' | 'gladia' | 'parakeet' | 'remote_parakeet';
+export type SttProvider = 'parakeet' | 'remote_parakeet';
 
-export interface CustomVocabularyItem {
-  value: string;
-  language?: string;
-  pronunciations?: string[];
-  intensity?: number;
-}
 
-export interface GladiaFeatures {
-  code_switching: boolean;
-  speech_threshold: number;
-  audio_enhancer: boolean;
-  endpointing: number;
-  max_duration_without_endpointing: number;
-  partial_transcripts: boolean;
-  custom_vocabulary: boolean;
-  custom_vocabulary_config: {
-    vocabulary: (string | CustomVocabularyItem)[];
-    default_intensity: number;
-  };
-  custom_spelling: boolean;
-  custom_spelling_config: {
-    spelling_dictionary: Record<string, string[]>;
-  };
-}
 
-export interface GladiaConfig {
-  apiKey: string;
-  model: string;
-  features: GladiaFeatures;
-}
 
 export type SubtitleMode = 'original' | 'translated' | 'bilingual';
 
@@ -231,12 +188,6 @@ export interface ElectronAPI {
 
   getSttProvider: () => Promise<SttProvider>;
   setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;
-  getDeepgramConfig: () => Promise<DeepgramConfig>;
-  setDeepgramConfig: (config: Partial<DeepgramConfig>) => Promise<{ success: boolean }>;
-  fetchDeepgramModels: () => Promise<{ success: boolean; models?: Array<{ name: string; canonical_name: string; version: string; languages: string[] }>; error?: string }>;
-  getGladiaConfig: () => Promise<GladiaConfig>;
-  setGladiaConfig: (config: Partial<GladiaConfig>) => Promise<{ success: boolean }>;
-  fetchGladiaModels: () => Promise<{ success: boolean; models?: Array<{ name: string; description: string }>; error?: string }>;
   getRemoteParakeetConfig: () => Promise<RemoteParakeetConfig>;
   setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
   testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;

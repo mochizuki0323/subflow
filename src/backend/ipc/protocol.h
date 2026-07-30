@@ -24,7 +24,6 @@ namespace msg {
 // Frontend -> Backend command types
 namespace cmd {
     constexpr const char* SELECT_SOURCE = "select_source";
-    constexpr const char* LOAD_MODEL    = "load_model";
     constexpr const char* SET_LANGUAGE  = "set_language";
     constexpr const char* SET_TRANSLATE = "set_translate";
     constexpr const char* LIST_SOURCES  = "list_sources";

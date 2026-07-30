@@ -18,7 +18,7 @@ import type {
   UiThemePayload,
 } from '../shared/types';
 
-type Tab = 'sources' | 'deepgram' | 'denoise' | 'language' | 'history' | 'logs' | 'about';
+type Tab = 'sources' | 'denoise' | 'recognition' | 'language' | 'history' | 'logs' | 'about';
 
 const ACCENT_STATUS_KEY: Record<string, string> = {
   wallpaper: 'theme.accentFrom.wallpaper',
@@ -36,7 +36,7 @@ const STATUS_KEY: Record<string, string> = {
 
 const TAB_META: Record<Tab, { titleKey: string; navKey: string }> = {
   sources: { titleKey: 'tab.sources', navKey: 'tab.sources.nav' },
-  deepgram: { titleKey: 'tab.deepgram', navKey: 'tab.deepgram.nav' },
+  recognition: { titleKey: 'tab.recognition', navKey: 'tab.recognition.nav' },
   denoise: { titleKey: 'tab.denoise', navKey: 'tab.denoise.nav' },
   language: { titleKey: 'tab.language', navKey: 'tab.language.nav' },
   history: { titleKey: 'tab.history', navKey: 'tab.history.nav' },
@@ -49,7 +49,7 @@ const TAB_META: Record<Tab, { titleKey: string; navKey: string }> = {
  * in order — which is why they are numbered and drawn on a bus. The rest are tools
  * and get no number, because they are not part of any sequence.
  */
-const PIPELINE: Tab[] = ['sources', 'denoise', 'deepgram', 'language'];
+const PIPELINE: Tab[] = ['sources', 'denoise', 'recognition', 'language'];
 const TOOLS: Tab[] = ['history', 'logs', 'about'];
 
 const SCOPE_BARS = 150;
@@ -64,8 +64,8 @@ export function App() {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [dragMode, setDragMode] = useState(false);
-  const [deepgramConnected, setDeepgramConnected] = useState(false);
-  const [sttProvider, setSttProvider] = useState<string>('deepgram');
+  const [recognizerReady, setRecognizerReady] = useState(false);
+  const [sttProvider, setSttProvider] = useState<string>('parakeet');
   const [history, setHistory] = useState<Array<{ text: string; translated?: string; speaker?: number; ts: string; partial: boolean }>>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
@@ -138,7 +138,7 @@ export function App() {
 
     window.electronAPI.onStatus((data) => {
       setStatus(data);
-      setDeepgramConnected(!!data?.model_loaded);
+      setRecognizerReady(!!data?.model_loaded);
     });
 
     window.electronAPI.onLog((data) => {
@@ -146,7 +146,7 @@ export function App() {
     });
 
     window.electronAPI.onModelLoaded(() => {
-      setDeepgramConnected(true);
+      setRecognizerReady(true);
     });
 
     window.electronAPI.onDragMode((enabled) => setDragMode(enabled));
@@ -261,7 +261,7 @@ export function App() {
     window.electronAPI.getBackendState().then(({ state }) => setBackendState(state));
     window.electronAPI.onBackendState(({ state }) => {
       setBackendState(state);
-      if (state !== 'connected') setDeepgramConnected(false);
+      if (state !== 'connected') setRecognizerReady(false);
     });
     return () => window.electronAPI.removeListeners('backend-state');
   }, []);
@@ -293,9 +293,9 @@ export function App() {
         return denoiser?.enabled
           ? { mode: 'active', state: denoiser.modelId }
           : { mode: 'bypass', state: t('rail.off') };
-      case 'deepgram': {
+      case 'recognition': {
         const label = `${sttProvider}${status?.language ? ` · ${status.language}` : ''}`;
-        if (deepgramConnected) return { mode: 'active', state: label };
+        if (recognizerReady) return { mode: 'active', state: label };
         // A backend that is down is not a misconfigured stage; only accuse the stage
         // once the backend is up and still reports no usable model.
         if (!backendUp) return { mode: 'waiting', state: t('rail.backendDown') };
@@ -508,21 +508,11 @@ export function App() {
               <>
                 <span className={`status-dot ${status.state}`} />
                 <span className="status-text">{t((STATUS_KEY[status.state] || status.state) as any)}</span>
-                {deepgramConnected ? (
-                  <span className="badge badge-success" title={
-                    sttProvider === 'parakeet' ? t('parakeet.connected.title')
-                    : sttProvider === 'remote_parakeet' ? t('remoteParakeet.connected.title')
-                    : sttProvider === 'gladia' ? t('gladia.connected.title')
-                    : t('deepgram.connected.title')
-                  }>
-                    {sttProvider === 'parakeet' ? t('parakeet.connected')
-                    : sttProvider === 'remote_parakeet' ? t('remoteParakeet.connected')
-                    : sttProvider === 'gladia' ? t('gladia.connected')
-                    : t('deepgram.connected')}
-                  </span>
-                ) : (
-                  <span className="badge" title={t('deepgram.disconnected.title')}>{t('deepgram.disconnected')}</span>
-                )}
+                {/* The badge used to name Deepgram whatever the engine was, so a
+                    local-model user was told "Deepgram not connected". */}
+                <span className={`badge ${recognizerReady ? 'badge-loaded' : ''}`}>
+                  {recognizerReady ? t('recognizer.ready') : t('recognizer.notReady')}
+                </span>
               </>
             ) : (
               <span className="status-text">{t('status.connecting')}</span>
@@ -607,7 +597,7 @@ export function App() {
               }}
             />
           )}
-          {tab === 'deepgram' && <ModelManager onProviderChange={setSttProvider} />}
+          {tab === 'recognition' && <ModelManager onProviderChange={setSttProvider} />}
           {tab === 'denoise' && <DenoiserSettings />}
           {tab === 'language' && (
             <LanguageSettings

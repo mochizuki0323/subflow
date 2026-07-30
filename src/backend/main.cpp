@@ -20,13 +20,8 @@ static void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options]\n"
               << "Options:\n"
               << "  --port <port>              WebSocket port (default: 9876)\n"
-              << "  --provider <name>          STT provider: deepgram or gladia (default: deepgram)\n"
-              << "  --api-key <key>            Deepgram API key\n"
-              << "  --model <model>            Deepgram model (default: nova-3)\n"
+              << "  --provider <name>          STT provider: parakeet or remote_parakeet (default: parakeet)\n"
               << "  --language <lang>          Language code: ja, en, zh, auto, etc. (default: auto)\n"
-              << "  --extra-params <params>    Extra Deepgram URL params\n"
-              << "  --gladia-api-key <key>     Gladia API key\n"
-              << "  --gladia-model <model>     Gladia model (default: solaria-1)\n"
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
@@ -53,20 +48,8 @@ int main(int argc, char* argv[]) {
             config.ws_port = std::stoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--provider") == 0 && i + 1 < argc) {
             config.provider = argv[++i];
-        } else if (std::strcmp(argv[i], "--api-key") == 0 && i + 1 < argc) {
-            config.deepgram_api_key = argv[++i];
-        } else if (std::strcmp(argv[i], "--model") == 0 && i + 1 < argc) {
-            config.deepgram_model = argv[++i];
-        } else if (std::strcmp(argv[i], "--extra-params") == 0 && i + 1 < argc) {
-            config.deepgram_extra_params = argv[++i];
         } else if (std::strcmp(argv[i], "--language") == 0 && i + 1 < argc) {
             config.language = argv[++i];
-        } else if (std::strcmp(argv[i], "--gladia-api-key") == 0 && i + 1 < argc) {
-            config.gladia_api_key = argv[++i];
-        } else if (std::strcmp(argv[i], "--gladia-model") == 0 && i + 1 < argc) {
-            config.gladia_model = argv[++i];
-        } else if (std::strcmp(argv[i], "--gladia-config") == 0 && i + 1 < argc) {
-            config.gladia_config = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-model-dir") == 0 && i + 1 < argc) {
             config.parakeet_model_dir = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-model-type") == 0 && i + 1 < argc) {
@@ -112,21 +95,16 @@ int main(int argc, char* argv[]) {
 
     LOG_INFO("SubFlow backend starting (provider=" + config.provider + ")...");
     LOG_INFO("WebSocket port: " + std::to_string(config.ws_port));
-    if (config.provider == "parakeet") {
+    if (config.provider == "remote_parakeet") {
+        if (!config.remote_parakeet_url.empty())
+            LOG_INFO("Remote Parakeet server: " + config.remote_parakeet_url);
+        else
+            LOG_WARN("Remote Parakeet URL: NOT SET — transcription disabled until a server is configured");
+    } else {
         if (!config.parakeet_model_dir.empty())
             LOG_INFO("Parakeet model: " + config.parakeet_model_dir + " (type=" + config.parakeet_model_type + ")");
         else
             LOG_WARN("Parakeet model directory: NOT SET — transcription disabled until model is downloaded");
-    } else if (config.provider == "gladia") {
-        if (!config.gladia_api_key.empty())
-            LOG_INFO("Gladia API key: configured (model=" + config.gladia_model + ")");
-        else
-            LOG_WARN("Gladia API key: NOT SET — transcription disabled until key is provided");
-    } else {
-        if (!config.deepgram_api_key.empty())
-            LOG_INFO("Deepgram API key: configured");
-        else
-            LOG_WARN("Deepgram API key: NOT SET — transcription disabled until key is provided");
     }
 
     ais::Engine engine(config);

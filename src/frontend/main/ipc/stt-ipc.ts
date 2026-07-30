@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron';
-import { buildExtraParams, buildGladiaConfig } from '../model-manager';
 import {
   findParakeetModel,
   getParakeetModelDir,
@@ -65,21 +64,15 @@ export function registerSttIpc(ctx: IpcContext): void {
   ipcMain.handle('get-stt-provider', () => ctx.config.getProvider());
 
   ipcMain.handle('set-stt-provider', (_event, provider: string) => {
-    if (provider !== 'deepgram' && provider !== 'gladia' && provider !== 'parakeet' && provider !== 'remote_parakeet') return { success: false };
-    ctx.config.updateProvider(provider as any);
-    const dg = ctx.config.getDeepgram();
-    const gd = ctx.config.getGladia();
+    if (provider !== 'parakeet' && provider !== 'remote_parakeet') return { success: false };
+    ctx.config.updateProvider(provider);
     const pk = ctx.config.getParakeet();
     const pkArgs = provider === 'parakeet'
       ? resolveParakeetModelArgs(ctx.configDir, pk.modelId)
       : { modelDir: '', modelType: '', vadModel: '' };
     ctx.restartBackend({
       provider,
-      apiKey: dg.apiKey || '', model: dg.model || 'nova-3',
-      extraParams: buildExtraParams(dg.features) || undefined,
       language: ctx.appSettings().sourceLanguage,
-      gladiaApiKey: gd.apiKey || '', gladiaModel: gd.model || 'solaria-1',
-      gladiaConfig: buildGladiaConfig(gd.features),
       parakeetModelDir: pkArgs.modelDir, parakeetModelType: pkArgs.modelType, parakeetVadModel: pkArgs.vadModel,
       parakeetVad: provider === 'remote_parakeet' ? ctx.config.getRemoteParakeet().vad : pk.vad,
       remoteParakeetUrl: ctx.config.getRemoteParakeet().serverUrl,
@@ -87,80 +80,6 @@ export function registerSttIpc(ctx: IpcContext): void {
       remoteParakeetModel: ctx.config.getRemoteParakeet().model,
     });
     return { success: true };
-  });
-
-  // ---- Deepgram config ----
-  ipcMain.handle('get-deepgram-config', () => ctx.config.getDeepgram());
-
-  ipcMain.handle('set-deepgram-config', (_event, config: any) => {
-    ctx.config.updateDeepgram(config);
-    const updated = ctx.config.getDeepgram();
-    ctx.restartBackend({
-      apiKey: updated.apiKey || '', model: updated.model || 'nova-3',
-      extraParams: buildExtraParams(updated.features) || undefined,
-      language: ctx.appSettings().sourceLanguage,
-    });
-    return { success: true };
-  });
-
-  ipcMain.handle('fetch-deepgram-models', async () => {
-    const apiKey = ctx.config.getDeepgram().apiKey;
-    if (!apiKey) return { success: false, error: 'No API key configured' };
-    let body: string;
-    try {
-      const res = await fetch('https://api.deepgram.com/v1/models', {
-        headers: { Authorization: `Token ${apiKey}`, 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-      body = await res.text();
-    } catch (err) {
-      return { success: false, error: errorMessage(err, 'Timeout') };
-    }
-    try {
-      const data = JSON.parse(body);
-      const models = (data.stt || []).map((m: any) => ({
-        name: m.name || '', canonical_name: m.canonical_name || m.name || '',
-        version: m.version || '', languages: m.languages || [],
-      }));
-      return { success: true, models };
-    } catch {
-      return { success: false, error: `Failed to parse response: ${body.slice(0, 200)}` };
-    }
-  });
-
-  // ---- Gladia config ----
-  ipcMain.handle('get-gladia-config', () => ctx.config.getGladia());
-
-  ipcMain.handle('set-gladia-config', (_event, config: any) => {
-    ctx.config.updateGladia(config);
-    const updated = ctx.config.getGladia();
-    ctx.restartBackend({
-      gladiaApiKey: updated.apiKey || '', gladiaModel: updated.model || 'solaria-1',
-      gladiaConfig: buildGladiaConfig(updated.features),
-      language: ctx.appSettings().sourceLanguage,
-    });
-    return { success: true };
-  });
-
-  ipcMain.handle('fetch-gladia-models', async () => {
-    const apiKey = ctx.config.getGladia().apiKey;
-    if (!apiKey) return { success: false, error: 'No API key configured' };
-    try {
-      const res = await fetch('https://api.gladia.io/v2/models', {
-        headers: { 'x-gladia-key': apiKey, 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        const models = data.map((m: any) => ({
-          name: m.name || m.id || '',
-          description: m.description || '',
-        }));
-        return { success: true, models };
-      }
-    } catch { /* fall through to known models */ }
-    // API didn't return a usable list — return known models
-    return { success: true, models: [{ name: 'solaria-1', description: '' }] };
   });
 
   // ---- Parakeet (local) config ----
