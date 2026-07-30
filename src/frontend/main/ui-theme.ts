@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 
-import { accentFromDesktopWallpaper } from './wallpaper-accent';
+import { accentFromDesktopWallpaper, type AccentResolution } from './wallpaper-accent';
+
+export type { AccentResolution };
 
 export type AppearanceMode = 'light' | 'dark' | 'system';
 export type AccentSource = 'default' | 'wallpaper';
@@ -21,6 +23,8 @@ export interface UiThemePayload {
   appearance: AppearanceMode;
   effectiveMode: 'light' | 'dark';
   accentSource: AccentSource;
+  /** Where the accent actually came from; only meaningful when accentSource is 'wallpaper'. */
+  accentResolution: AccentResolution | null;
   /** CSS custom properties without leading `--` for JSON clarity, applied as --key */
   vars: Record<string, string>;
 }
@@ -165,20 +169,22 @@ function accentDerived(accent: string, mode: 'light' | 'dark'): Record<string, s
   };
 }
 
-export function resolveUiTheme(
+export async function resolveUiTheme(
   prefs: UiPreferences,
   shouldUseDarkColors: boolean,
-): UiThemePayload {
+): Promise<UiThemePayload> {
   const effectiveDark =
     prefs.appearance === 'system' ? shouldUseDarkColors : prefs.appearance === 'dark';
   const effectiveMode: 'light' | 'dark' = effectiveDark ? 'dark' : 'light';
   const base = effectiveDark ? BASE_DARK : BASE_LIGHT;
   let accent = effectiveDark ? DEFAULT_ACCENT_DARK : DEFAULT_ACCENT_LIGHT;
+  let accentResolution: AccentResolution | null = null;
 
   if (prefs.accentSource === 'wallpaper') {
-    const fromWall = accentFromDesktopWallpaper(effectiveDark);
-    if (fromWall) {
-      accent = fromWall;
+    const fromWall = await accentFromDesktopWallpaper(effectiveDark);
+    accentResolution = fromWall.resolution;
+    if (fromWall.hex) {
+      accent = fromWall.hex;
     }
   }
 
@@ -206,6 +212,7 @@ export function resolveUiTheme(
     appearance: prefs.appearance,
     effectiveMode,
     accentSource: prefs.accentSource,
+    accentResolution,
     vars,
   };
 }

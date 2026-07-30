@@ -86,10 +86,19 @@ export type SubtitleMode = 'original' | 'translated' | 'bilingual';
 export type AppearanceMode = 'light' | 'dark' | 'system';
 export type AccentSource = 'default' | 'wallpaper';
 
+/** How the accent was actually obtained, so the UI can explain a fallback. */
+export type AccentResolution =
+  | { status: 'wallpaper'; path: string }
+  | { status: 'desktop-accent'; name: string }
+  | { status: 'no-wallpaper' }
+  | { status: 'decode-failed'; path: string }
+  | { status: 'low-chroma'; path: string };
+
 export interface UiThemePayload {
   appearance: AppearanceMode;
   effectiveMode: 'light' | 'dark';
   accentSource: AccentSource;
+  accentResolution: AccentResolution | null;
   vars: Record<string, string>;
 }
 

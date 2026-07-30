@@ -20,6 +20,14 @@ import type {
 
 type Tab = 'sources' | 'deepgram' | 'denoise' | 'language' | 'history' | 'logs' | 'about';
 
+const ACCENT_STATUS_KEY: Record<string, string> = {
+  wallpaper: 'theme.accentFrom.wallpaper',
+  'desktop-accent': 'theme.accentFrom.desktopAccent',
+  'no-wallpaper': 'theme.accentFrom.noWallpaper',
+  'decode-failed': 'theme.accentFrom.decodeFailed',
+  'low-chroma': 'theme.accentFrom.lowChroma',
+};
+
 const STATUS_KEY: Record<string, string> = {
   idle: 'status.idle',
   running: 'status.running',
@@ -267,6 +275,16 @@ export function App() {
           >
             {t('theme.refreshWallpaper')}
           </button>
+          {localAccentSource === 'wallpaper' && themeInfo?.accentResolution && (
+            <div
+              className={`theme-accent-status ${themeInfo.accentResolution.status === 'wallpaper' ? 'ok' : 'warn'}`}
+              title={
+                'path' in themeInfo.accentResolution ? themeInfo.accentResolution.path : undefined
+              }
+            >
+              {t(ACCENT_STATUS_KEY[themeInfo.accentResolution.status] as any)}
+            </div>
+          )}
         </div>
       </aside>
 

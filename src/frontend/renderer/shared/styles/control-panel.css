@@ -252,6 +252,21 @@ body::before {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
+.theme-accent-status {
+  margin-top: 6px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.theme-accent-status.ok {
+  color: var(--text-secondary);
+}
+
+.theme-accent-status.warn {
+  color: var(--warning);
+}
+
 .sidebar-save {
   margin-top: 12px;
   padding-top: 12px;

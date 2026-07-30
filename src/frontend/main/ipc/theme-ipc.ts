@@ -1,26 +1,27 @@
 import { ipcMain, nativeTheme } from 'electron';
 import { resolveUiTheme, type UiPreferences } from '../ui-theme';
+import { invalidateWallpaperAccentCache } from '../wallpaper-accent';
 import type { IpcContext } from './context';
 
 export function registerThemeIpc(ctx: IpcContext): void {
   let uiPrefs: UiPreferences = ctx.config.getUi();
 
-  function broadcastUiTheme(): void {
-    const payload = resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
+  async function broadcastUiTheme(): Promise<void> {
+    const payload = await resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
     ctx.safeSend(ctx.mainWindow(), 'ui-theme', payload);
     ctx.safeSend(ctx.overlayWindow(), 'ui-theme', payload);
     ctx.safeSend(ctx.historyWindow(), 'ui-theme', payload);
   }
 
-  broadcastUiTheme();
+  void broadcastUiTheme();
 
   nativeTheme.on('updated', () => {
-    if (uiPrefs.appearance === 'system') broadcastUiTheme();
+    if (uiPrefs.appearance === 'system') void broadcastUiTheme();
   });
 
   ipcMain.handle('get-ui-theme', () => resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors));
 
-  ipcMain.handle('set-ui-theme', (_event, partial: Partial<UiPreferences>) => {
+  ipcMain.handle('set-ui-theme', async (_event, partial: Partial<UiPreferences>) => {
     uiPrefs = {
       ...uiPrefs,
       ...partial,
@@ -28,24 +29,32 @@ export function registerThemeIpc(ctx: IpcContext): void {
       accentSource: partial.accentSource ?? uiPrefs.accentSource,
     };
     ctx.config.updateUi(uiPrefs);
-    broadcastUiTheme();
-    return resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
-  });
-
-  ipcMain.handle('preview-ui-theme', (_event, partial: Partial<UiPreferences>) => {
-    const previewPrefs: UiPreferences = {
-      appearance: partial.appearance ?? uiPrefs.appearance,
-      accentSource: partial.accentSource ?? uiPrefs.accentSource,
-    };
-    const payload = resolveUiTheme(previewPrefs, nativeTheme.shouldUseDarkColors);
+    const payload = await resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
     ctx.safeSend(ctx.mainWindow(), 'ui-theme', payload);
     ctx.safeSend(ctx.overlayWindow(), 'ui-theme', payload);
     ctx.safeSend(ctx.historyWindow(), 'ui-theme', payload);
     return payload;
   });
 
-  ipcMain.handle('refresh-wallpaper-colors', () => {
-    broadcastUiTheme();
-    return resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
+  ipcMain.handle('preview-ui-theme', async (_event, partial: Partial<UiPreferences>) => {
+    const previewPrefs: UiPreferences = {
+      appearance: partial.appearance ?? uiPrefs.appearance,
+      accentSource: partial.accentSource ?? uiPrefs.accentSource,
+    };
+    const payload = await resolveUiTheme(previewPrefs, nativeTheme.shouldUseDarkColors);
+    ctx.safeSend(ctx.mainWindow(), 'ui-theme', payload);
+    ctx.safeSend(ctx.overlayWindow(), 'ui-theme', payload);
+    ctx.safeSend(ctx.historyWindow(), 'ui-theme', payload);
+    return payload;
+  });
+
+  ipcMain.handle('refresh-wallpaper-colors', async () => {
+    // Explicit user action: re-read the wallpaper instead of serving the memoised accent.
+    invalidateWallpaperAccentCache();
+    const payload = await resolveUiTheme(uiPrefs, nativeTheme.shouldUseDarkColors);
+    ctx.safeSend(ctx.mainWindow(), 'ui-theme', payload);
+    ctx.safeSend(ctx.overlayWindow(), 'ui-theme', payload);
+    ctx.safeSend(ctx.historyWindow(), 'ui-theme', payload);
+    return payload;
   });
 }
