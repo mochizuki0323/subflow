@@ -193,7 +193,8 @@ export interface ElectronAPI {
   toggleHistory: () => Promise<boolean>;
   toggleDragMode: () => Promise<boolean>;
   exitDragMode: () => void;
-  startWindowDrag: (startX: number, startY: number) => void;
+  startWindowDrag: () => void;
+  dragWindowBy: (dx: number, dy: number) => void;
   stopWindowDrag: () => void;
   startWindowResize: (direction: string, startX: number, startY: number) => void;
   stopWindowResize: () => void;

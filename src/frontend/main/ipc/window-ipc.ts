@@ -83,36 +83,29 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
     ctx.safeSend(ctx.mainWindow(), 'drag-mode', false);
   });
 
-  // ---- Manual window dragging ----
-  let dragInterval: ReturnType<typeof setInterval> | null = null;
+  // ---- Renderer-driven window dragging ----
+  // The renderer computes deltas from its own pointer events (implicit grab
+  // keeps them flowing with one consistent coordinate space); we only apply
+  // setPosition. getCursorScreenPoint() is stale on GNOME (XWayland) and
+  // compositor app-region drags are ignored for these unfocusable toolbar
+  // windows — neither can be used here.
   let dragWin: BrowserWindow | null = null;
-  let dragStartCursor = { x: 0, y: 0 };
   let dragStartWin = { x: 0, y: 0 };
 
-  // Anchor the drag from the main-process cursor, NOT the renderer's
-  // screenX/screenY: on some Linux WMs (GNOME scaling, frameless transparent
-  // windows) renderer screen coords disagree with getCursorScreenPoint(),
-  // which made the delta wrong and the window undraggable.
   ipcMain.on('start-window-drag', (event) => {
-    if (dragInterval) clearInterval(dragInterval);
     dragWin = BrowserWindow.fromWebContents(event.sender);
     if (!dragWin) return;
     const [wx, wy] = dragWin.getPosition();
-    const cur = screen.getCursorScreenPoint();
-    dragStartCursor = { x: cur.x, y: cur.y };
     dragStartWin = { x: wx, y: wy };
-    dragInterval = setInterval(() => {
-      if (!dragWin) return;
-      const cur = screen.getCursorScreenPoint();
-      dragWin.setPosition(
-        dragStartWin.x + (cur.x - dragStartCursor.x),
-        dragStartWin.y + (cur.y - dragStartCursor.y),
-      );
-    }, 16);
+  });
+
+  ipcMain.on('window-drag-move', (event, { dx, dy }: { dx: number; dy: number }) => {
+    if (!dragWin || dragWin.isDestroyed()) return;
+    if (BrowserWindow.fromWebContents(event.sender) !== dragWin) return;
+    dragWin.setPosition(Math.round(dragStartWin.x + dx), Math.round(dragStartWin.y + dy));
   });
 
   ipcMain.on('stop-window-drag', () => {
-    if (dragInterval) { clearInterval(dragInterval); dragInterval = null; }
     dragWin = null;
     saveWindowPositions();
   });

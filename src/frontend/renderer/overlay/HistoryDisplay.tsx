@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useDragBarPointerDown } from './useWindowDrag';
 import { createRoot } from 'react-dom/client';
 import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
@@ -24,18 +25,9 @@ function HistoryDisplay() {
   const [mode, setMode] = useState<SubtitleMode>('original');
   const [showPartials, setShowPartials] = useState(false);
   const [dragMode, setDragMode] = useState(false);
+  const handleDragBarPointerDown = useDragBarPointerDown();
   const [, setI18nTick] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  const handleDragBarMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    window.electronAPI.startWindowDrag(e.screenX, e.screenY);
-    const onMouseUp = () => {
-      window.electronAPI.stopWindowDrag();
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-    window.addEventListener('mouseup', onMouseUp);
-  }, []);
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
@@ -98,11 +90,10 @@ function HistoryDisplay() {
     <div className="history-container" style={{ position: 'relative' }}>
       {dragMode && <ResizeHandles />}
       {dragMode && (
-        <div className="drag-bar" onMouseDown={handleDragBarMouseDown}>
+        <div className="drag-bar" onPointerDown={handleDragBarPointerDown}>
           <span className="drag-title">{t('overlay.history')}</span>
           <button
             className="drag-lock-btn"
-            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => window.electronAPI.exitDragMode()}
           >
             {t('overlay.lock')}

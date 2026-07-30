@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
 import type { SubtitleMode } from '../shared/types';
 import { ResizeHandles } from './ResizeHandles';
+import { useDragBarPointerDown } from './useWindowDrag';
 import { setLang, t } from '../shared/i18n';
 
 // Distinct hues for up to 8 speakers; cycles beyond that.
@@ -34,17 +35,8 @@ function SubtitleDisplay() {
   const [mode, setMode] = useState<SubtitleMode>('original');
   const [showPartials, setShowPartials] = useState(false);
   const [dragMode, setDragMode] = useState(false);
+  const handleDragBarPointerDown = useDragBarPointerDown();
   const [, setI18nTick] = useState(0);
-
-  const handleDragBarMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    window.electronAPI.startWindowDrag(e.screenX, e.screenY);
-    const onMouseUp = () => {
-      window.electronAPI.stopWindowDrag();
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-    window.addEventListener('mouseup', onMouseUp);
-  }, []);
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
@@ -113,11 +105,10 @@ function SubtitleDisplay() {
     <div className="subtitle-container" style={{ position: 'relative' }}>
       {dragMode && <ResizeHandles />}
       {dragMode && (
-        <div className="drag-bar" onMouseDown={handleDragBarMouseDown}>
+        <div className="drag-bar" onPointerDown={handleDragBarPointerDown}>
           <span className="drag-title">{t('overlay.subtitle')}</span>
           <button
             className="drag-lock-btn"
-            onMouseDown={(e) => e.stopPropagation()}
             onClick={() => window.electronAPI.exitDragMode()}
           >
             {t('overlay.lock')}
