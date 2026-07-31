@@ -57,6 +57,10 @@ const PIPELINE: Tab[] = ['sources', 'denoise', 'recognition', 'translation', 'ou
 const TOOLS: Tab[] = ['history', 'logs', 'about'];
 
 const SCOPE_BARS = 150;
+/** Gap between stages lighting up, in ms. */
+const RAIL_STAGGER = 130;
+/** Must match the bus-flow animation duration in CSS. */
+const FLOW_PERIOD = 1400;
 const dbLabel = (v: number) => (v <= 0.0005 ? '—' : `${(20 * Math.log10(v)).toFixed(1)}`);
 
 export function App() {
@@ -74,6 +78,7 @@ export function App() {
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
   const [backendState, setBackendState] = useState<string>('connecting');
+  const [railPhase, setRailPhase] = useState<'' | 'arming' | 'draining'>('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [peak, setPeak] = useState(0);
   const [denoiser, setDenoiser] = useState<{ enabled: boolean; modelId: string } | null>(null);
@@ -200,6 +205,17 @@ export function App() {
   // while the page below it said "capturing".
   const backendUp = backendState === 'connected';
   const capturing = backendUp && (status?.state === 'capturing' || status?.state === 'running');
+
+  // Run the rail's sequence on the transition, not on every render: starting capture
+  // draws the chain in from the source, stopping it retracts from the output back.
+  const wasCapturing = useRef(capturing);
+  useEffect(() => {
+    if (capturing === wasCapturing.current) return;
+    wasCapturing.current = capturing;
+    setRailPhase(capturing ? 'arming' : 'draining');
+    const timer = setTimeout(() => setRailPhase(''), PIPELINE.length * RAIL_STAGGER + 700);
+    return () => clearTimeout(timer);
+  }, [capturing]);
 
   /** Repaints the scope imperatively — pushing 150 nodes through React on every audio
    *  frame would cost far more than the trace is worth. */
@@ -363,6 +379,17 @@ export function App() {
     };
   });
 
+  // The dashes and the moving pulse answer different questions. A dash is local —
+  // "is this stage's own path intact" — so one unset stage does not blank the rest.
+  // The pulse is cumulative: data that cannot get past a broken stage is not
+  // flowing downstream of it, and drawing it there would be a lie.
+  let reached = capturing;
+  const railFlow = rail.map((stage) => {
+    const flows = reached;
+    reached = reached && stage.carries;
+    return flows;
+  });
+
   const setAppearance = async (appearance: AppearanceMode) => {
     setLocalAppearance(appearance);
     const payload = await window.electronAPI.setUiTheme({ appearance });
@@ -405,7 +432,7 @@ export function App() {
         </div>
 
         <div className="rail-key">{t('rail.pipeline')}</div>
-        <nav className="sidebar-nav" aria-label={t('nav.label')}>
+        <nav className={`sidebar-nav ${railPhase} ${capturing ? 'flowing' : ''}`} aria-label={t('nav.label')}>
           {rail.map((stage, i) => (
             <button
               key={stage.id}
@@ -414,11 +441,21 @@ export function App() {
                 'nav-item',
                 `is-${stage.mode}`,
                 stage.carries ? 'carries' : '',
+                railFlow[i] ? 'reaches' : '',
                 stage.live ? 'live' : '',
                 i === rail.length - 1 ? 'tail' : '',
                 tab === stage.id ? 'active' : '',
               ].join(' ')}
               onClick={() => setTab(stage.id)}
+              style={{
+                // Draining runs the other way, so the stage that loses the signal
+                // last is the one closest to the source.
+                ['--arm-delay' as string]:
+                  `${(railPhase === 'draining' ? rail.length - 1 - i : i) * RAIL_STAGGER}ms`,
+                // Spread one flow period across the stages so the pulse looks
+                // continuous instead of five separate blinks.
+                ['--flow-delay' as string]: `${(i * FLOW_PERIOD) / rail.length}ms`,
+              } as React.CSSProperties}
             >
               <span className="nav-icon" aria-hidden />
               <span className="nav-body">

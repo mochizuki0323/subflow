@@ -266,6 +266,81 @@ body,
   position: relative;
   z-index: 1;
 }
+/* ---- Arming and draining ----
+   Starting capture lights the chain from the source down; stopping it drains from
+   the output back. The stagger is what makes the rail read as a path rather than a
+   list, and it is the only place in the interface where anything moves on its own.
+   Each stage's delay is set from React as --arm-delay, reversed while draining. */
+/* The bus is deliberately not animated. It means "the path is configured this far",
+   which does not change when capture starts or stops — drawing it in would claim the
+   chain had just been built, and retracting it would claim it had been torn down.
+   What actually travels is the fill in the nodes. */
+@keyframes node-arm {
+  from {
+    background: var(--accent);
+    box-shadow: 0 0 0 0 var(--accent);
+  }
+  to {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+@keyframes node-drain {
+  from {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-subtle);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.sidebar-nav.draining .nav-item:not(.tool) .nav-icon {
+  animation: node-drain 320ms ease-in backwards;
+  animation-delay: var(--arm-delay, 0ms);
+}
+.sidebar-nav.arming .nav-item:not(.tool) .nav-icon {
+  animation: node-arm 520ms ease-out backwards;
+  animation-delay: var(--arm-delay, 0ms);
+}
+/* A stage that cannot pass the signal on says so as the sequence reaches it. */
+@keyframes node-fault {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  45% { box-shadow: 0 0 0 7px var(--danger-subtle); }
+}
+.sidebar-nav.arming .nav-item.is-fault:not(.tool) .nav-icon {
+  animation: node-fault 440ms ease-out 2 backwards;
+  animation-delay: var(--arm-delay, 0ms);
+}
+
+/* Data actually moving, shown moving. A pulse runs down each intact segment while
+   capture is live, staggered so it reads as one thing travelling the whole chain
+   rather than five things blinking. It appears only where the path continues, so a
+   broken stage visibly stops it. */
+@keyframes bus-flow {
+  0% { top: 16px; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.sidebar-nav.flowing .nav-item.reaches.carries:not(.tail)::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  box-shadow: 0 0 5px var(--accent);
+  pointer-events: none;
+  z-index: 1;
+  animation: bus-flow 1.4s linear infinite;
+  animation-delay: var(--flow-delay, 0ms);
+}
+
+/* While the signal is actually passing through a stage, its node keeps breathing —
+   the same indicator the header dot uses, so "live" looks the same everywhere. */
+.nav-item.live .nav-icon {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
 /* The node answers a different question: what is this stage doing. */
 .nav-item.is-active .nav-icon {
   border-color: var(--accent);
