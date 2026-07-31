@@ -24,17 +24,15 @@ SubFlow turns whatever is playing on your machine into live subtitles. Recogniti
 
 ## Features
 
-- **Runs on your machine** — NVIDIA Parakeet offline via sherpa-onnx with simulated streaming; Japanese and 25 European languages. Nothing is sent anywhere unless you choose the remote engine
+- **Local ASR (Parakeet)** — Offline speech recognition via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages
 - **Remote engine (optional)** — Point the app at a self-hosted Parakeet server: one loaded model serves every client, available models are listed in-app, and VAD is tunable per connection at runtime
-- **Per-application capture** — PipeWire (Linux) and WASAPI (Windows). On Linux the selected application's output ports are linked directly, so you caption one app while everything else keeps making noise
-- **The interface is the signal path** — Source → denoise → recognition → translation → output, in order. Every stage reports what it is actually doing, an unconfigured stage is a bypass rather than a break, and a stage that stops the signal says so — including "both output windows are closed", the most common reason for seeing nothing
-- **A monitor, not a spinner** — Live scope, level and peak, recognition latency, and dropped audio. Every figure is measured; there are no decorative numbers
+- **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
+- **Live monitor** — Waveform, level and peak, recognition latency, and dropped audio
 - **Optional LLM layer** — Translation and post-processing via OpenAI-compatible, Anthropic, or Google AI Studio APIs; scene prompts, rolling context, per-provider API keys, and a switch for translating interim lines or only finals (skip interim to stay inside rate limits)
 - **Overlay + history windows** — Draggable, resizable subtitle overlay and a scrollable transcript; original, translated, or bilingual
 - **Export** — Save the transcript as SRT (real media timestamps, translation as a second line) or plain text
 - **Speech denoising** — sherpa-onnx noise reduction (DPDFNet / GTCRN). Note it often *hurts* accuracy rather than helping — turn it on only when background noise is significant
 - **Dark / light / system theme** — Follows the desktop, and can take its accent colour from your wallpaper
-- **Keyboard reachable** — Every primary action, including choosing a source
 
 ## Installation
 
