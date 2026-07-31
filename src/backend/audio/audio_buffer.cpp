@@ -15,6 +15,9 @@ size_t AudioRingBuffer::write(const float* data, size_t count) {
     size_t used = (wp - rp + capacity_) % capacity_;
     size_t free_space = capacity_ - 1 - used;
     size_t to_write = std::min(count, free_space);
+    if (to_write < count) {
+        dropped_.fetch_add(count - to_write, std::memory_order_relaxed);
+    }
 
     for (size_t i = 0; i < to_write; ++i) {
         buffer_[(wp + i) % capacity_] = data[i];
@@ -45,9 +48,14 @@ size_t AudioRingBuffer::available() const {
     return (wp - rp + capacity_) % capacity_;
 }
 
+size_t AudioRingBuffer::dropped() const {
+    return dropped_.load(std::memory_order_relaxed);
+}
+
 void AudioRingBuffer::clear() {
     read_pos_.store(0, std::memory_order_release);
     write_pos_.store(0, std::memory_order_release);
+    dropped_.store(0, std::memory_order_relaxed);
 }
 
 } // namespace ais

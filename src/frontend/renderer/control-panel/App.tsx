@@ -81,6 +81,7 @@ export function App() {
   const [railPhase, setRailPhase] = useState<'' | 'arming' | 'draining'>('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [peak, setPeak] = useState(0);
+  const [latency, setLatency] = useState<number | null>(null);
   const [denoiser, setDenoiser] = useState<{ enabled: boolean; modelId: string } | null>(null);
   const [translator, setTranslator] = useState<{ enabled: boolean; apiKey: string; targetLanguage: string; apiFormat: string } | null>(null);
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -143,6 +144,7 @@ export function App() {
         t1: data.t1 ?? 0,
         at: Date.now(),
       };
+      if (typeof data.latency_ms === 'number') setLatency(data.latency_ms);
       setHistory((prev) => {
         const last = prev[prev.length - 1];
         if (last?.partial) return [...prev.slice(0, -1), entry];
@@ -266,6 +268,7 @@ export function App() {
   useEffect(() => {
     if (capturing) return;
     setPeak(0);
+    setLatency(null);
     const drain = setInterval(() => {
       const trace = traceRef.current;
       trace.push(0);
@@ -311,6 +314,7 @@ export function App() {
 
   const errorCount = logs.filter((l) => l.level === 'error').length;
   const finalCount = history.filter((h) => !h.partial).length;
+  const dropped = status?.dropped_ms ?? 0;
   const latest = history[history.length - 1];
 
   /**
@@ -614,6 +618,17 @@ export function App() {
               <div className="cell">
                 <div className="cell-k">{t('mon.peak')}</div>
                 <div className="cell-v">{capturing ? dbLabel(peak) : '—'}</div>
+              </div>
+              <div className="cell">
+                <div className="cell-k">{t('mon.latency')}</div>
+                <div className="cell-v">{latency === null ? '—' : `${latency}`}</div>
+              </div>
+              <div className="cell">
+                <div className="cell-k">{t('mon.dropped')}</div>
+                {/* Anything above zero means the recogniser fell behind the input. */}
+                <div className={`cell-v ${dropped > 0 ? 'fault' : ''}`}>
+                  {capturing ? dropped : '—'}
+                </div>
               </div>
               <div className="cell">
                 <div className="cell-k">{t('mon.rate')}</div>

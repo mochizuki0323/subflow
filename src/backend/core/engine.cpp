@@ -320,6 +320,12 @@ void Engine::send_status() {
         {"capture_source_id", capture_source_id_},
         {"capture_source_name", capture_source_name_},
         {"audio_level", audio_level_.load()},
+        // Milliseconds of captured audio the pipeline could not keep up with.
+        // Reported rather than silently discarded, because a rising number is the
+        // only warning that transcription is falling behind the input.
+        {"dropped_ms", audio_source_
+             ? static_cast<int64_t>(audio_source_->get_buffer().dropped()) * 1000 / 16000
+             : 0},
         {"denoise_enabled", denoise_active_.load()},
         {"denoise_loaded", denoiser_.is_loaded()}
     }));

@@ -12,6 +12,8 @@ export interface TranscriptSegment {
   t1: number;
   partial: boolean;
   speaker?: number;  // undefined when diarization is off
+  /** Queue wait + decode, measured by the transcriber. Absent when unmeasured. */
+  latency_ms?: number;
 }
 
 export interface BackendStatus {
@@ -23,6 +25,8 @@ export interface BackendStatus {
   capture_source_id?: number;
   capture_source_name?: string;
   audio_level?: number;
+  /** Milliseconds of captured audio the pipeline could not keep up with. */
+  dropped_ms?: number;
 }
 
 /** One line of the shared transcript record owned by the main process. */

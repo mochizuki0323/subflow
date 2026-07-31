@@ -90,6 +90,10 @@ private:
         int64_t t0_sample = 0;
         int64_t t1_sample = 0;
         bool is_final = false;
+        // When the pipeline thread handed this over. Measuring from here — rather
+        // than from the media clock, which only advances while audio is flowing and
+        // never resets — gives a latency that stays true across pauses.
+        clock::time_point queued_at{};
     };
 
     // Single mutex protecting all shared decode state

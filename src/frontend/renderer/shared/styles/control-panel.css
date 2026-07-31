@@ -668,6 +668,9 @@ body,
 .cell-v.warn {
   color: var(--accent);
 }
+.cell-v.fault {
+  color: var(--fault);
+}
 @keyframes cellflash {
   0% {
     background: var(--accent-subtle);

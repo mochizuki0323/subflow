@@ -219,6 +219,10 @@ void ParakeetTranscriber::decode_thread_func() {
             seg.t0_ms = t0;
             seg.t1_ms = t1;
             seg.is_partial = !req.is_final;
+            seg.latency_ms = req.queued_at.time_since_epoch().count() == 0
+                ? -1
+                : std::chrono::duration_cast<std::chrono::milliseconds>(
+                      t_end - req.queued_at).count();
 
             if (req.is_final) {
                 char buf[128];
@@ -331,6 +335,7 @@ std::vector<TranscriptSegment> ParakeetTranscriber::process() {
                 if (seg->samples && seg->n > 0) {
                     DecodeRequest req;
                     req.samples.assign(seg->samples, seg->samples + seg->n);
+                    req.queued_at = clock::now();
                     req.t0_sample = static_cast<int64_t>(seg->start);
                     req.t1_sample = static_cast<int64_t>(seg->start) + seg->n;
                     req.is_final = true;
@@ -368,6 +373,7 @@ std::vector<TranscriptSegment> ParakeetTranscriber::process() {
 
             DecodeRequest req;
             req.samples = speech_buf_;
+            req.queued_at = clock::now();
             req.t0_sample = segment_start_sample_;
             req.t1_sample = global_sample_count_;
             req.is_final = false;

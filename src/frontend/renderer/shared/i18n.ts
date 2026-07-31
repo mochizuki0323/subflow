@@ -61,6 +61,8 @@ const translations = {
   'mon.capturing': { en: 'Capturing', zh: '正在采集' },
   'mon.level': { en: 'Level', zh: '电平' },
   'mon.peak': { en: 'Peak', zh: '峰值' },
+  'mon.latency': { en: 'Latency ms', zh: '延迟 ms' },
+  'mon.dropped': { en: 'Dropped ms', zh: '丢弃 ms' },
   'mon.rate': { en: 'Rate', zh: '采样率' },
   'mon.lines': { en: 'Lines', zh: '已识别' },
   'mon.waiting': { en: 'Waiting for speech', zh: '等待语音' },
