@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT 许可证"></a>
 </p>
 
-SubFlow 是一款基于云端 ASR（Deepgram / Gladia）与 NVIDIA Parakeet ASR（可本地运行或连接自建远程服务器）开发的实时语音字幕工具，支持捕获系统音频并实现流式转录显示。通过接入 OpenAI 兼容、Anthropic 或 Google AI Studio 等接口，能够通过 LLM 结合预设的场景提示词与历史上下文对文本进行实时后处理，用于优化断句、纠正翻译并提升多段输出的连贯性。
+SubFlow 把机器上正在播放的声音变成实时字幕。识别基于 sherpa-onnx 上的 NVIDIA Parakeet——默认完全在本机运行，音频不会离开这台机器；也可以指向一台自建的推理服务器。文本还可以选择性地经过 LLM（OpenAI 兼容、Anthropic 或 Google AI Studio）做翻译与后处理，配合场景提示词和滚动上下文，让多段输出保持连贯。
 
 [English](README.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
 
@@ -24,15 +24,17 @@ SubFlow 是一款基于云端 ASR（Deepgram / Gladia）与 NVIDIA Parakeet ASR�
 
 ## 功能特性
 
-- **实时转录** — Deepgram Nova-3、Gladia Solaria-1、NVIDIA Parakeet 本地 ASR 或远程 Parakeet 服务器
-- **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言
-- **远程 Parakeet 服务器** — 将应用指向自建的 Parakeet 推理服务器：一份已加载的模型被所有客户端共享，可在应用内拉取可用模型列表，VAD 参数可按连接运行时调整
-- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN 模型）；在转录前去除背景噪音。注意：降噪在多数情况下可能反而*损害*识别准确率，建议仅在背景噪音明显时按需开启
-- **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
-- **可选 LLM 层** — 通过 OpenAI 兼容、Anthropic 或 Google AI Studio 接口进行翻译与后处理；支持场景提示词、历史上下文、按服务商分别保存 API Key，以及「仅翻译最终字幕 / 同时翻译中间结果」的开关（跳过中间结果可避免触发限流）
-- **叠层 + 历史窗口** — 可拖动、可调整大小的半透明字幕叠层和可滚动历史面板；支持显示中间结果
-- **多种字幕模式** — 原文、翻译或双语显示
-- **深色 / 浅色 / 跟随系统** — 跟随桌面外观，支持壁纸取色
+- **跑在你自己的机器上** — 基于 sherpa-onnx 的 NVIDIA Parakeet 离线识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言。除非你主动选择远程引擎，否则没有任何数据被发出去
+- **远程引擎（可选）** — 把应用指向自建的 Parakeet 服务器：一份已加载的模型服务所有客户端，可在应用内拉取模型列表，VAD 参数可按连接运行时调整
+- **应用级捕获** — PipeWire (Linux) 和 WASAPI (Windows)。Linux 上会直接连接目标应用的输出端口，所以可以只给一个应用加字幕，其他应用照常出声
+- **界面就是信号路径** — 音频源 → 降噪 → 识别 → 翻译 → 输出，按顺序排列。每一级汇报自己实际在做什么；关掉某一级是「旁路」而不是「断链」；真正阻断信号的那一级会明说——包括「两个输出窗口都关着」这个最常见的「什么都看不到」的原因
+- **是仪表，不是转圈** — 实时波形、电平与峰值、识别延迟、丢弃音频。每个数字都是量出来的，没有装饰性读数
+- **可选 LLM 层** — 通过 OpenAI 兼容、Anthropic 或 Google AI Studio 接口做翻译与后处理；支持场景提示词、滚动上下文、按服务商分别保存 API Key，以及「仅翻译定稿 / 同时翻译中间结果」开关（跳过中间结果可避免触发限流）
+- **叠层 + 历史窗口** — 可拖动、可缩放的字幕叠层和可滚动的完整记录；原文、翻译或双语
+- **导出** — 可导出为 SRT（使用真实媒体时间戳，译文作为字幕的第二行）或纯文本
+- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN）。注意它在多数情况下反而会*损害*识别准确率，建议仅在背景噪音明显时开启
+- **深色 / 浅色 / 跟随系统** — 跟随桌面外观，并可从壁纸提取强调色
+- **键盘可达** — 包括选择音频源在内的所有主要操作
 
 ## 安装
 
@@ -141,7 +143,7 @@ bash server/build.sh
 }
 ```
 
-每个模型的 `id` 即应用中显示并选择的名称；`type` 为 `nemo_ctc` 或 `nemo_transducer`。在应用中选择 **Parakeet 服务器** provider，填入服务器地址（局域网 `ws://host:9090` 或公网 `wss://...`），拉取模型列表并选择一个模型。TLS 由服务器前置的反向代理终止。
+每个模型的 `id` 即应用中显示并选择的名称；`type` 为 `nemo_ctc` 或 `nemo_transducer`。在应用的「识别」页选择 **远程服务器** 引擎，填入地址（局域网 `ws://host:9090` 或公网 `wss://...`），拉取模型列表并选择一个模型。TLS 由服务器前置的反向代理终止。
 
 ## 许可证
 

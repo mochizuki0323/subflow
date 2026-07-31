@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-SubFlow is a real-time speech captioning tool built with cloud ASR (Deepgram / Gladia) and NVIDIA Parakeet ASR (run locally or via a self-hosted remote server). It supports capturing system audio and streaming transcription for display. By integrating OpenAI-compatible, Anthropic, and Google AI Studio APIs, text can be post-processed in real time through an LLM with preset scene prompts and historical context, refining phrasing, correcting translations, and improving coherence of multi-segment output.
+SubFlow turns whatever is playing on your machine into live subtitles. Recognition runs on NVIDIA Parakeet through sherpa-onnx — locally by default, so audio never leaves the machine, or against a self-hosted server you point it at. Optionally the text is passed through an LLM (OpenAI-compatible, Anthropic, or Google AI Studio) for translation and post-processing, with scene prompts and rolling context so multi-segment output stays coherent.
 
 [中文](README.zh.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [License](LICENSE)
 
@@ -24,15 +24,17 @@ SubFlow is a real-time speech captioning tool built with cloud ASR (Deepgram / G
 
 ## Features
 
-- **Real-time transcription** — Deepgram Nova-3, Gladia Solaria-1, NVIDIA Parakeet local ASR, or a remote Parakeet server
-- **Local ASR (Parakeet)** — Offline speech recognition via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages
-- **Remote Parakeet server** — Point the app at a self-hosted Parakeet inference server: one loaded model is shared across all clients, available models are listed in-app, and VAD is tunable per connection at runtime
-- **Speech denoising** — sherpa-onnx-powered noise reduction (DPDFNet / GTCRN models); removes background noise before transcription. Note: denoising often *hurts* accuracy rather than helping — enable it only when background noise is significant
-- **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
-- **Optional LLM layer** — translation & post-processing via OpenAI-compatible, Anthropic, or Google AI Studio APIs; scene prompts, history context, per-provider API keys, and a toggle to translate interim results or only final lines (skip interim to stay within rate limits)
-- **Overlay + history windows** — Draggable, resizable translucent subtitle overlay and scrollable history panel; optional interim results display
-- **Multiple subtitle modes** — Original, translated, or bilingual display
-- **Dark / light / system theme** — Follows desktop appearance; supports wallpaper accent colors
+- **Runs on your machine** — NVIDIA Parakeet offline via sherpa-onnx with simulated streaming; Japanese and 25 European languages. Nothing is sent anywhere unless you choose the remote engine
+- **Remote engine (optional)** — Point the app at a self-hosted Parakeet server: one loaded model serves every client, available models are listed in-app, and VAD is tunable per connection at runtime
+- **Per-application capture** — PipeWire (Linux) and WASAPI (Windows). On Linux the selected application's output ports are linked directly, so you caption one app while everything else keeps making noise
+- **The interface is the signal path** — Source → denoise → recognition → translation → output, in order. Every stage reports what it is actually doing, an unconfigured stage is a bypass rather than a break, and a stage that stops the signal says so — including "both output windows are closed", the most common reason for seeing nothing
+- **A monitor, not a spinner** — Live scope, level and peak, recognition latency, and dropped audio. Every figure is measured; there are no decorative numbers
+- **Optional LLM layer** — Translation and post-processing via OpenAI-compatible, Anthropic, or Google AI Studio APIs; scene prompts, rolling context, per-provider API keys, and a switch for translating interim lines or only finals (skip interim to stay inside rate limits)
+- **Overlay + history windows** — Draggable, resizable subtitle overlay and a scrollable transcript; original, translated, or bilingual
+- **Export** — Save the transcript as SRT (real media timestamps, translation as a second line) or plain text
+- **Speech denoising** — sherpa-onnx noise reduction (DPDFNet / GTCRN). Note it often *hurts* accuracy rather than helping — turn it on only when background noise is significant
+- **Dark / light / system theme** — Follows the desktop, and can take its accent colour from your wallpaper
+- **Keyboard reachable** — Every primary action, including choosing a source
 
 ## Installation
 
@@ -141,7 +143,7 @@ The server is driven by a single JSON config, auto-loaded from `config/config.js
 }
 ```
 
-Each model `id` is what the app shows and selects; `type` is `nemo_ctc` or `nemo_transducer`. In the app, choose the **Parakeet Server** provider, enter the server address (`ws://host:9090` on a LAN or `wss://...` over the internet), fetch the model list, and pick a model. TLS is terminated by a reverse proxy in front of the server.
+Each model `id` is what the app shows and selects; `type` is `nemo_ctc` or `nemo_transducer`. In the app, choose the **Remote server** engine under Recognition, enter the address (`ws://host:9090` on a LAN or `wss://...` over the internet), fetch the model list, and pick a model. TLS is terminated by a reverse proxy in front of the server.
 
 ## License
 
