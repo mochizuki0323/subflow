@@ -214,13 +214,18 @@ body,
   font-family: inherit;
   color: inherit;
   cursor: pointer;
+  /* Where the bus runs. The active row bleeds its tint to the rail edges with a
+     negative margin, which shifts its content box — everything drawn on the bus
+     reads this one value so the line and the pulse cannot end up in different
+     places. */
+  --bus-x: 5px;
 }
 /* The bus answers one question: does the path still reach the next stage. A stage
    that is switched off does not break it — the signal passes straight through. */
 .nav-item::before {
   content: '';
   position: absolute;
-  left: 5px;
+  left: var(--bus-x);
   top: 16px;
   bottom: 0;
   width: 1px;
@@ -324,7 +329,7 @@ body,
 .sidebar-nav.flowing .nav-item.reaches.carries:not(.tail)::after {
   content: '';
   position: absolute;
-  left: 3px;
+  left: calc(var(--bus-x) - 2px);
   width: 5px;
   height: 5px;
   background: var(--accent);
@@ -406,8 +411,8 @@ body,
   margin: 0 -18px;
   padding: 0 18px;
 }
-.nav-item.active::before {
-  left: 23px;
+.nav-item.active {
+  --bus-x: 23px;
 }
 .nav-item:hover .nav-name {
   color: var(--text-primary);
