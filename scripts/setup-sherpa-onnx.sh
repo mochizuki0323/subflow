@@ -6,7 +6,7 @@
 #   ./scripts/setup-sherpa-onnx.sh win-x64       # Windows x64 (for MinGW cross-compile)
 set -euo pipefail
 
-SHERPA_ONNX_VERSION="1.13.0"
+SHERPA_ONNX_VERSION="1.13.4"
 SHERPA_ONNX_TAG="v${SHERPA_ONNX_VERSION}"
 GITHUB_RELEASE="https://github.com/k2-fsa/sherpa-onnx/releases/download/${SHERPA_ONNX_TAG}"
 GITHUB_RAW="https://raw.githubusercontent.com/k2-fsa/sherpa-onnx/${SHERPA_ONNX_TAG}"
