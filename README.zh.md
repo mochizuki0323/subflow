@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT 许可证"></a>
 </p>
 
-SubFlow 把机器上正在播放的声音变成实时字幕。识别基于 sherpa-onnx 上的 NVIDIA Parakeet——默认完全在本机运行，音频不会离开这台机器；也可以指向一台自建的推理服务器。文本还可以选择性地经过 LLM（OpenAI 兼容、Anthropic 或 Google AI Studio）做翻译与后处理，配合场景提示词和滚动上下文，让多段输出保持连贯。
+SubFlow 把电脑上正在播放的声音变成实时字幕。识别通过 sherpa-onnx 运行 NVIDIA 的 Parakeet 或 Nemotron 模型，默认完全在本机进行，音频不会离开这台机器；也可以连接自己搭建的 Parakeet 服务器。识别出的文本还可以交给 LLM（OpenAI 兼容、Anthropic 或 Google AI Studio）翻译和润色，配合场景提示词与滚动上下文，多段字幕之间也能保持连贯。
 
 [English](README.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [许可证](LICENSE)
 
@@ -24,14 +24,15 @@ SubFlow 把机器上正在播放的声音变成实时字幕。识别基于 sherp
 
 ## 功能特性
 
-- **本地 ASR (Parakeet)** — 基于 sherpa-onnx 的离线语音识别，通过模拟流式输出实现实时字幕；支持日语及 25 种欧洲语言
-- **远程引擎（可选）** — 把应用指向自建的 Parakeet 服务器：一份已加载的模型服务所有客户端，可在应用内拉取模型列表，VAD 参数可按连接运行时调整
-- **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；支持捕获单个应用或整个系统音频输出
-- **实时监视** — 波形、电平与峰值、识别延迟、丢弃音频
+- **本地识别（Parakeet）** — 基于 sherpa-onnx 的离线语音识别，用模拟流式做到实时出字；支持日语和 25 种欧洲语言
+- **本地识别（Nemotron）** — NVIDIA Nemotron 3.5 原生流式模型：声音进、文字出，断句由模型自己判断，不需要 VAD；支持中日韩在内的 33 个语言区域，断句时机和 CPU 占用都能在应用里调
+- **远程引擎（可选）** — 识别也可以放在自己搭的 Parakeet 服务器上跑：模型只在服务器上加载一份，多个客户端共用，应用内可以直接拉取模型列表，每个连接的 VAD 参数还能在线调整
+- **应用级与系统音频捕获** — PipeWire (Linux) 和 WASAPI (Windows)；可以只录某一个应用，也可以录整个系统的声音
+- **实时监控** — 波形、电平与峰值、识别延迟、丢音统计
 - **可选 LLM 层** — 通过 OpenAI 兼容、Anthropic 或 Google AI Studio 接口做翻译与后处理；支持场景提示词、滚动上下文、按服务商分别保存 API Key，以及「仅翻译定稿 / 同时翻译中间结果」开关（跳过中间结果可避免触发限流）
-- **叠层 + 历史窗口** — 可拖动、可缩放的字幕叠层和可滚动的完整记录；原文、翻译或双语
-- **导出** — 可导出为 SRT（使用真实媒体时间戳，译文作为字幕的第二行）或纯文本
-- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN）。注意它在多数情况下反而会*损害*识别准确率，建议仅在背景噪音明显时开启
+- **悬浮字幕 + 历史窗口** — 可拖动、可调大小的悬浮字幕窗，加一个可滚动的完整字幕记录；显示原文、译文或双语
+- **导出** — 保存为 SRT（真实媒体时间戳，译文作为字幕的第二行）或纯文本
+- **语音降噪** — 基于 sherpa-onnx 的噪音抑制（DPDFNet / GTCRN）。注意多数情况下它反而会*拖累*识别准确率，背景噪音确实很大时再开
 - **深色 / 浅色 / 跟随系统** — 跟随桌面外观，并可从壁纸提取强调色
 
 ## 安装
@@ -90,7 +91,7 @@ npm install
 # 拉取 vendored 依赖（uWebSockets + uSockets、nlohmann/json、Boost 头文件）
 bash scripts/setup-deps.sh
 
-# 下载预编译的 sherpa-onnx 库（降噪 / Parakeet 所需）
+# 下载预编译的 sherpa-onnx 库（识别引擎和降噪都要用）
 bash scripts/setup-sherpa-onnx.sh
 
 # 构建全部（后端 + 前端）
@@ -118,7 +119,7 @@ bash scripts/dist-windows.sh
 
 ## 自建 Parakeet 服务器
 
-`server/` 目录可构建一个独立的推理服务器（`subflow-parakeet-server`），把 Parakeet ASR 放到一台存放模型的机器上、通过网络为多个客户端服务，而不必在每台设备本地跑模型。
+如果有一台放得下模型的机器，可以用 `server/` 目录构建独立的推理服务器（`subflow-parakeet-server`），让多台设备通过网络共用它做识别，每台客户端就不用各自在本地跑模型了。
 
 ```bash
 # 一次性：为服务器拉取 sherpa-onnx
@@ -128,7 +129,7 @@ bash scripts/setup-sherpa-onnx.sh linux-x64
 bash server/build.sh
 ```
 
-服务器由单个 JSON 配置驱动，默认从二进制同目录的 `config/config.json` 自动加载（也可用 `--config <path>` 指定；命令行参数会覆盖对应字段）。配置里的相对路径相对配置文件所在目录解析。参见 `server/config.example.json`：
+服务器的全部配置都在一个 JSON 文件里，默认读取二进制同目录的 `config/config.json`（也可以用 `--config <path>` 指定；命令行参数会覆盖对应字段）。配置里的相对路径以配置文件所在目录为基准。参见 `server/config.example.json`：
 
 ```json
 {
@@ -141,7 +142,7 @@ bash server/build.sh
 }
 ```
 
-每个模型的 `id` 即应用中显示并选择的名称；`type` 为 `nemo_ctc` 或 `nemo_transducer`。在应用的「识别」页选择 **远程服务器** 引擎，填入地址（局域网 `ws://host:9090` 或公网 `wss://...`），拉取模型列表并选择一个模型。TLS 由服务器前置的反向代理终止。
+每个模型的 `id` 就是应用里显示和选择的名称；`type` 为 `nemo_ctc` 或 `nemo_transducer`。然后在应用的「识别」页选择 **远程服务器** 引擎，填入服务器地址（局域网用 `ws://host:9090`，公网用 `wss://...`），拉取模型列表后选一个即可。TLS 由服务器前面的反向代理负责。
 
 ## 许可证
 

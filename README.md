@@ -10,7 +10,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
 </p>
 
-SubFlow turns whatever is playing on your machine into live subtitles. Recognition runs on NVIDIA Parakeet through sherpa-onnx — locally by default, so audio never leaves the machine, or against a self-hosted server you point it at. Optionally the text is passed through an LLM (OpenAI-compatible, Anthropic, or Google AI Studio) for translation and post-processing, with scene prompts and rolling context so multi-segment output stays coherent.
+SubFlow turns whatever is playing on your machine into live subtitles. Recognition runs through sherpa-onnx on NVIDIA's Parakeet or Nemotron models — locally by default, so audio never leaves the machine — or on a Parakeet server you host yourself. Optionally the text is passed through an LLM (OpenAI-compatible, Anthropic, or Google AI Studio) for translation and post-processing, with scene prompts and rolling context so multi-segment output stays coherent.
 
 [中文](README.zh.md) · [Releases](https://github.com/mochizuki0323/subflow/releases) · [License](LICENSE)
 
@@ -25,7 +25,8 @@ SubFlow turns whatever is playing on your machine into live subtitles. Recogniti
 ## Features
 
 - **Local ASR (Parakeet)** — Offline speech recognition via sherpa-onnx with simulated streaming; supports Japanese and 25 European languages
-- **Remote engine (optional)** — Point the app at a self-hosted Parakeet server: one loaded model serves every client, available models are listed in-app, and VAD is tunable per connection at runtime
+- **Local ASR (Nemotron)** — NVIDIA Nemotron 3.5, a natively streaming model: text appears as the audio comes in and the model finds its own sentence endings, no VAD involved; 33 locales including Chinese, Japanese and Korean, with sentence splitting and CPU cost tunable in the app
+- **Remote engine (optional)** — Run recognition on a Parakeet server you host: one loaded model serves every client, available models are listed in-app, and VAD is tunable per connection at runtime
 - **Per-app & system audio capture** — PipeWire (Linux) and WASAPI (Windows); capture a single application or the entire system output
 - **Live monitor** — Waveform, level and peak, recognition latency, and dropped audio
 - **Optional LLM layer** — Translation and post-processing via OpenAI-compatible, Anthropic, or Google AI Studio APIs; scene prompts, rolling context, per-provider API keys, and a switch for translating interim lines or only finals (skip interim to stay inside rate limits)
@@ -90,7 +91,7 @@ npm install
 # Fetch vendored deps (uWebSockets + uSockets, nlohmann/json, Boost headers)
 bash scripts/setup-deps.sh
 
-# Download pre-built sherpa-onnx libraries (required for denoising / Parakeet)
+# Download pre-built sherpa-onnx libraries (required for the ASR engines and denoising)
 bash scripts/setup-sherpa-onnx.sh
 
 # Build everything (backend + frontend)
