@@ -13,22 +13,17 @@ files:
   - dist/preload/**/*
   - dist/renderer/**/*
   - node_modules/**/*
-extraResources:
-  - from: build/bin
-    to: bin
-    filter:
-      - subflow-backend*
-      - cacert.pem
-      # When MinGW dynamically links OpenSSL/zlib, DLLs must sit next to the exe; not needed for static builds
-      - "*.dll"
-  - from: src/shared
-    to: shared
-    filter:
-      - "*.json"
 # portable artifactName lives in top-level `portable:` (eb 25+: not inside win.target[])
 # zip uses win.artifactName when no `zip:` block is set
 portable:
   artifactName: subflow-${version}-windows-amd64-portable.${ext}
+# extraResources is declared per platform, never shared. Both builds write their
+# backend into build/bin and neither clears it, so after a Windows cross-compile
+# that directory holds a Linux ELF, a Windows exe and Windows DLLs at once — a
+# common `subflow-backend*` glob shipped whichever happened to be lying around
+# (39MB of ELF inside the Windows package, 43MB of exe plus 18MB of DLLs inside
+# the Linux ones). Each block names its backend exactly. A platform block
+# replaces the list wholesale rather than merging, hence the repeated src/shared.
 win:
   icon: resources/icon.ico
   # portable: single exe; zip: folder archive (no NSIS/Wine when building on Linux)
@@ -37,6 +32,18 @@ win:
     - zip
   artifactName: subflow-${version}-windows-amd64.${ext}
   signAndEditExecutable: false
+  extraResources:
+    - from: build/bin
+      to: bin
+      filter:
+        - subflow-backend.exe
+        - cacert.pem
+        # When MinGW dynamically links OpenSSL/zlib, DLLs must sit next to the exe; not needed for static builds
+        - "*.dll"
+    - from: src/shared
+      to: shared
+      filter:
+        - "*.json"
 linux:
   icon: resources/icon.svg
   target:
@@ -45,6 +52,16 @@ linux:
     - rpm
   category: Utility
   artifactName: subflow-${version}-linux-${arch}.${ext}
+  extraResources:
+    - from: build/bin
+      to: bin
+      filter:
+        - subflow-backend
+        - cacert.pem
+    - from: src/shared
+      to: shared
+      filter:
+        - "*.json"
 # Plain xz avoids legacy fpm default xzmt on older toolchains; harmless with electron-builder 26+ fpm.
 rpm:
   compression: xz
