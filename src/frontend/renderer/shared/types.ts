@@ -128,10 +128,12 @@ export interface RemoteParakeetModelInfo {
 
 export interface NemotronConfig {
   modelId: string;
-  /** Locale sent to the model ("ja-JP", "auto"), not the UI language. */
-  language: string;
   /** ORT intra-op threads for the streaming encoder. */
   numThreads: number;
+  /** Endpoint rule, sec: trailing silence that ends an utterance. */
+  minSilence: number;
+  /** Endpoint rule, sec: force-cut an utterance that runs this long. */
+  maxUtterance: number;
 }
 
 export interface NemotronModelInfo {

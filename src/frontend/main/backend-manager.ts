@@ -14,6 +14,8 @@ export class BackendManager extends EventEmitter {
   private provider: string;
   private nemotronModelDir = '';
   private nemotronThreads = 2;
+  private nemotronMinSilence = 0.5;
+  private nemotronMaxUtterance = 15;
   private language: string;
   private parakeetModelDir: string;
   private parakeetModelType: string;
@@ -57,6 +59,7 @@ export class BackendManager extends EventEmitter {
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
     nemotronModelDir?: string; nemotronThreads?: number;
+    nemotronMinSilence?: number; nemotronMaxUtterance?: number;
     remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
   }) {
     super();
@@ -70,6 +73,8 @@ export class BackendManager extends EventEmitter {
     this.parakeetVad = options?.parakeetVad || { ...DEFAULT_PARAKEET_VAD };
     this.nemotronModelDir = options?.nemotronModelDir || '';
     this.nemotronThreads = options?.nemotronThreads ?? 2;
+    this.nemotronMinSilence = options?.nemotronMinSilence ?? 0.5;
+    this.nemotronMaxUtterance = options?.nemotronMaxUtterance ?? 15;
     this.remoteParakeetUrl = options?.remoteParakeetUrl || '';
     this.remoteParakeetApiKey = options?.remoteParakeetApiKey || '';
     this.remoteParakeetModel = options?.remoteParakeetModel || '';
@@ -94,10 +99,10 @@ export class BackendManager extends EventEmitter {
     } else if (this.provider === 'nemotron') {
       if (this.nemotronModelDir) args.push('--nemotron-model-dir', this.nemotronModelDir);
       args.push('--nemotron-threads', String(this.nemotronThreads));
-      // The streaming model endpoints itself; only the two silence rules apply,
-      // and they ride the shared --parakeet-vad-* flags the backend already parses.
-      args.push('--parakeet-vad-min-silence', String(this.parakeetVad.minSilence));
-      args.push('--parakeet-vad-max-speech', String(this.parakeetVad.maxSpeech));
+      // Endpoint rules, not VAD: the streaming model endpoints itself, these
+      // just set how much trailing silence closes a caption.
+      args.push('--nemotron-min-silence', String(this.nemotronMinSilence));
+      args.push('--nemotron-max-utterance', String(this.nemotronMaxUtterance));
     } else {
       if (this.remoteParakeetUrl) args.push('--remote-parakeet-url', this.remoteParakeetUrl);
       if (this.remoteParakeetApiKey) args.push('--remote-parakeet-api-key', this.remoteParakeetApiKey);
@@ -205,6 +210,7 @@ export class BackendManager extends EventEmitter {
     parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
     parakeetVad?: ParakeetVadConfig;
     nemotronModelDir?: string; nemotronThreads?: number;
+    nemotronMinSilence?: number; nemotronMaxUtterance?: number;
     remoteParakeetUrl?: string; remoteParakeetApiKey?: string; remoteParakeetModel?: string;
   }): void {
     if (opts.provider) this.provider = opts.provider;
@@ -215,6 +221,8 @@ export class BackendManager extends EventEmitter {
     if (opts.parakeetVad !== undefined) this.parakeetVad = opts.parakeetVad;
     if (opts.nemotronModelDir !== undefined) this.nemotronModelDir = opts.nemotronModelDir;
     if (opts.nemotronThreads !== undefined) this.nemotronThreads = opts.nemotronThreads;
+    if (opts.nemotronMinSilence !== undefined) this.nemotronMinSilence = opts.nemotronMinSilence;
+    if (opts.nemotronMaxUtterance !== undefined) this.nemotronMaxUtterance = opts.nemotronMaxUtterance;
     if (opts.remoteParakeetUrl !== undefined) this.remoteParakeetUrl = opts.remoteParakeetUrl;
     if (opts.remoteParakeetApiKey !== undefined) this.remoteParakeetApiKey = opts.remoteParakeetApiKey;
     if (opts.remoteParakeetModel !== undefined) this.remoteParakeetModel = opts.remoteParakeetModel;

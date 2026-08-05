@@ -71,24 +71,22 @@ export function getNemotronLanguages(): NemotronLanguage[] {
 }
 
 /**
- * Map a UI language code onto something the model's prompt dictionary actually
- * contains. The dictionary has no bare "zh" or "ja" entry, and an unrecognised
- * string is not an error there — it silently falls back to auto-detect, which
- * reads as "the language picker does nothing". Anything already carrying a
- * region is passed through untouched.
+ * Map a UI language code onto an entry of the model's prompt dictionary, which
+ * only lists region-qualified locales. A bare code resolves to its first
+ * regional variant in registry order, so the mapping cannot drift from the
+ * registry the way a hand-written table did (it covered ten codes while the
+ * picker offered nineteen — the other nine quietly became auto-detect).
+ * sherpa >= 1.13.4 aliases unambiguous bare codes itself, but resolving here
+ * keeps every send path explicit and independent of that behaviour.
  */
 export function toNemotronLanguage(code: string | undefined): string {
   if (!code) return 'auto';
   const c = code.trim();
   if (!c || c === 'auto') return 'auto';
-  if (c.includes('-')) return c;
-  const bare: Record<string, string> = {
-    zh: 'zh-CN', ja: 'ja-JP', ko: 'ko-KR', en: 'en-US', ar: 'ar-AR',
-    hi: 'hi-IN', vi: 'vi-VN', th: 'th-TH', id: 'id-ID', he: 'he-IL',
-  };
-  if (bare[c]) return bare[c];
-  const known = loadRegistry().languages.some(l => l.code === c);
-  return known ? c : 'auto';
+  const languages = loadRegistry().languages;
+  if (languages.some(l => l.code === c)) return c;
+  const regional = languages.find(l => l.code.startsWith(c + '-'));
+  return regional ? regional.code : 'auto';
 }
 
 export function getNemotronModelsDir(configDir: string): string {
@@ -99,6 +97,25 @@ export function getNemotronModelsDir(configDir: string): string {
 
 export function getNemotronModelDir(configDir: string, model: NemotronModelEntry): string {
   return path.join(getNemotronModelsDir(configDir), model.dir_name);
+}
+
+/**
+ * The model the backend should load: the configured one if all its files are
+ * on disk, otherwise the first fully-downloaded variant. Same rule the
+ * settings panel applies to its picker, so what the backend loads and what
+ * the UI shows cannot name different models — the old id-only lookup let a
+ * stale config spawn a modelless backend while the picker displayed the
+ * variant the user had actually downloaded.
+ */
+export function resolveNemotronModel(
+  configDir: string,
+  modelId: string | undefined,
+): NemotronModelEntry | undefined {
+  if (modelId) {
+    const chosen = findNemotronModel(modelId);
+    if (chosen && isNemotronModelDownloaded(configDir, chosen)) return chosen;
+  }
+  return loadRegistry().models.find(m => isNemotronModelDownloaded(configDir, m));
 }
 
 export function isNemotronModelDownloaded(configDir: string, model: NemotronModelEntry): boolean {

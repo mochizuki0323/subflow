@@ -223,13 +223,23 @@ const translations = {
   'nemotron.downloadFailed': { en: 'Download failed', zh: '下载失败' },
   'nemotron.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
   'nemotron.library': { en: 'Model Library', zh: '模型库' },
-  'nemotron.localeCount': { en: '40 languages', zh: '40 种语言' },
+  'nemotron.localeCount': { en: '33 locales', zh: '33 个语言区域' },
   'nemotron.downloaded': { en: 'Downloaded', zh: '已下载' },
   'nemotron.downloading': { en: 'Downloading', zh: '下载中' },
   'nemotron.extracting': { en: 'Extracting…', zh: '解压中…' },
   'nemotron.download': { en: 'Download', zh: '下载' },
   'nemotron.delete': { en: 'Delete', zh: '删除' },
   'nemotron.threads': { en: 'Decode threads', zh: '解码线程数' },
+  'nemotron.minSilence': { en: 'Silence to end sentence (s)', zh: '断句静音(秒)' },
+  'nemotron.minSilence.hint': {
+    en: 'How long a pause ends a sentence. The streaming model detects this itself — no VAD involved. Lower = faster but choppier; higher = more complete but higher latency.',
+    zh: '停顿多久判定一句结束。由流式模型自己判定，不经过 VAD。越小出字越快但越碎;越大越完整但延迟更高。',
+  },
+  'nemotron.maxUtterance': { en: 'Max sentence length (s)', zh: '最长语音(秒)' },
+  'nemotron.maxUtterance.hint': {
+    en: 'Continuous speech longer than this is force-cut into a sentence.',
+    zh: '连续说话超过此长度时强制切断成一句。',
+  },
 
   // ---- RemoteParakeetSettings.tsx ----
   'remoteParakeet.title': { en: 'Remote Parakeet Server', zh: '远程 Parakeet 服务器' },

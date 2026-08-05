@@ -24,12 +24,12 @@ Engine::Engine(const Config& config)
             config_.remote_parakeet_url, config_.remote_parakeet_api_key,
             config_.remote_parakeet_model, rvp);
     } else if (config_.provider == "nemotron") {
-        // Streaming model: it finds its own endpoints, so only the two silence
-        // rules carry over from the shared VAD settings. There is no VAD to
-        // threshold and nothing to re-decode on an interval.
+        // Streaming model: it finds its own endpoints from the decoder's
+        // trailing blanks. There is no VAD to threshold and nothing to
+        // re-decode on an interval — these are its own endpoint settings.
         NemotronTranscriber::EndpointParams np;
-        np.min_trailing_silence_after = config_.parakeet_vad_min_silence;
-        np.max_utterance = config_.parakeet_vad_max_speech;
+        np.min_trailing_silence_after = config_.nemotron_min_silence;
+        np.max_utterance = config_.nemotron_max_utterance;
         np.num_threads = config_.nemotron_threads;
         transcriber_ = std::make_unique<NemotronTranscriber>(
             config_.nemotron_model_dir, np);

@@ -45,10 +45,13 @@ export type SttProvider = 'parakeet' | 'nemotron' | 'remote_parakeet';
 
 export interface NemotronConfig {
   modelId: string;
-  /** Locale sent to the model, e.g. "ja-JP" or "auto". Not the UI language. */
-  language: string;
   /** ORT intra-op threads for the streaming encoder. */
   numThreads: number;
+  /** Endpoint rule, sec: trailing silence that ends an utterance. Not VAD —
+   * the streaming decoder counts its own trailing blanks. */
+  minSilence: number;
+  /** Endpoint rule, sec: force-cut an utterance that runs this long. */
+  maxUtterance: number;
 }
 
 export interface UnifiedConfig {
@@ -214,8 +217,11 @@ function mergeRemoteParakeet(
 // variant upstream ships as the default export.
 const DEFAULT_NEMOTRON: NemotronConfig = {
   modelId: 'nemotron-3.5-streaming-560ms',
-  language: 'auto',
   numThreads: 2,
+  // Same values the shared VAD settings fed these rules before they became
+  // the provider's own, so an untouched config keeps its behaviour.
+  minSilence: 0.5,
+  maxUtterance: 15,
 };
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -226,11 +232,15 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 
 function mergeNemotron(base: NemotronConfig, parsed: any): NemotronConfig {
   return {
-    modelId: typeof parsed.modelId === 'string' && parsed.modelId ? parsed.modelId : base.modelId,
-    language: typeof parsed.language === 'string' && parsed.language ? parsed.language : base.language,
+    // '' is a real state — "the selected model was deleted" — same as the
+    // parakeet section. Rejecting it here silently revived the default model
+    // on the next launch.
+    modelId: typeof parsed.modelId === 'string' ? parsed.modelId : base.modelId,
     // Same ceiling the UI offers and the backend accepts: a hand-edited
     // config cannot smuggle in a value the other two would reject.
     numThreads: clampInt(parsed.numThreads, 1, 8, base.numThreads),
+    minSilence: clampFloat(parsed.minSilence, 0.1, 3.0, base.minSilence),
+    maxUtterance: clampFloat(parsed.maxUtterance, 5, 30, base.maxUtterance),
   };
 }
 
@@ -382,7 +392,9 @@ export class UnifiedConfigManager {
   getNemotron(): NemotronConfig { return this.config.nemotron; }
 
   updateNemotron(partial: Partial<NemotronConfig>): void {
-    this.config.nemotron = { ...this.config.nemotron, ...partial };
+    // Through the same merge the load path uses, so an IPC caller cannot
+    // persist a value the next launch would have to repair.
+    this.config.nemotron = mergeNemotron(this.config.nemotron, partial);
     this.save();
   }
   getRemoteParakeet(): RemoteParakeetConfig { return this.config.remoteParakeet; }

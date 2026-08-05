@@ -25,9 +25,9 @@ import { registerThemeIpc } from './ipc/theme-ipc';
 import { registerTranslatorIpc } from './ipc/translator-ipc';
 import { registerWindowIpc, type WindowIpc } from './ipc/window-ipc';
 import {
-  findNemotronModel,
   getNemotronModelDir,
-  isNemotronModelDownloaded,
+  resolveNemotronModel,
+  toNemotronLanguage,
 } from './nemotron-manager';
 import path from 'path';
 
@@ -128,26 +128,41 @@ if (!gotSingleInstanceLock) {
   // Resolve parakeet model directory, type, and VAD path
   const pkArgs = provider === 'parakeet'
     ? resolveParakeetModelArgs(configDir, pkConfig.modelId)
-    : { modelDir: '', modelType: '', vadModel: '' };
+    : { modelDir: '', modelType: '', vadModel: '', modelId: '' };
+  // Persist what the fallback picked, so the backend and the panels name the
+  // same model. Without this a config naming an un-downloaded variant spawned
+  // a modelless backend while the picker displayed the one actually on disk.
+  if (provider === 'parakeet' && pkArgs.modelId && pkArgs.modelId !== pkConfig.modelId) {
+    configManager.updateParakeet({ modelId: pkArgs.modelId });
+  }
 
   // Only resolved when selected: an un-downloaded model must leave the flag off
   // so the backend reports "not set" rather than failing to open missing files.
   const nemoModel = provider === 'nemotron'
-    ? findNemotronModel(configManager.getNemotron().modelId)
+    ? resolveNemotronModel(configDir, configManager.getNemotron().modelId)
     : undefined;
-  const nemotronDir = nemoModel && isNemotronModelDownloaded(configDir, nemoModel)
-    ? getNemotronModelDir(configDir, nemoModel)
-    : '';
+  if (nemoModel && nemoModel.id !== configManager.getNemotron().modelId) {
+    configManager.updateNemotron({ modelId: nemoModel.id });
+  }
+  const nemotronDir = nemoModel ? getNemotronModelDir(configDir, nemoModel) : '';
 
   backendManager = new BackendManager(backendPath, WS_PORT, {
     provider,
-    language: appSettings.sourceLanguage,
+    // The streaming model wants a locale from its prompt dictionary, not the
+    // picker's bare code. Every path that hands a language to a nemotron
+    // backend — spawn, provider switch, live command, reconnect replay — maps
+    // it the same way, or the value would flip depending on which path ran last.
+    language: provider === 'nemotron'
+      ? toNemotronLanguage(appSettings.sourceLanguage)
+      : appSettings.sourceLanguage,
     parakeetModelDir: pkArgs.modelDir || undefined,
     parakeetModelType: pkArgs.modelType || undefined,
     parakeetVadModel: pkArgs.vadModel || undefined,
     parakeetVad: provider === 'remote_parakeet' ? configManager.getRemoteParakeet().vad : pkConfig.vad,
     nemotronModelDir: nemotronDir || undefined,
     nemotronThreads: configManager.getNemotron().numThreads,
+    nemotronMinSilence: configManager.getNemotron().minSilence,
+    nemotronMaxUtterance: configManager.getNemotron().maxUtterance,
     remoteParakeetUrl: configManager.getRemoteParakeet().serverUrl || undefined,
     remoteParakeetApiKey: configManager.getRemoteParakeet().apiKey || undefined,
     remoteParakeetModel: configManager.getRemoteParakeet().model || undefined,
@@ -275,7 +290,15 @@ if (!gotSingleInstanceLock) {
     };
 
     const applyLiveState = () => {
-      wsClient.send({ type: 'set_language', data: { language: appSettings.sourceLanguage } });
+      const activeProvider = configManager.getProvider();
+      // Same mapping as the spawn args and the set-language command: the replay
+      // runs after every reconnect, so an unmapped code here would undo a
+      // correctly mapped one within seconds.
+      wsClient.send({ type: 'set_language', data: {
+        language: activeProvider === 'nemotron'
+          ? toNemotronLanguage(appSettings.sourceLanguage)
+          : appSettings.sourceLanguage,
+      } });
       wsClient.send({ type: 'set_subtitle_mode', data: { mode: appSettings.subtitleMode } });
 
       const denoise = configManager.getDenoiser();
@@ -293,7 +316,6 @@ if (!gotSingleInstanceLock) {
         wsClient.send({ type: 'set_denoise', data: { enabled: false, model_path: '', architecture: '' } });
       }
 
-      const activeProvider = configManager.getProvider();
       if (activeProvider === 'parakeet' || activeProvider === 'remote_parakeet') {
         const vad = activeProvider === 'remote_parakeet'
           ? configManager.getRemoteParakeet().vad

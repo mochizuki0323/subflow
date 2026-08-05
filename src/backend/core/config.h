@@ -27,6 +27,10 @@ struct Config {
     // whichever export was downloaded, so it is part of the directory, not a setting.
     std::string nemotron_model_dir;       // directory containing encoder/decoder/joiner + tokens
     int nemotron_threads = 2;             // ORT intra-op threads for the streaming encoder
+    // Endpoint rules, not VAD: the streaming decoder counts its own trailing
+    // blanks. Defaults match what the shared VAD settings used to feed here.
+    float nemotron_min_silence = 0.5f;    // trailing silence sec that ends an utterance
+    float nemotron_max_utterance = 15.0f; // force-cut a very long utterance, sec
 
     // Remote Parakeet inference server (provider "remote_parakeet")
     std::string remote_parakeet_url;       // ws:// or wss:// server URL

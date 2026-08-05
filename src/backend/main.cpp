@@ -24,6 +24,8 @@ static void print_usage(const char* argv0) {
               << "  --language <lang>          Language code: ja, en, zh, auto, etc. (default: auto)\n"
               << "  --nemotron-model-dir <dir>  Nemotron streaming model directory\n"
               << "  --nemotron-threads <n>      Nemotron decode threads, 1-8 (default: 2)\n"
+              << "  --nemotron-min-silence <f>  Trailing silence sec that ends an utterance (default: 0.5)\n"
+              << "  --nemotron-max-utterance <f> Max utterance sec before force-cut (default: 15)\n"
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
@@ -57,6 +59,10 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "--nemotron-threads") == 0 && i + 1 < argc) {
             int n = std::atoi(argv[++i]);
             config.nemotron_threads = (n >= 1 && n <= 8) ? n : 2;
+        } else if (std::strcmp(argv[i], "--nemotron-min-silence") == 0 && i + 1 < argc) {
+            config.nemotron_min_silence = std::stof(argv[++i]);
+        } else if (std::strcmp(argv[i], "--nemotron-max-utterance") == 0 && i + 1 < argc) {
+            config.nemotron_max_utterance = std::stof(argv[++i]);
         } else if (std::strcmp(argv[i], "--parakeet-model-dir") == 0 && i + 1 < argc) {
             config.parakeet_model_dir = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-model-type") == 0 && i + 1 < argc) {

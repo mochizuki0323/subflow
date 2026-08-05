@@ -2,14 +2,14 @@ import { ipcMain } from 'electron';
 import {
   findParakeetModel,
   getParakeetModelDir,
+  getParakeetModels,
   getVadModelPath,
   isParakeetModelDownloaded,
   isVadModelDownloaded,
 } from '../parakeet-manager';
 import {
-  findNemotronModel,
   getNemotronModelDir,
-  isNemotronModelDownloaded,
+  resolveNemotronModel,
   toNemotronLanguage,
 } from '../nemotron-manager';
 import type { ParakeetVadConfig } from '../unified-config';
@@ -37,22 +37,27 @@ function httpBaseFromWsUrl(serverUrl: string): { base?: string; error?: string }
   return { base: `${u.protocol === 'wss:' ? 'https' : 'http'}://${u.host}` };
 }
 
-/** Resolve CLI args for a downloaded Parakeet model (empty strings when unavailable). */
+/**
+ * Resolve CLI args for a downloaded Parakeet model (empty strings when none is
+ * usable). A configured id whose files are not on disk falls back to the first
+ * fully-downloaded model — same rule as the panel's picker — and `modelId`
+ * names what was actually chosen so the caller can write it back.
+ */
 export function resolveParakeetModelArgs(
   configDir: string,
   modelId: string | undefined,
-): { modelDir: string; modelType: string; vadModel: string } {
-  if (modelId) {
-    const model = findParakeetModel(modelId);
-    if (model && isParakeetModelDownloaded(configDir, model)) {
-      return {
-        modelDir: getParakeetModelDir(configDir, model),
-        modelType: model.type,
-        vadModel: isVadModelDownloaded(configDir) ? getVadModelPath(configDir) : '',
-      };
-    }
-  }
-  return { modelDir: '', modelType: '', vadModel: '' };
+): { modelDir: string; modelType: string; vadModel: string; modelId: string } {
+  const chosen = modelId ? findParakeetModel(modelId) : undefined;
+  const model = chosen && isParakeetModelDownloaded(configDir, chosen)
+    ? chosen
+    : getParakeetModels().find(m => isParakeetModelDownloaded(configDir, m));
+  if (!model) return { modelDir: '', modelType: '', vadModel: '', modelId: '' };
+  return {
+    modelDir: getParakeetModelDir(configDir, model),
+    modelType: model.type,
+    vadModel: isVadModelDownloaded(configDir) ? getVadModelPath(configDir) : '',
+    modelId: model.id,
+  };
 }
 
 function vadCommandData(vad: ParakeetVadConfig) {
@@ -65,18 +70,6 @@ function vadCommandData(vad: ParakeetVadConfig) {
   };
 }
 
-/**
- * Empty unless the chosen model is fully on disk. Passing a directory that is
- * missing or half-extracted would start a backend that fails opening files;
- * leaving the flag off makes it log "not set" and stay idle until the download
- * finishes, which is what the recognition page already renders as `waiting`.
- */
-export function resolveNemotronModelDir(configDir: string, modelId: string): string {
-  const model = findNemotronModel(modelId);
-  if (!model || !isNemotronModelDownloaded(configDir, model)) return '';
-  return getNemotronModelDir(configDir, model);
-}
-
 export function registerSttIpc(ctx: IpcContext): void {
   // ---- STT provider ----
   ipcMain.handle('get-stt-provider', () => ctx.config.getProvider());
@@ -87,18 +80,32 @@ export function registerSttIpc(ctx: IpcContext): void {
     const pk = ctx.config.getParakeet();
     const pkArgs = provider === 'parakeet'
       ? resolveParakeetModelArgs(ctx.configDir, pk.modelId)
-      : { modelDir: '', modelType: '', vadModel: '' };
+      : { modelDir: '', modelType: '', vadModel: '', modelId: '' };
+    // Persist what the fallback picked: the backend and the panel must name the
+    // same model, or the picker shows a selection the backend never received.
+    if (provider === 'parakeet' && pkArgs.modelId && pkArgs.modelId !== pk.modelId) {
+      ctx.config.updateParakeet({ modelId: pkArgs.modelId });
+    }
+    const nemo = provider === 'nemotron'
+      ? resolveNemotronModel(ctx.configDir, ctx.config.getNemotron().modelId)
+      : undefined;
+    if (nemo && nemo.id !== ctx.config.getNemotron().modelId) {
+      ctx.config.updateNemotron({ modelId: nemo.id });
+    }
     ctx.restartBackend({
       provider,
-      language: ctx.appSettings().sourceLanguage,
+      language: provider === 'nemotron'
+        ? toNemotronLanguage(ctx.appSettings().sourceLanguage)
+        : ctx.appSettings().sourceLanguage,
       parakeetModelDir: pkArgs.modelDir, parakeetModelType: pkArgs.modelType, parakeetVadModel: pkArgs.vadModel,
       parakeetVad: provider === 'remote_parakeet' ? ctx.config.getRemoteParakeet().vad : pk.vad,
       remoteParakeetUrl: ctx.config.getRemoteParakeet().serverUrl,
       remoteParakeetApiKey: ctx.config.getRemoteParakeet().apiKey,
       remoteParakeetModel: ctx.config.getRemoteParakeet().model,
-      nemotronModelDir: provider === 'nemotron'
-        ? resolveNemotronModelDir(ctx.configDir, ctx.config.getNemotron().modelId) : '',
+      nemotronModelDir: nemo ? getNemotronModelDir(ctx.configDir, nemo) : '',
       nemotronThreads: ctx.config.getNemotron().numThreads,
+      nemotronMinSilence: ctx.config.getNemotron().minSilence,
+      nemotronMaxUtterance: ctx.config.getNemotron().maxUtterance,
     });
     return { success: true };
   });
@@ -106,19 +113,26 @@ export function registerSttIpc(ctx: IpcContext): void {
   // ---- Nemotron (local, streaming) config ----
   ipcMain.handle('get-nemotron-config', () => ctx.config.getNemotron());
 
-  ipcMain.handle('set-nemotron-config', (_event, config: { modelId?: string; language?: string; numThreads?: number }) => {
+  ipcMain.handle('set-nemotron-config', (_event, config: {
+    modelId?: string; numThreads?: number; minSilence?: number; maxUtterance?: number;
+  }) => {
     ctx.config.updateNemotron(config);
-    const updated = ctx.config.getNemotron();
+    let updated = ctx.config.getNemotron();
     if (ctx.config.getProvider() === 'nemotron') {
-      const dir = resolveNemotronModelDir(ctx.configDir, updated.modelId);
-      // Language rides --language, which the backend hands to the stream, so a
-      // language-only edit still needs the provider's own restart path here;
-      // there is no live set_language command for it yet.
+      const nemo = resolveNemotronModel(ctx.configDir, updated.modelId);
+      if (nemo && nemo.id !== updated.modelId) {
+        ctx.config.updateNemotron({ modelId: nemo.id });
+        updated = ctx.config.getNemotron();
+      }
+      // The language lives in app.sourceLanguage like every provider's; it only
+      // rides along here because a restart respawns with fresh CLI args.
       ctx.restartBackend({
         provider: 'nemotron',
-        nemotronModelDir: dir,
+        nemotronModelDir: nemo ? getNemotronModelDir(ctx.configDir, nemo) : '',
         nemotronThreads: updated.numThreads,
-        language: toNemotronLanguage(updated.language),
+        nemotronMinSilence: updated.minSilence,
+        nemotronMaxUtterance: updated.maxUtterance,
+        language: toNemotronLanguage(ctx.appSettings().sourceLanguage),
       });
     }
     return { success: true, config: updated };
@@ -132,6 +146,9 @@ export function registerSttIpc(ctx: IpcContext): void {
     const updated = ctx.config.getParakeet();
     if (ctx.config.getProvider() === 'parakeet' && updated.modelId) {
       const pkArgs = resolveParakeetModelArgs(ctx.configDir, updated.modelId);
+      if (pkArgs.modelId && pkArgs.modelId !== updated.modelId) {
+        ctx.config.updateParakeet({ modelId: pkArgs.modelId });
+      }
       if (pkArgs.modelDir) {
         ctx.restartBackend({
           provider: 'parakeet',

@@ -20,7 +20,10 @@ import {
   getNemotronModelStatus,
   downloadNemotronModel,
   deleteNemotronModel,
+  getNemotronModelDir,
+  resolveNemotronModel,
 } from '../nemotron-manager';
+import { resolveParakeetModelArgs } from './stt-ipc';
 import type { IpcContext } from './context';
 
 export function registerModelsIpc(ctx: IpcContext): void {
@@ -85,11 +88,31 @@ export function registerModelsIpc(ctx: IpcContext): void {
 
   ipcMain.handle('download-parakeet-model', (_event, modelId: string) =>
     parakeetDownloads.download(modelId, async (onProgress) => {
+      // If nothing usable was on disk when this download began, the running
+      // backend is necessarily modelless and idle — restarting it with the new
+      // model interrupts nothing, and it is the only recovery there is:
+      // load_model runs once at spawn and is never retried.
+      const hadUsable = !!resolveParakeetModelArgs(ctx.configDir, ctx.config.getParakeet().modelId).modelDir;
       // Auto-download VAD model if not present (small, ~629KB)
       if (!isVadModelDownloaded(ctx.configDir)) {
         await downloadVadModel(ctx.configDir);
       }
-      return { localDir: await downloadParakeetModel(ctx.configDir, modelId, onProgress) };
+      const localDir = await downloadParakeetModel(ctx.configDir, modelId, onProgress);
+      if (!hadUsable && ctx.config.getProvider() === 'parakeet') {
+        const pkArgs = resolveParakeetModelArgs(ctx.configDir, ctx.config.getParakeet().modelId);
+        if (pkArgs.modelDir) {
+          if (pkArgs.modelId !== ctx.config.getParakeet().modelId) {
+            ctx.config.updateParakeet({ modelId: pkArgs.modelId });
+          }
+          ctx.restartBackend({
+            provider: 'parakeet',
+            parakeetModelDir: pkArgs.modelDir,
+            parakeetModelType: pkArgs.modelType,
+            parakeetVadModel: pkArgs.vadModel,
+          });
+        }
+      }
+      return { localDir };
     }));
 
   ipcMain.handle('delete-parakeet-model', (_event, modelId: string) => {
@@ -112,9 +135,25 @@ export function registerModelsIpc(ctx: IpcContext): void {
   ipcMain.handle('get-nemotron-download-status', () => nemotronDownloads.status());
 
   ipcMain.handle('download-nemotron-model', (_event, modelId: string) =>
-    nemotronDownloads.download(modelId, async (onProgress) => ({
-      localDir: await downloadNemotronModel(ctx.configDir, modelId, onProgress),
-    })));
+    nemotronDownloads.download(modelId, async (onProgress) => {
+      // Same recovery as the parakeet download above: a modelless backend can
+      // only be revived by a respawn, so give it the first usable model.
+      const hadUsable = !!resolveNemotronModel(ctx.configDir, ctx.config.getNemotron().modelId);
+      const localDir = await downloadNemotronModel(ctx.configDir, modelId, onProgress);
+      if (!hadUsable && ctx.config.getProvider() === 'nemotron') {
+        const nemo = resolveNemotronModel(ctx.configDir, ctx.config.getNemotron().modelId);
+        if (nemo) {
+          if (nemo.id !== ctx.config.getNemotron().modelId) {
+            ctx.config.updateNemotron({ modelId: nemo.id });
+          }
+          ctx.restartBackend({
+            provider: 'nemotron',
+            nemotronModelDir: getNemotronModelDir(ctx.configDir, nemo),
+          });
+        }
+      }
+      return { localDir };
+    }));
 
   ipcMain.handle('delete-nemotron-model', (_event, modelId: string) => {
     deleteNemotronModel(ctx.configDir, modelId);

@@ -18,7 +18,15 @@ NemotronTranscriber::NemotronTranscriber(std::string model_dir, EndpointParams p
       impl_(new Impl) {}
 
 NemotronTranscriber::~NemotronTranscriber() {
-    running_ = false;
+    {
+        // The decode thread's wait has no timeout, so the flag must flip under
+        // the same mutex the predicate reads. Flipping it outside can land
+        // between the predicate check and the block — the notify below is then
+        // lost and join() never returns. (The Parakeet twin tolerates the
+        // unlocked write only because its wait re-checks every 50 ms.)
+        std::lock_guard<std::mutex> lk(audio_mutex_);
+        running_ = false;
+    }
     audio_cv_.notify_all();
     if (decode_thread_.joinable()) decode_thread_.join();
 

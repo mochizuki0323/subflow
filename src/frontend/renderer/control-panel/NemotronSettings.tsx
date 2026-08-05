@@ -19,6 +19,23 @@ function clampThreads(value: number): number {
   return Math.max(THREADS_MIN, Math.min(THREADS_MAX, Math.round(value)));
 }
 
+// Endpoint rules, not VAD: the streaming decoder counts its own trailing
+// blanks, these set how much of that silence closes a caption. Same ranges the
+// config layer clamps to.
+const ENDPOINT_FIELDS: Array<{
+  key: 'minSilence' | 'maxUtterance';
+  min: number;
+  max: number;
+  step: number;
+  decimals: number;
+}> = [
+  { key: 'minSilence', min: 0.1, max: 3.0, step: 0.1, decimals: 1 },
+  { key: 'maxUtterance', min: 5, max: 30, step: 1, decimals: 0 },
+];
+
+// t() with a dynamically-built key (both endpoint fields have i18n entries)
+const tk = (key: string): string => t(key as Parameters<typeof t>[0]);
+
 export function NemotronSettings() {
   const [saved, setSaved] = useState<NemotronConfig | null>(null);
   const { draft: config, edit, commit, discard, changed } =
@@ -38,15 +55,33 @@ export function NemotronSettings() {
       window.electronAPI.getNemotronDownloadStatus(),
     ]).then(([cfg, list, active]) => {
       setSaved(cfg);
-      setThreadText(String(cfg.numThreads));
       setModels(list);
       setProgress(Object.fromEntries(active.map((d) => [d.modelId, d.percent])));
+      // Rejoin any download that outlived a previous mount: re-invoking joins
+      // the tracker's existing promise, same as the Parakeet panel. Without
+      // this, nobody clears the progress entry when the download finishes and
+      // the row shows "extracting" forever with every other button disabled.
+      active.forEach(async ({ modelId }) => {
+        const res = await window.electronAPI.downloadNemotronModel(modelId);
+        setProgress((p) => { const n = { ...p }; delete n[modelId]; return n; });
+        if (!res.success) setDownloadError({ modelId, message: res.error || t('nemotron.downloadFailed') });
+        await refresh();
+      });
     });
 
     window.electronAPI.onNemotronDownloadProgress(({ modelId, percent }) => {
       setProgress((p) => ({ ...p, [modelId]: percent }));
     });
+    return () => window.electronAPI.removeListeners('nemotron-download-progress');
   }, []);
+
+  // The box's text is local state (so a half-typed value survives keystrokes),
+  // but the number it shadows lives in the draft, which persists across
+  // unmounts and reverts on Discard. Follow it, or the field shows one value
+  // while Apply would write another.
+  useEffect(() => {
+    if (typeof config?.numThreads === 'number') setThreadText(String(config.numThreads));
+  }, [config?.numThreads]);
 
   const refresh = async () => setModels(await window.electronAPI.getNemotronModels());
 
@@ -84,16 +119,20 @@ export function NemotronSettings() {
     setApplying(true);
     try {
       const threads = clampThreads(config.numThreads);
-      await window.electronAPI.setNemotronConfig({ modelId: config.modelId, numThreads: threads });
+      await window.electronAPI.setNemotronConfig({
+        modelId: config.modelId,
+        numThreads: threads,
+        minSilence: config.minSilence,
+        maxUtterance: config.maxUtterance,
+      });
       setSaved(await window.electronAPI.getNemotronConfig());
-      setThreadText(String(threads));
       commit({ ...config, numThreads: threads });
     } finally {
       setApplying(false);
     }
   };
 
-  if (!config) return null;
+  if (!saved || !config) return null;
   const lang = getLang();
   const downloadedModels = models.filter((m) => m.downloaded);
   const anyDownloading = Object.keys(progress).length > 0;
@@ -160,6 +199,32 @@ export function NemotronSettings() {
           }}
         />
       </div>
+
+      {ENDPOINT_FIELDS.map((f) => {
+        const value = config[f.key];
+        const pct = ((value - f.min) / (f.max - f.min)) * 100;
+        return (
+          <div key={f.key} className="vad-field" style={{ marginTop: 16 }}>
+            <div className="vad-field-head">
+              <label>{tk(`nemotron.${f.key}`)}</label>
+              <span className="vad-value">{value.toFixed(f.decimals)}</span>
+            </div>
+            <input
+              type="range"
+              className="vad-slider"
+              min={f.min}
+              max={f.max}
+              step={f.step}
+              value={value}
+              onChange={(e) => edit({ [f.key]: parseFloat(e.target.value) })}
+              style={{
+                background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--bg-hover) ${pct}%, var(--bg-hover) 100%)`,
+              }}
+            />
+            <p className="hint">{tk(`nemotron.${f.key}.hint`)}</p>
+          </div>
+        );
+      })}
 
       <div className="divider" />
 
