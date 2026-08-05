@@ -1,5 +1,6 @@
 import { app, ipcMain, shell } from 'electron';
 import type { AppSettings, UiLanguage } from '../app-settings';
+import { toNemotronLanguage } from '../nemotron-manager';
 import type { IpcContext } from './context';
 
 export function registerAppIpc(ctx: IpcContext): void {
@@ -14,7 +15,14 @@ export function registerAppIpc(ctx: IpcContext): void {
 
   ipcMain.on('set-language', (_event, language: string) => {
     ctx.updateAppSettings({ sourceLanguage: language });
-    ctx.ws.send({ type: 'set_language', data: { language } });
+    // The streaming model is conditioned on a locale from its own prompt
+    // dictionary, which has no bare "zh" or "ja" — and an unknown string there
+    // is not rejected, it quietly reverts to auto-detect. Translating the UI's
+    // code here keeps the picker from looking like it does nothing.
+    const wire = ctx.config.getProvider() === 'nemotron'
+      ? toNemotronLanguage(language)
+      : language;
+    ctx.ws.send({ type: 'set_language', data: { language: wire } });
   });
 
   ipcMain.on('set-translate', (_event, translate: boolean) => {

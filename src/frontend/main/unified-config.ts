@@ -41,11 +41,20 @@ export interface DenoiserConfig {
   modelId: string;
 }
 
-export type SttProvider = 'parakeet' | 'remote_parakeet';
+export type SttProvider = 'parakeet' | 'nemotron' | 'remote_parakeet';
+
+export interface NemotronConfig {
+  modelId: string;
+  /** Locale sent to the model, e.g. "ja-JP" or "auto". Not the UI language. */
+  language: string;
+  /** ORT intra-op threads for the streaming encoder. */
+  numThreads: number;
+}
 
 export interface UnifiedConfig {
   provider: SttProvider;
   parakeet: ParakeetConfig;
+  nemotron: NemotronConfig;
   remoteParakeet: RemoteParakeetConfig;
   translator: TranslatorConfig;
   app: AppSettings;
@@ -155,7 +164,7 @@ function mergeDenoiser(base: DenoiserConfig, partial: Partial<DenoiserConfig>): 
  * model, which needs neither network nor credentials.
  */
 function normalizeProvider(value: unknown): SttProvider {
-  if (value === 'parakeet' || value === 'remote_parakeet') return value;
+  if (value === 'parakeet' || value === 'nemotron' || value === 'remote_parakeet') return value;
   return 'parakeet';
 }
 
@@ -201,10 +210,35 @@ function mergeRemoteParakeet(
 }
 
 
+// 560ms is the balanced point on the model's latency/accuracy curve and the
+// variant upstream ships as the default export.
+const DEFAULT_NEMOTRON: NemotronConfig = {
+  modelId: 'nemotron-3.5-streaming-560ms',
+  language: 'auto',
+  numThreads: 2,
+};
+
+function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === 'number' ? Math.round(value) : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function mergeNemotron(base: NemotronConfig, parsed: any): NemotronConfig {
+  return {
+    modelId: typeof parsed.modelId === 'string' && parsed.modelId ? parsed.modelId : base.modelId,
+    language: typeof parsed.language === 'string' && parsed.language ? parsed.language : base.language,
+    // Same ceiling the UI offers and the backend accepts: a hand-edited
+    // config cannot smuggle in a value the other two would reject.
+    numThreads: clampInt(parsed.numThreads, 1, 8, base.numThreads),
+  };
+}
+
 function buildDefaults(): UnifiedConfig {
   return {
     provider: 'parakeet',
     parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
+    nemotron: { ...DEFAULT_NEMOTRON },
     remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
     translator: { ...DEFAULT_TRANSLATOR },
     app: { ...DEFAULT_APP },
@@ -297,6 +331,7 @@ export class UnifiedConfigManager {
     return {
       provider: normalizeProvider(parsed.provider),
       parakeet: mergeParakeet(defaults.parakeet, parsed.parakeet || {}),
+      nemotron: mergeNemotron(defaults.nemotron, parsed.nemotron || {}),
       remoteParakeet: mergeRemoteParakeet(defaults.remoteParakeet, parsed.remoteParakeet || {}),
       translator: mergeTranslator(defaults.translator, parsed.translator || {}),
       app: mergeApp(defaults.app, parsed.app || {}),
@@ -311,6 +346,7 @@ export class UnifiedConfigManager {
     const config: UnifiedConfig = {
       provider: 'parakeet',
       parakeet: { ...DEFAULT_PARAKEET, vad: { ...DEFAULT_PARAKEET_VAD } },
+      nemotron: { ...DEFAULT_NEMOTRON },
       remoteParakeet: { ...DEFAULT_REMOTE_PARAKEET },
       translator: mergeTranslator(defaults.translator, this.readLegacy('translator-config.json')),
       app: mergeApp(defaults.app, this.readLegacy('app-settings.json')),
@@ -343,6 +379,12 @@ export class UnifiedConfigManager {
 
   getProvider(): SttProvider { return this.config.provider; }
   getParakeet(): ParakeetConfig { return this.config.parakeet; }
+  getNemotron(): NemotronConfig { return this.config.nemotron; }
+
+  updateNemotron(partial: Partial<NemotronConfig>): void {
+    this.config.nemotron = { ...this.config.nemotron, ...partial };
+    this.save();
+  }
   getRemoteParakeet(): RemoteParakeetConfig { return this.config.remoteParakeet; }
   getTranslator(): TranslatorConfig { return this.config.translator; }
   getApp(): AppSettings { return this.config.app; }

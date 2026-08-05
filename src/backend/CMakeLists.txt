@@ -68,6 +68,7 @@ set(BACKEND_SOURCES
     audio/audio_source.cpp
     audio/create_audio_source.cpp
     audio/denoiser.cpp
+    transcriber/nemotron_transcriber.cpp
     transcriber/parakeet_transcriber.cpp
     transcriber/remote_parakeet_transcriber.cpp
     ipc/ws_server.cpp

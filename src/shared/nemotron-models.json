@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "download_base_url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models",
+  "_comment": "Cache-aware streaming ASR. One checkpoint per chunk size: the chunk is baked into the export, so picking a latency means downloading a different archive rather than changing a setting. All five are the same 0.6B multilingual model and the same size on disk; they differ only in how much audio the encoder sees before it commits. Unlike the Parakeet registry there is no VAD entry — these models find their own endpoints.",
+  "models": [
+    {
+      "id": "nemotron-3.5-streaming-80ms",
+      "archive": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-80ms-int8-2026-06-11.tar.bz2",
+      "dir_name": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-80ms-int8-2026-06-11",
+      "chunk_ms": 80,
+      "archive_size_bytes": 475274007,
+      "description_en": "Nemotron 3.5 Streaming 0.6B — 80ms chunks (lowest latency)",
+      "description_zh": "Nemotron 3.5 流式 0.6B — 80ms 分块（延迟最低）"
+    },
+    {
+      "id": "nemotron-3.5-streaming-160ms",
+      "archive": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-160ms-int8-2026-06-11.tar.bz2",
+      "dir_name": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-160ms-int8-2026-06-11",
+      "chunk_ms": 160,
+      "archive_size_bytes": 475273363,
+      "description_en": "Nemotron 3.5 Streaming 0.6B — 160ms chunks",
+      "description_zh": "Nemotron 3.5 流式 0.6B — 160ms 分块"
+    },
+    {
+      "id": "nemotron-3.5-streaming-320ms",
+      "archive": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-320ms-int8-2026-06-11.tar.bz2",
+      "dir_name": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-320ms-int8-2026-06-11",
+      "chunk_ms": 320,
+      "archive_size_bytes": 475272949,
+      "description_en": "Nemotron 3.5 Streaming 0.6B — 320ms chunks",
+      "description_zh": "Nemotron 3.5 流式 0.6B — 320ms 分块"
+    },
+    {
+      "id": "nemotron-3.5-streaming-560ms",
+      "archive": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11.tar.bz2",
+      "dir_name": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-560ms-int8-2026-06-11",
+      "chunk_ms": 560,
+      "archive_size_bytes": 475271763,
+      "recommended": true,
+      "description_en": "Nemotron 3.5 Streaming 0.6B — 560ms chunks (balanced)",
+      "description_zh": "Nemotron 3.5 流式 0.6B — 560ms 分块（均衡，推荐）"
+    },
+    {
+      "id": "nemotron-3.5-streaming-1120ms",
+      "archive": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-1120ms-int8-2026-06-11.tar.bz2",
+      "dir_name": "sherpa-onnx-nemotron-3.5-asr-streaming-0.6b-1120ms-int8-2026-06-11",
+      "chunk_ms": 1120,
+      "archive_size_bytes": 475276334,
+      "description_en": "Nemotron 3.5 Streaming 0.6B — 1120ms chunks (most accurate)",
+      "description_zh": "Nemotron 3.5 流式 0.6B — 1120ms 分块（最准确）"
+    }
+  ],
+  "_languages_comment": "Taken verbatim from the encoder's prompt_dictionary metadata, so this cannot drift from what the model actually accepts. The model also answers to bare codes for some of these, but the app always sends a full locale: the dictionary has no bare 'zh' or 'ja' entry, and an unknown string silently falls back to auto-detect rather than erroring.",
+  "auto_language": "auto",
+  "languages": [
+    { "code": "auto", "name_en": "Auto-detect", "name_zh": "自动检测" },
+    { "code": "en-US", "name_en": "English (US)", "name_zh": "英语（美国）" },
+    { "code": "en-GB", "name_en": "English (UK)", "name_zh": "英语（英国）" },
+    { "code": "zh-CN", "name_en": "Chinese (Simplified)", "name_zh": "中文（简体）" },
+    { "code": "zh-TW", "name_en": "Chinese (Traditional)", "name_zh": "中文（繁体）" },
+    { "code": "ja-JP", "name_en": "Japanese", "name_zh": "日语" },
+    { "code": "ko-KR", "name_en": "Korean", "name_zh": "韩语" },
+    { "code": "de-DE", "name_en": "German", "name_zh": "德语" },
+    { "code": "fr-FR", "name_en": "French", "name_zh": "法语" },
+    { "code": "fr-CA", "name_en": "French (Canada)", "name_zh": "法语（加拿大）" },
+    { "code": "es-ES", "name_en": "Spanish (Spain)", "name_zh": "西班牙语（西班牙）" },
+    { "code": "es-US", "name_en": "Spanish (US)", "name_zh": "西班牙语（美国）" },
+    { "code": "it-IT", "name_en": "Italian", "name_zh": "意大利语" },
+    { "code": "pt-BR", "name_en": "Portuguese (Brazil)", "name_zh": "葡萄牙语（巴西）" },
+    { "code": "pt-PT", "name_en": "Portuguese (Portugal)", "name_zh": "葡萄牙语（葡萄牙）" },
+    { "code": "ru-RU", "name_en": "Russian", "name_zh": "俄语" },
+    { "code": "uk-UA", "name_en": "Ukrainian", "name_zh": "乌克兰语" },
+    { "code": "pl-PL", "name_en": "Polish", "name_zh": "波兰语" },
+    { "code": "nl-NL", "name_en": "Dutch", "name_zh": "荷兰语" },
+    { "code": "tr-TR", "name_en": "Turkish", "name_zh": "土耳其语" },
+    { "code": "ar-AR", "name_en": "Arabic", "name_zh": "阿拉伯语" },
+    { "code": "hi-IN", "name_en": "Hindi", "name_zh": "印地语" },
+    { "code": "vi-VN", "name_en": "Vietnamese", "name_zh": "越南语" },
+    { "code": "th-TH", "name_en": "Thai", "name_zh": "泰语" },
+    { "code": "id-ID", "name_en": "Indonesian", "name_zh": "印尼语" },
+    { "code": "sv-SE", "name_en": "Swedish", "name_zh": "瑞典语" },
+    { "code": "da-DK", "name_en": "Danish", "name_zh": "丹麦语" },
+    { "code": "fi-FI", "name_en": "Finnish", "name_zh": "芬兰语" },
+    { "code": "no-NO", "name_en": "Norwegian", "name_zh": "挪威语" },
+    { "code": "cs-CZ", "name_en": "Czech", "name_zh": "捷克语" },
+    { "code": "el-GR", "name_en": "Greek", "name_zh": "希腊语" },
+    { "code": "hu-HU", "name_en": "Hungarian", "name_zh": "匈牙利语" },
+    { "code": "ro-RO", "name_en": "Romanian", "name_zh": "罗马尼亚语" },
+    { "code": "he-IL", "name_en": "Hebrew", "name_zh": "希伯来语" }
+  ]
+}

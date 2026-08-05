@@ -186,7 +186,9 @@ export function downloadVadModel(
   });
 }
 
-async function extractTarBz2(archivePath: string, destDir: string): Promise<void> {
+// Exported for the Nemotron manager: both registries ship the same tar.bz2
+// layout from the same release, and this is pure-JS so it stays cross-platform.
+export async function extractTarBz2(archivePath: string, destDir: string): Promise<void> {
   const extract = tar.extract();
   const dirs = new Set<string>();
 

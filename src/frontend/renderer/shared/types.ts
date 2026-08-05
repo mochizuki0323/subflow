@@ -48,7 +48,7 @@ export interface LogEntry {
 
 
 
-export type SttProvider = 'parakeet' | 'remote_parakeet';
+export type SttProvider = 'parakeet' | 'nemotron' | 'remote_parakeet';
 
 
 
@@ -126,6 +126,27 @@ export interface RemoteParakeetModelInfo {
   type: string;
 }
 
+export interface NemotronConfig {
+  modelId: string;
+  /** Locale sent to the model ("ja-JP", "auto"), not the UI language. */
+  language: string;
+  /** ORT intra-op threads for the streaming encoder. */
+  numThreads: number;
+}
+
+export interface NemotronModelInfo {
+  id: string;
+  archive: string;
+  dir_name: string;
+  chunk_ms: number;
+  archive_size_bytes: number;
+  recommended?: boolean;
+  description_en: string;
+  description_zh: string;
+  downloaded: boolean;
+  localDir: string;
+}
+
 export interface ParakeetModelInfo {
   id: string;
   archive: string;
@@ -201,6 +222,14 @@ export interface ElectronAPI {
   deleteParakeetModel: (modelId: string) => Promise<{ success: boolean }>;
   getParakeetDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
   onParakeetDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
+
+  getNemotronConfig: () => Promise<NemotronConfig>;
+  setNemotronConfig: (config: Partial<NemotronConfig>) => Promise<{ success: boolean; config?: NemotronConfig }>;
+  getNemotronModels: () => Promise<NemotronModelInfo[]>;
+  downloadNemotronModel: (modelId: string) => Promise<{ success: boolean; error?: string }>;
+  deleteNemotronModel: (modelId: string) => Promise<{ success: boolean }>;
+  getNemotronDownloadStatus: () => Promise<Array<{ modelId: string; percent: number }>>;
+  onNemotronDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => void;
 
   getSttProvider: () => Promise<SttProvider>;
   setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;

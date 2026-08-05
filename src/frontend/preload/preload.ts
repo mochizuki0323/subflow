@@ -51,6 +51,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('parakeet-download-progress', (_event, data) => callback(data));
   },
 
+  // Nemotron streaming ASR
+  getNemotronConfig: () => ipcRenderer.invoke('get-nemotron-config'),
+  setNemotronConfig: (config: any) => ipcRenderer.invoke('set-nemotron-config', config),
+  getNemotronModels: () => ipcRenderer.invoke('get-nemotron-models'),
+  downloadNemotronModel: (modelId: string) => ipcRenderer.invoke('download-nemotron-model', modelId),
+  deleteNemotronModel: (modelId: string) => ipcRenderer.invoke('delete-nemotron-model', modelId),
+  getNemotronDownloadStatus: () => ipcRenderer.invoke('get-nemotron-download-status') as Promise<Array<{ modelId: string; percent: number }>>,
+  onNemotronDownloadProgress: (callback: (data: { modelId: string; percent: number }) => void) => {
+    ipcRenderer.on('nemotron-download-progress', (_event, data) => callback(data));
+  },
+
   // STT provider
   getSttProvider: () => ipcRenderer.invoke('get-stt-provider'),
   setSttProvider: (provider: string) => ipcRenderer.invoke('set-stt-provider', provider),

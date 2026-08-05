@@ -7,7 +7,8 @@ namespace ais {
 struct Config {
     int ws_port = 9876;
 
-    // STT provider: "parakeet" (local) or "remote_parakeet" (self-hosted server)
+    // STT provider: "parakeet" (local, offline model + simulated streaming),
+    // "nemotron" (local, natively streaming) or "remote_parakeet" (self-hosted server)
     std::string provider = "parakeet";
 
     // Parakeet local ASR model
@@ -21,6 +22,11 @@ struct Config {
     float parakeet_vad_min_speech = 0.25f;
     float parakeet_vad_max_speech = 15.0f;
     float parakeet_partial_interval = 0.2f;
+
+    // Nemotron streaming ASR (provider "nemotron"). The chunk size is fixed by
+    // whichever export was downloaded, so it is part of the directory, not a setting.
+    std::string nemotron_model_dir;       // directory containing encoder/decoder/joiner + tokens
+    int nemotron_threads = 2;             // ORT intra-op threads for the streaming encoder
 
     // Remote Parakeet inference server (provider "remote_parakeet")
     std::string remote_parakeet_url;       // ws:// or wss:// server URL

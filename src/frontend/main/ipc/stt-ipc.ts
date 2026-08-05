@@ -6,6 +6,12 @@ import {
   isParakeetModelDownloaded,
   isVadModelDownloaded,
 } from '../parakeet-manager';
+import {
+  findNemotronModel,
+  getNemotronModelDir,
+  isNemotronModelDownloaded,
+  toNemotronLanguage,
+} from '../nemotron-manager';
 import type { ParakeetVadConfig } from '../unified-config';
 import type { IpcContext } from './context';
 
@@ -59,12 +65,24 @@ function vadCommandData(vad: ParakeetVadConfig) {
   };
 }
 
+/**
+ * Empty unless the chosen model is fully on disk. Passing a directory that is
+ * missing or half-extracted would start a backend that fails opening files;
+ * leaving the flag off makes it log "not set" and stay idle until the download
+ * finishes, which is what the recognition page already renders as `waiting`.
+ */
+export function resolveNemotronModelDir(configDir: string, modelId: string): string {
+  const model = findNemotronModel(modelId);
+  if (!model || !isNemotronModelDownloaded(configDir, model)) return '';
+  return getNemotronModelDir(configDir, model);
+}
+
 export function registerSttIpc(ctx: IpcContext): void {
   // ---- STT provider ----
   ipcMain.handle('get-stt-provider', () => ctx.config.getProvider());
 
   ipcMain.handle('set-stt-provider', (_event, provider: string) => {
-    if (provider !== 'parakeet' && provider !== 'remote_parakeet') return { success: false };
+    if (provider !== 'parakeet' && provider !== 'nemotron' && provider !== 'remote_parakeet') return { success: false };
     ctx.config.updateProvider(provider);
     const pk = ctx.config.getParakeet();
     const pkArgs = provider === 'parakeet'
@@ -78,8 +96,32 @@ export function registerSttIpc(ctx: IpcContext): void {
       remoteParakeetUrl: ctx.config.getRemoteParakeet().serverUrl,
       remoteParakeetApiKey: ctx.config.getRemoteParakeet().apiKey,
       remoteParakeetModel: ctx.config.getRemoteParakeet().model,
+      nemotronModelDir: provider === 'nemotron'
+        ? resolveNemotronModelDir(ctx.configDir, ctx.config.getNemotron().modelId) : '',
+      nemotronThreads: ctx.config.getNemotron().numThreads,
     });
     return { success: true };
+  });
+
+  // ---- Nemotron (local, streaming) config ----
+  ipcMain.handle('get-nemotron-config', () => ctx.config.getNemotron());
+
+  ipcMain.handle('set-nemotron-config', (_event, config: { modelId?: string; language?: string; numThreads?: number }) => {
+    ctx.config.updateNemotron(config);
+    const updated = ctx.config.getNemotron();
+    if (ctx.config.getProvider() === 'nemotron') {
+      const dir = resolveNemotronModelDir(ctx.configDir, updated.modelId);
+      // Language rides --language, which the backend hands to the stream, so a
+      // language-only edit still needs the provider's own restart path here;
+      // there is no live set_language command for it yet.
+      ctx.restartBackend({
+        provider: 'nemotron',
+        nemotronModelDir: dir,
+        nemotronThreads: updated.numThreads,
+        language: toNemotronLanguage(updated.language),
+      });
+    }
+    return { success: true, config: updated };
   });
 
   // ---- Parakeet (local) config ----

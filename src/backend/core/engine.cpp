@@ -2,6 +2,7 @@
 #include "core/engine.h"
 #include "ipc/protocol.h"
 #include "audio/audio_buffer.h"
+#include "transcriber/nemotron_transcriber.h"
 #include "transcriber/parakeet_transcriber.h"
 #include "transcriber/remote_parakeet_transcriber.h"
 #include <chrono>
@@ -22,6 +23,16 @@ Engine::Engine(const Config& config)
         transcriber_ = std::make_unique<RemoteParakeetTranscriber>(
             config_.remote_parakeet_url, config_.remote_parakeet_api_key,
             config_.remote_parakeet_model, rvp);
+    } else if (config_.provider == "nemotron") {
+        // Streaming model: it finds its own endpoints, so only the two silence
+        // rules carry over from the shared VAD settings. There is no VAD to
+        // threshold and nothing to re-decode on an interval.
+        NemotronTranscriber::EndpointParams np;
+        np.min_trailing_silence_after = config_.parakeet_vad_min_silence;
+        np.max_utterance = config_.parakeet_vad_max_speech;
+        np.num_threads = config_.nemotron_threads;
+        transcriber_ = std::make_unique<NemotronTranscriber>(
+            config_.nemotron_model_dir, np);
     } else {
         // Local Parakeet is the default: an unknown provider string falls back to
         // the one that needs no network and no credentials.

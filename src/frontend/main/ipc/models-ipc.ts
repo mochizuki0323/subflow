@@ -16,6 +16,11 @@ import {
   isVadModelDownloaded,
   downloadVadModel,
 } from '../parakeet-manager';
+import {
+  getNemotronModelStatus,
+  downloadNemotronModel,
+  deleteNemotronModel,
+} from '../nemotron-manager';
 import type { IpcContext } from './context';
 
 export function registerModelsIpc(ctx: IpcContext): void {
@@ -93,6 +98,28 @@ export function registerModelsIpc(ctx: IpcContext): void {
     // respawns with an empty --parakeet-model-dir and transcribes nothing at all.
     if (ctx.config.getParakeet().modelId === modelId) {
       ctx.config.updateParakeet({ modelId: '' });
+    }
+    return { success: true };
+  });
+
+  // ---- Nemotron (streaming) ----
+  // No VAD to fetch alongside: these models endpoint themselves.
+  const nemotronDownloads = new DownloadTracker((modelId, percent) =>
+    ctx.safeSend(ctx.mainWindow(), 'nemotron-download-progress', { modelId, percent }));
+
+  ipcMain.handle('get-nemotron-models', () => getNemotronModelStatus(ctx.configDir));
+
+  ipcMain.handle('get-nemotron-download-status', () => nemotronDownloads.status());
+
+  ipcMain.handle('download-nemotron-model', (_event, modelId: string) =>
+    nemotronDownloads.download(modelId, async (onProgress) => ({
+      localDir: await downloadNemotronModel(ctx.configDir, modelId, onProgress),
+    })));
+
+  ipcMain.handle('delete-nemotron-model', (_event, modelId: string) => {
+    deleteNemotronModel(ctx.configDir, modelId);
+    if (ctx.config.getNemotron().modelId === modelId) {
+      ctx.config.updateNemotron({ modelId: '' });
     }
     return { success: true };
   });

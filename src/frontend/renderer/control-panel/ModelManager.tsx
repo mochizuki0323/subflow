@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ParakeetSettings } from './ParakeetSettings';
+import { NemotronSettings } from './NemotronSettings';
 import { RemoteParakeetSettings } from './RemoteParakeetSettings';
 import type { SttProvider } from '../shared/types';
 import { t } from '../shared/i18n';
@@ -11,6 +12,7 @@ const SOURCE_LANG_CODES = [
 
 const ENGINES: Array<{ id: SttProvider; labelKey: string; noteKey: string }> = [
   { id: 'parakeet', labelKey: 'provider.parakeet', noteKey: 'provider.parakeet.note' },
+  { id: 'nemotron', labelKey: 'provider.nemotron', noteKey: 'provider.nemotron.note' },
   { id: 'remote_parakeet', labelKey: 'provider.remoteParakeet', noteKey: 'provider.remoteParakeet.note' },
 ];
 
@@ -90,7 +92,9 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
 
       <div className="divider" />
 
-      {provider === 'remote_parakeet' ? <RemoteParakeetSettings /> : <ParakeetSettings />}
+      {provider === 'remote_parakeet' ? <RemoteParakeetSettings />
+        : provider === 'nemotron' ? <NemotronSettings />
+        : <ParakeetSettings />}
     </div>
   );
 }

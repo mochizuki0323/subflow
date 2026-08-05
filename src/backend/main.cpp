@@ -20,8 +20,10 @@ static void print_usage(const char* argv0) {
     std::cerr << "Usage: " << argv0 << " [options]\n"
               << "Options:\n"
               << "  --port <port>              WebSocket port (default: 9876)\n"
-              << "  --provider <name>          STT provider: parakeet or remote_parakeet (default: parakeet)\n"
+              << "  --provider <name>          STT provider: parakeet, nemotron or remote_parakeet (default: parakeet)\n"
               << "  --language <lang>          Language code: ja, en, zh, auto, etc. (default: auto)\n"
+              << "  --nemotron-model-dir <dir>  Nemotron streaming model directory\n"
+              << "  --nemotron-threads <n>      Nemotron decode threads, 1-8 (default: 2)\n"
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
@@ -50,6 +52,11 @@ int main(int argc, char* argv[]) {
             config.provider = argv[++i];
         } else if (std::strcmp(argv[i], "--language") == 0 && i + 1 < argc) {
             config.language = argv[++i];
+        } else if (std::strcmp(argv[i], "--nemotron-model-dir") == 0 && i + 1 < argc) {
+            config.nemotron_model_dir = argv[++i];
+        } else if (std::strcmp(argv[i], "--nemotron-threads") == 0 && i + 1 < argc) {
+            int n = std::atoi(argv[++i]);
+            config.nemotron_threads = (n >= 1 && n <= 8) ? n : 2;
         } else if (std::strcmp(argv[i], "--parakeet-model-dir") == 0 && i + 1 < argc) {
             config.parakeet_model_dir = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-model-type") == 0 && i + 1 < argc) {
@@ -100,6 +107,11 @@ int main(int argc, char* argv[]) {
             LOG_INFO("Remote Parakeet server: " + config.remote_parakeet_url);
         else
             LOG_WARN("Remote Parakeet URL: NOT SET — transcription disabled until a server is configured");
+    } else if (config.provider == "nemotron") {
+        if (!config.nemotron_model_dir.empty())
+            LOG_INFO("Nemotron streaming model: " + config.nemotron_model_dir);
+        else
+            LOG_WARN("Nemotron model directory: NOT SET — transcription disabled until model is downloaded");
     } else {
         if (!config.parakeet_model_dir.empty())
             LOG_INFO("Parakeet model: " + config.parakeet_model_dir + " (type=" + config.parakeet_model_type + ")");

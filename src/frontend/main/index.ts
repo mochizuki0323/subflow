@@ -24,6 +24,11 @@ import { registerSttIpc, resolveParakeetModelArgs } from './ipc/stt-ipc';
 import { registerThemeIpc } from './ipc/theme-ipc';
 import { registerTranslatorIpc } from './ipc/translator-ipc';
 import { registerWindowIpc, type WindowIpc } from './ipc/window-ipc';
+import {
+  findNemotronModel,
+  getNemotronModelDir,
+  isNemotronModelDownloaded,
+} from './nemotron-manager';
 import path from 'path';
 
 if (process.platform === 'linux' && process.env.XDG_SESSION_TYPE === 'wayland') {
@@ -125,6 +130,15 @@ if (!gotSingleInstanceLock) {
     ? resolveParakeetModelArgs(configDir, pkConfig.modelId)
     : { modelDir: '', modelType: '', vadModel: '' };
 
+  // Only resolved when selected: an un-downloaded model must leave the flag off
+  // so the backend reports "not set" rather than failing to open missing files.
+  const nemoModel = provider === 'nemotron'
+    ? findNemotronModel(configManager.getNemotron().modelId)
+    : undefined;
+  const nemotronDir = nemoModel && isNemotronModelDownloaded(configDir, nemoModel)
+    ? getNemotronModelDir(configDir, nemoModel)
+    : '';
+
   backendManager = new BackendManager(backendPath, WS_PORT, {
     provider,
     language: appSettings.sourceLanguage,
@@ -132,6 +146,8 @@ if (!gotSingleInstanceLock) {
     parakeetModelType: pkArgs.modelType || undefined,
     parakeetVadModel: pkArgs.vadModel || undefined,
     parakeetVad: provider === 'remote_parakeet' ? configManager.getRemoteParakeet().vad : pkConfig.vad,
+    nemotronModelDir: nemotronDir || undefined,
+    nemotronThreads: configManager.getNemotron().numThreads,
     remoteParakeetUrl: configManager.getRemoteParakeet().serverUrl || undefined,
     remoteParakeetApiKey: configManager.getRemoteParakeet().apiKey || undefined,
     remoteParakeetModel: configManager.getRemoteParakeet().model || undefined,

@@ -213,6 +213,23 @@ const translations = {
   'provider.parakeet.note': { en: 'Runs entirely on this machine. No audio leaves it.', zh: '完全在本机运行，音频不会离开这台机器。' },
   'provider.remoteParakeet.note': { en: 'Streams your audio to the server you configure below.', zh: '会把音频流式发送到下面配置的服务器。' },
   'provider.remoteParakeet': { en: 'Remote server', zh: '远程服务器' },
+  'provider.nemotron': { en: 'Local streaming', zh: '本地流式' },
+  'provider.nemotron.note': { en: 'Runs on this machine too, but the model streams: text appears as you speak instead of after each pause.', zh: '同样完全在本机运行，但模型是流式的：说话时文字就在出，而不是等一句说完。' },
+
+  // ---- NemotronSettings.tsx ----
+  'nemotron.title': { en: 'Nemotron Streaming ASR', zh: 'Nemotron 流式语音识别' },
+  'nemotron.hint': { en: 'Local speech-to-text that streams: text appears as you speak.', zh: '流式的本地语音识别:说话时文字就在出。' },
+  'nemotron.model': { en: 'Model', zh: '模型' },
+  'nemotron.downloadFailed': { en: 'Download failed', zh: '下载失败' },
+  'nemotron.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
+  'nemotron.library': { en: 'Model Library', zh: '模型库' },
+  'nemotron.localeCount': { en: '40 languages', zh: '40 种语言' },
+  'nemotron.downloaded': { en: 'Downloaded', zh: '已下载' },
+  'nemotron.downloading': { en: 'Downloading', zh: '下载中' },
+  'nemotron.extracting': { en: 'Extracting…', zh: '解压中…' },
+  'nemotron.download': { en: 'Download', zh: '下载' },
+  'nemotron.delete': { en: 'Delete', zh: '删除' },
+  'nemotron.threads': { en: 'Decode threads', zh: '解码线程数' },
 
   // ---- RemoteParakeetSettings.tsx ----
   'remoteParakeet.title': { en: 'Remote Parakeet Server', zh: '远程 Parakeet 服务器' },
