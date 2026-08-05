@@ -58,7 +58,7 @@ private:
     bool create_recognizer();
     std::string resolve_file(const std::string& name) const;
     void decode_thread_func();
-    void apply_language_locked();
+    void apply_language();
 
     std::string model_dir_;
     EndpointParams params_;

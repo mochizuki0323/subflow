@@ -88,8 +88,9 @@ bool NemotronTranscriber::create_recognizer() {
     return true;
 }
 
-// Must run on the decode thread: the option lives on the stream.
-void NemotronTranscriber::apply_language_locked() {
+// Must run on the decode thread: the option lives on the stream, which only
+// that thread may touch.
+void NemotronTranscriber::apply_language() {
     std::string want;
     {
         std::lock_guard<std::mutex> lk(lang_mutex_);
@@ -114,10 +115,15 @@ void NemotronTranscriber::decode_thread_func() {
             });
             if (!running_.load()) break;
             chunk.swap(audio_pending_);
+            // The wait this batch endured is over; whatever arrives next starts
+            // its own clock. Leaving the stamp set would make every later batch
+            // report its age from the first sample ever fed, and since the queue
+            // is rarely empty mid-speech it would never have been cleared.
             arrived = pending_since_;
+            pending_since_ = clock::time_point{};
         }
 
-        if (lang_dirty_.exchange(false)) apply_language_locked();
+        if (lang_dirty_.exchange(false)) apply_language();
 
         SherpaOnnxOnlineStreamAcceptWaveform(
             impl_->stream, SAMPLE_RATE, chunk.data(),
@@ -175,12 +181,6 @@ void NemotronTranscriber::decode_thread_func() {
             last_emitted_text_ = text;
         }
 
-        // Text existing means the wait is over; the next batch starts its own clock.
-        if (!text.empty()) {
-            std::lock_guard<std::mutex> lk(audio_mutex_);
-            if (audio_pending_.empty()) pending_since_ = clock::time_point{};
-        }
-
         if (endpoint) {
             SherpaOnnxOnlineStreamReset(impl_->recognizer, impl_->stream);
             utterance_start_sample_ = global_sample_count_;
@@ -220,7 +220,9 @@ void NemotronTranscriber::feed_audio(const float* samples, size_t count) {
     if (!loaded_.load() || count == 0) return;
     {
         std::lock_guard<std::mutex> lk(audio_mutex_);
-        if (audio_pending_.empty() && pending_since_.time_since_epoch().count() == 0) {
+        // Stamp the first sample of each batch: once set, later samples join a
+        // batch whose wait is already being timed from its oldest member.
+        if (pending_since_.time_since_epoch().count() == 0) {
             pending_since_ = clock::now();
         }
         audio_pending_.insert(audio_pending_.end(), samples, samples + count);
