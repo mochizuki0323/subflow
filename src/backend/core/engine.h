@@ -21,6 +21,16 @@ public:
     void run();   // Blocking: starts WS server and pipeline
     void stop();
 
+    // Ask run() to come back, without touching anything itself. Safe to call
+    // from a signal handler and from any thread: it only stores a flag. stop()
+    // is not — it joins threads and tears down the WS server, and calling it
+    // from a signal that landed mid-startup used to stop a server run() had not
+    // created yet, after which run() went on to create it.
+    void request_stop();
+
+    /** True when run() came back because the port was already taken. */
+    bool listen_failed() const { return listen_failed_.load(); }
+
 private:
     void setup_command_handlers();
     void pipeline_loop();
@@ -46,6 +56,8 @@ private:
     std::mutex command_mutex_;
     std::vector<std::function<void()>> pending_commands_;
     std::atomic<bool> running_{false};
+    std::atomic<bool> stop_requested_{false};
+    std::atomic<bool> listen_failed_{false};
     std::atomic<bool> denoise_active_{false};
     std::string current_state_ = "idle";
     uint32_t capture_source_id_ = 0;

@@ -109,6 +109,11 @@ export function registerModelsIpc(ctx: IpcContext): void {
             parakeetModelDir: pkArgs.modelDir,
             parakeetModelType: pkArgs.modelType,
             parakeetVadModel: pkArgs.vadModel,
+            // Read from config rather than left to whatever the manager holds:
+            // this is the one restart that can be the first with a usable model,
+            // so a thread count saved while none existed never reached the
+            // manager — the settings panel cannot restart without a model.
+            parakeetThreads: ctx.config.getParakeet().numThreads,
           });
         }
       }

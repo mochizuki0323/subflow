@@ -27,6 +27,14 @@ public:
     using CommandHandler = std::function<void(const json&)>;
     void on_command(const std::string& type, CommandHandler handler);
 
+    /**
+     * Called from the server thread when the port could not be bound. A backend
+     * that cannot listen is unreachable and unstoppable from the app's side, so
+     * the owner is told to shut down rather than sit there: exiting lets the
+     * supervisor try again once whoever holds the port has let go.
+     */
+    void on_listen_failed(std::function<void()> handler);
+
 private:
     int port_;
     std::thread server_thread_;
@@ -37,6 +45,8 @@ private:
     std::mutex loop_mutex_;
     uWS::Loop* loop_ = nullptr;
     bool stopped_ = false;
+
+    std::function<void()> listen_failed_handler_;
 
     std::mutex handlers_mutex_;
     std::map<std::string, CommandHandler> handlers_;

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "download_base_url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models",
-  "_comment": "Cache-aware streaming ASR. One checkpoint per chunk size: the chunk is baked into the export, so picking a latency means downloading a different archive rather than changing a setting. All five are the same 0.6B multilingual model and the same size on disk; they differ only in how much audio the encoder sees before it commits. Unlike the Parakeet registry there is no VAD entry — these models find their own endpoints.",
+  "_comment": "Cache-aware streaming ASR. One checkpoint per chunk size: the chunk is baked into the export, so picking a latency means downloading a different archive rather than changing a setting. All five are the same 0.6B multilingual model and the same size on disk; they differ only in how much audio the encoder sees before it commits. Unlike the Parakeet registry there is no VAD entry — these models find their own endpoints. On CJK the chunk buys more than latency: measured on Japanese, 1120ms roughly halved the CER against 560ms, and even so none of the five approaches the Japanese-only Parakeet model.",
   "models": [
     {
       "id": "nemotron-3.5-streaming-80ms",

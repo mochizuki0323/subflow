@@ -14,10 +14,12 @@ struct ParakeetTranscriber::Impl {
 ParakeetTranscriber::ParakeetTranscriber(std::string model_dir,
                                          std::string model_type,
                                          std::string vad_model,
-                                         VadParams params)
+                                         VadParams params,
+                                         int num_threads)
     : model_dir_(std::move(model_dir)),
       model_type_(std::move(model_type)),
       vad_model_path_(std::move(vad_model)),
+      num_threads_(num_threads),
       impl_(new Impl) {
     params_ = params;
 }
@@ -49,7 +51,7 @@ bool ParakeetTranscriber::create_recognizer() {
 
     std::string tokens_path = resolve_file("tokens.txt");
     config.model_config.tokens = tokens_path.c_str();
-    config.model_config.num_threads = 4;
+    config.model_config.num_threads = num_threads_;
     config.model_config.provider = "cpu";
     config.model_config.debug = 0;
 
@@ -72,7 +74,8 @@ bool ParakeetTranscriber::create_recognizer() {
         LOG_INFO("Parakeet transducer model: " + encoder_path);
     }
 
-    LOG_INFO("Creating offline recognizer (type=" + model_type_ + ")...");
+    LOG_INFO("Creating offline recognizer (type=" + model_type_
+             + ", threads=" + std::to_string(num_threads_) + ")...");
 
     impl_->recognizer = SherpaOnnxCreateOfflineRecognizer(&config);
     if (!impl_->recognizer) {

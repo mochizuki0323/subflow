@@ -32,10 +32,15 @@ class ParakeetTranscriber : public ITranscriber {
 public:
     using VadParams = ParakeetVadParams;
 
+    // num_threads is deliberately not part of VadParams: those are replayed at
+    // runtime through set_vad_params, and ORT's thread count is fixed when the
+    // recogniser is built. Putting it there would promise a live change the
+    // recogniser cannot make.
     explicit ParakeetTranscriber(std::string model_dir,
                                  std::string model_type,
                                  std::string vad_model,
-                                 VadParams params = {});
+                                 VadParams params = {},
+                                 int num_threads = 4);
     ~ParakeetTranscriber() override;
 
     // Apply new VAD parameters at runtime (no restart). Thread-safe; the VAD is
@@ -60,6 +65,7 @@ private:
     std::string model_dir_;
     std::string model_type_;
     std::string vad_model_path_;
+    int num_threads_ = 4;
     std::string language_ = "auto";
 
     struct Impl;

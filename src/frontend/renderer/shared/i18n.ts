@@ -45,6 +45,7 @@ const translations = {
   'recognizer.ready': { en: 'Recognizer ready', zh: '识别就绪' },
   'recognizer.notReady': { en: 'No recognizer', zh: '识别未就绪' },
   'rail.modelNotReady': { en: 'Model not ready', zh: '模型未就绪' },
+  'rail.langUnsupported': { en: 'Model lacks this language', zh: '模型不支持该语言' },
   'rail.needSubtitleMode': { en: 'Blocked: subtitle mode is "Original only"', zh: '被阻断：字幕模式为「仅原文」' },
   'status.backendExited': { en: 'Backend stopped', zh: '后端已退出' },
   'status.backendRestarting': { en: 'Restarting…', zh: '正在重启…' },
@@ -113,7 +114,7 @@ const translations = {
   'lang.mode.translated.desc': { en: 'Show only the translated subtitles (requires Translation API).', zh: '仅显示翻译后的字幕（需配置翻译 API）。' },
   'lang.mode.bilingual.desc': { en: 'Show original on top, translation below (requires Translation API).', zh: '上方显示原文，下方显示翻译（需配置翻译 API）。' },
   'lang.translator.title': { en: 'Translation API Configuration', zh: '翻译 API 配置' },
-  'lang.translator.hint': { en: 'Connect to an LLM for real-time subtitle translation. Supports OpenAI-compatible APIs (OpenRouter/Zenmux etc.), the Anthropic API, and Google AI Studio (Gemini/Gemma).', zh: '接入大语言模型进行实时字幕翻译。支持 OpenAI 兼容接口（OpenRouter/Zenmux 等）、Anthropic 接口和 Google AI Studio（Gemini/Gemma）。' },
+  'lang.translator.hint': { en: 'Connect to an LLM for real-time subtitle translation. Supports OpenAI-compatible APIs (OpenCode Zen/OpenRouter/Zenmux etc.), the Anthropic API, and Google AI Studio (Gemini/Gemma).', zh: '接入大语言模型进行实时字幕翻译。支持 OpenAI 兼容接口（OpenCode Zen/OpenRouter/Zenmux 等）、Anthropic 接口和 Google AI Studio（Gemini/Gemma）。' },
   'lang.translator.enable': { en: 'Enable LLM Translation', zh: '启用 LLM 翻译' },
   'lang.translator.enabled': { en: 'Enabled — subtitles will be translated via LLM', zh: '已开启 — 字幕将通过大语言模型翻译' },
   'lang.translator.disabled': { en: 'Disabled', zh: '已关闭' },
@@ -209,12 +210,15 @@ const translations = {
 
   // ---- ModelManager.tsx ----
   'provider.title': { en: 'STT Provider', zh: '语音识别引擎' },
-  'provider.parakeet': { en: 'Local model', zh: '本地模型' },
-  'provider.parakeet.note': { en: 'Runs entirely on this machine. No audio leaves it.', zh: '完全在本机运行，音频不会离开这台机器。' },
-  'provider.remoteParakeet.note': { en: 'Streams your audio to the server you configure below.', zh: '会把音频流式发送到下面配置的服务器。' },
-  'provider.remoteParakeet': { en: 'Remote server', zh: '远程服务器' },
-  'provider.nemotron': { en: 'Local streaming', zh: '本地流式' },
-  'provider.nemotron.note': { en: 'Runs on this machine too, but the model streams: text appears as you speak instead of after each pause.', zh: '同样完全在本机运行，但模型是流式的：说话时文字就在出，而不是等一句说完。' },
+  // Named by model family and where it runs. "Local model" vs "Local streaming"
+  // told you neither: both are local, both are models, and the remote one is
+  // Parakeet as well.
+  'provider.parakeet': { en: 'Parakeet (local)', zh: 'Parakeet 本机' },
+  'provider.parakeet.note': { en: 'Runs entirely on this machine. Recognises a sentence at a time — text appears once you stop speaking.', zh: '完全在本机运行。整句识别，说完一句才出字。' },
+  'provider.nemotron': { en: 'Nemotron (local)', zh: 'Nemotron 本机' },
+  'provider.nemotron.note': { en: 'Runs entirely on this machine. Text appears as you speak, at lower latency but lower accuracy than Parakeet.', zh: '完全在本机运行。边说边出字，延迟更低，但准确率不如 Parakeet。' },
+  'provider.remoteParakeet': { en: 'Parakeet (server)', zh: 'Parakeet 服务器' },
+  'provider.remoteParakeet.note': { en: 'Streams your audio to the server you configure below.', zh: '音频会发送到下面配置的服务器。' },
 
   // ---- NemotronSettings.tsx ----
   'nemotron.title': { en: 'Nemotron Streaming ASR', zh: 'Nemotron 流式语音识别' },
@@ -278,6 +282,15 @@ const translations = {
   'parakeet.model': { en: 'ASR Model', zh: '识别模型' },
   'parakeet.needDownload': { en: 'No model downloaded — please download one below', zh: '未下载模型 — 请在下方下载' },
   'parakeet.languages': { en: 'Supported languages', zh: '支持语言' },
+  'parakeet.langMismatch': { en: 'This model does not cover the selected source language', zh: '该模型不支持所选源语言' },
+  'parakeet.threads': { en: 'Decode threads', zh: '解码线程数' },
+  // Says what it costs here specifically. This decoder only runs while there is
+  // speech, so lowering it does not reduce idle draw the way the streaming
+  // provider's does — it only makes text arrive later.
+  'parakeet.threads.hint': {
+    en: 'Only used while speech is being decoded, so lowering it saves nothing during silence — it just makes text appear later. Raise it on a slow machine, lower it if decoding competes with what you are listening to.',
+    zh: '只在解码语音时占用，所以调低不会省下静音时的开销，只会让文字出得更慢。机器慢就调高，解码抢了正在听的东西的资源就调低。',
+  },
   'parakeet.langCount': { en: 'languages', zh: '种语言' },
   'parakeet.library': { en: 'Model Library', zh: '模型库' },
   'parakeet.download': { en: 'Download', zh: '下载' },

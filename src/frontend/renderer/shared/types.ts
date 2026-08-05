@@ -110,6 +110,7 @@ export interface ParakeetVadConfig {
 
 export interface ParakeetConfig {
   modelId: string;
+  numThreads: number;
   vad: ParakeetVadConfig;
 }
 
@@ -161,6 +162,17 @@ export interface ParakeetModelInfo {
   description_zh: string;
   downloaded: boolean;
   localDir: string;
+}
+
+/**
+ * Whether the recogniser the backend is actually running covers the configured
+ * source language. `modelLanguages` is non-empty only when the app can name the
+ * list it checked against — a remote server's is unknowable from here.
+ */
+export interface LanguageSupport {
+  language: string;
+  supported: boolean;
+  modelLanguages: string[];
 }
 
 export interface DenoiseModelInfo {
@@ -235,6 +247,7 @@ export interface ElectronAPI {
 
   getSttProvider: () => Promise<SttProvider>;
   setSttProvider: (provider: SttProvider) => Promise<{ success: boolean }>;
+  getLanguageSupport: () => Promise<LanguageSupport>;
   getRemoteParakeetConfig: () => Promise<RemoteParakeetConfig>;
   setRemoteParakeetConfig: (config: Partial<RemoteParakeetConfig>) => Promise<{ success: boolean; config?: RemoteParakeetConfig }>;
   testRemoteParakeet: (serverUrl: string, apiKey: string) => Promise<{ success: boolean; error?: string }>;

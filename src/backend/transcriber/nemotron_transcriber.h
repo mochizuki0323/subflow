@@ -14,9 +14,16 @@ namespace ais {
 // Endpoint rules for the streaming recogniser, in seconds. The model decides
 // where an utterance ends itself, so there is no VAD and nothing to re-decode.
 struct NemotronEndpointParams {
-    float min_trailing_silence = 2.4f;      // silence that ends an utterance with no text yet
-    float min_trailing_silence_after = 1.2f;// silence that ends an utterance once text exists
-    float max_utterance = 20.0f;            // force-cut a very long utterance
+    // sherpa ORs three endpoint rules, so the effective threshold is whichever
+    // fires first. rule1 applies whether or not anything has been decoded yet;
+    // rule2 only once there is text. Both defaults are sherpa's own, and rule1's
+    // doubles as a floor the caller will not go below: silence here means
+    // trailing *blanks*, so speech the model has not committed to a token yet
+    // counts as silence, and a rule1 shorter than that emission delay would
+    // reset the stream in the middle of the word it is still deciding.
+    float min_trailing_silence = 2.4f;      // rule1: trailing silence, text or not
+    float min_trailing_silence_after = 1.2f;// rule2: trailing silence once text exists
+    float max_utterance = 20.0f;            // rule3: force-cut a very long utterance
     // ORT intra-op threads. Two by default: measured on this workload 4 threads
     // cost 0.54 CPU cores at RTF 0.077 while 2 cost 0.27 at RTF 0.089 — double
     // the CPU to shave a margin that is already 11x realtime. It matters more

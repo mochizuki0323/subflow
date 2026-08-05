@@ -5,6 +5,9 @@ import path from 'path';
 import type { ParakeetVadConfig } from './unified-config';
 import { DEFAULT_PARAKEET_VAD } from './unified-config';
 
+/** How long a backend gets to honour SIGTERM before it is killed outright. */
+const KILL_GRACE_MS = 3000;
+
 export class BackendManager extends EventEmitter {
   private process: ChildProcess | null = null;
   /** Bumped on every spawn and every kill, so a late 'exit' can be ignored. */
@@ -14,12 +17,13 @@ export class BackendManager extends EventEmitter {
   private provider: string;
   private nemotronModelDir = '';
   private nemotronThreads = 2;
-  private nemotronMinSilence = 0.5;
+  private nemotronMinSilence = 1.2;
   private nemotronMaxUtterance = 15;
   private language: string;
   private parakeetModelDir: string;
   private parakeetModelType: string;
   private parakeetVadModel: string;
+  private parakeetThreads = 4;
   private parakeetVad: ParakeetVadConfig;
   private remoteParakeetUrl: string;
   private remoteParakeetApiKey: string;
@@ -29,6 +33,8 @@ export class BackendManager extends EventEmitter {
   private denoiseArch = '';
   private modelsDir = '';
   private shouldRestart = true;
+  /** Children sent a kill signal that have not reported 'exit' yet. */
+  private dying = new Set<ChildProcess>();
   /** When true, child stderr/exit must not emit `log` (windows may already be destroyed). */
   private shuttingDown = false;
 
@@ -56,7 +62,7 @@ export class BackendManager extends EventEmitter {
 
   constructor(binaryPath: string, port: number, options?: {
     provider?: string; language?: string;
-    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
+    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string; parakeetThreads?: number;
     parakeetVad?: ParakeetVadConfig;
     nemotronModelDir?: string; nemotronThreads?: number;
     nemotronMinSilence?: number; nemotronMaxUtterance?: number;
@@ -70,10 +76,11 @@ export class BackendManager extends EventEmitter {
     this.parakeetModelDir = options?.parakeetModelDir || '';
     this.parakeetModelType = options?.parakeetModelType || '';
     this.parakeetVadModel = options?.parakeetVadModel || '';
+    this.parakeetThreads = options?.parakeetThreads ?? 4;
     this.parakeetVad = options?.parakeetVad || { ...DEFAULT_PARAKEET_VAD };
     this.nemotronModelDir = options?.nemotronModelDir || '';
     this.nemotronThreads = options?.nemotronThreads ?? 2;
-    this.nemotronMinSilence = options?.nemotronMinSilence ?? 0.5;
+    this.nemotronMinSilence = options?.nemotronMinSilence ?? 1.2;
     this.nemotronMaxUtterance = options?.nemotronMaxUtterance ?? 15;
     this.remoteParakeetUrl = options?.remoteParakeetUrl || '';
     this.remoteParakeetApiKey = options?.remoteParakeetApiKey || '';
@@ -91,6 +98,7 @@ export class BackendManager extends EventEmitter {
       if (this.parakeetModelDir) args.push('--parakeet-model-dir', this.parakeetModelDir);
       if (this.parakeetModelType) args.push('--parakeet-model-type', this.parakeetModelType);
       if (this.parakeetVadModel) args.push('--parakeet-vad-model', this.parakeetVadModel);
+      args.push('--parakeet-threads', String(this.parakeetThreads));
       args.push('--parakeet-vad-threshold', String(this.parakeetVad.threshold));
       args.push('--parakeet-vad-min-silence', String(this.parakeetVad.minSilence));
       args.push('--parakeet-vad-min-speech', String(this.parakeetVad.minSpeech));
@@ -178,7 +186,13 @@ export class BackendManager extends EventEmitter {
 
       if (this.shouldRestart && code !== 0) {
         console.log('Restarting backend in 2 seconds...');
-        setTimeout(() => this.spawn(), 2000);
+        // Same generation discipline as a deliberate restart. Without it this
+        // timer could fire after a kill() meant to stop for good, or spawn
+        // ahead of a newer restart and leave that one's guarded callback stale.
+        const gen = this.generation;
+        setTimeout(() => {
+          if (gen === this.generation && this.shouldRestart) this.spawn();
+        }, 2000);
       }
     });
 
@@ -207,7 +221,7 @@ export class BackendManager extends EventEmitter {
 
   restart(opts: {
     provider?: string; language?: string;
-    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string;
+    parakeetModelDir?: string; parakeetModelType?: string; parakeetVadModel?: string; parakeetThreads?: number;
     parakeetVad?: ParakeetVadConfig;
     nemotronModelDir?: string; nemotronThreads?: number;
     nemotronMinSilence?: number; nemotronMaxUtterance?: number;
@@ -218,6 +232,7 @@ export class BackendManager extends EventEmitter {
     if (opts.parakeetModelDir !== undefined) this.parakeetModelDir = opts.parakeetModelDir;
     if (opts.parakeetModelType !== undefined) this.parakeetModelType = opts.parakeetModelType;
     if (opts.parakeetVadModel !== undefined) this.parakeetVadModel = opts.parakeetVadModel;
+    if (opts.parakeetThreads !== undefined) this.parakeetThreads = opts.parakeetThreads;
     if (opts.parakeetVad !== undefined) this.parakeetVad = opts.parakeetVad;
     if (opts.nemotronModelDir !== undefined) this.nemotronModelDir = opts.nemotronModelDir;
     if (opts.nemotronThreads !== undefined) this.nemotronThreads = opts.nemotronThreads;
@@ -228,7 +243,45 @@ export class BackendManager extends EventEmitter {
     if (opts.remoteParakeetModel !== undefined) this.remoteParakeetModel = opts.remoteParakeetModel;
     this.kill();
     this.shouldRestart = true;
-    setTimeout(() => this.spawn(), 500);
+    this.spawnWhenPortIsFree();
+  }
+
+  /**
+   * Spawn once every child we have asked to die actually has. They hold the
+   * WebSocket port until then, and a replacement that cannot bind is worse than
+   * a slower restart: rapid provider switching used to leave one process owning
+   * the port while the app talked to it and waited forever for a status frame.
+   *
+   * Waits on the whole `dying` set rather than on the child this restart
+   * happened to see, because kill() clears `process` — a second restart arriving
+   * while the first child is still shutting down would otherwise find nothing to
+   * wait for and spawn straight over it.
+   */
+  private spawnWhenPortIsFree(): void {
+    const generation = this.generation;
+    const go = () => {
+      // A newer restart has already scheduled its own spawn; two would race.
+      if (generation === this.generation) this.spawn();
+    };
+    const pending = [...this.dying];
+    if (pending.length === 0) {
+      setTimeout(go, 500);
+      return;
+    }
+    let started = false;
+    const once = () => {
+      if (started) return;
+      started = true;
+      setTimeout(go, 100);
+    };
+    let remaining = pending.length;
+    for (const child of pending) {
+      child.once('exit', () => { if (--remaining === 0) once(); });
+    }
+    // Backstop: kill() escalates to SIGKILL, so outliving this means the process
+    // is stuck in the kernel. Spawning into an occupied port is bad; never
+    // spawning again is worse.
+    setTimeout(once, KILL_GRACE_MS + 1000);
   }
 
   kill(): void {
@@ -239,13 +292,22 @@ export class BackendManager extends EventEmitter {
     this.generation++;
     const child = this.process;
     this.process = null;
-    if (child) {
-      if (process.platform === 'win32') {
-        child.kill();
-      } else {
-        child.kill('SIGTERM');
-      }
+    if (!child) return;
+    this.dying.add(child);
+    child.once('exit', () => this.dying.delete(child));
+    if (process.platform === 'win32') {
+      child.kill();
+    } else {
+      child.kill('SIGTERM');
     }
+    // A backend that ignores SIGTERM keeps the port and becomes permanent: the
+    // handle is dropped above, so nothing would ever ask it again. Escalate
+    // instead of leaking it.
+    const hard = setTimeout(() => {
+      console.warn('Backend ignored SIGTERM; sending SIGKILL');
+      try { child.kill('SIGKILL'); } catch { /* already gone */ }
+    }, KILL_GRACE_MS);
+    child.once('exit', () => clearTimeout(hard));
   }
 
   isRunning(): boolean {

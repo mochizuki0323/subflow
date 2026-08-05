@@ -2,18 +2,49 @@
 #include "core/engine.h"
 #include "core/config.h"
 
+#include <atomic>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <string>
 
-static ais::Engine* g_engine = nullptr;
+// Atomic, not a plain pointer: a process-directed signal may be delivered on
+// any thread, so the handler's read can genuinely race the main thread's write.
+static std::atomic<ais::Engine*> g_engine{nullptr};
+// Set even when there is no engine yet to tell. Installing a handler replaces
+// the default terminate action, so a signal arriving before the engine exists
+// used to be swallowed outright and the process became unkillable by SIGTERM.
+static std::atomic<bool> g_stop_requested{false};
 
-static void signal_handler(int sig) {
-    if (g_engine) {
-        LOG_INFO("Received signal " + std::to_string(sig) + ", shutting down...");
-        g_engine->stop();
-    }
+// Everything the handler touches has to be lock-free, or it could deadlock
+// against the very thread it interrupted.
+static_assert(std::atomic<ais::Engine*>::is_always_lock_free,
+              "signal handler stores to g_engine");
+static_assert(std::atomic<bool>::is_always_lock_free,
+              "signal handler stores to g_stop_requested");
+
+// Both providers expose a thread count over the same 1-8 range, so they share
+// one reader. atoi, not stoi: a malformed value must not abort a backend that
+// Electron spawned with no way to explain the SIGABRT. Out of range clamps
+// rather than falling back, because the config layer above clamps too and the
+// two ends resolving the same number differently is worse than either rule.
+// Zero and negatives cannot be told apart from atoi's parse failure, so those
+// alone take the default.
+static int read_threads(const char* value, int fallback) {
+    const int n = std::atoi(value);
+    if (n <= 0) return fallback;
+    return n > 8 ? 8 : n;
+}
+
+static void signal_handler(int) {
+    // Flag only. Tearing the engine down from here ran concurrently with run()
+    // still starting it up: the stop reached a WebSocket server that did not
+    // exist yet, run() then created it, and the result was a process listening
+    // on the port with no pipeline behind it and no way left to stop it.
+    g_stop_requested.store(true, std::memory_order_relaxed);
+    ais::Engine* engine = g_engine.load(std::memory_order_acquire);
+    if (engine) engine->request_stop();
 }
 
 static void print_usage(const char* argv0) {
@@ -24,11 +55,12 @@ static void print_usage(const char* argv0) {
               << "  --language <lang>          Language code: ja, en, zh, auto, etc. (default: auto)\n"
               << "  --nemotron-model-dir <dir>  Nemotron streaming model directory\n"
               << "  --nemotron-threads <n>      Nemotron decode threads, 1-8 (default: 2)\n"
-              << "  --nemotron-min-silence <f>  Trailing silence sec that ends an utterance (default: 0.5)\n"
+              << "  --nemotron-min-silence <f>  Trailing silence sec that ends an utterance (default: 1.2)\n"
               << "  --nemotron-max-utterance <f> Max utterance sec before force-cut (default: 15)\n"
               << "  --parakeet-model-dir <dir>  Parakeet model directory\n"
               << "  --parakeet-model-type <t>   Parakeet model type: nemo_ctc or nemo_transducer\n"
               << "  --parakeet-vad-model <path> Path to silero_vad.onnx\n"
+              << "  --parakeet-threads <n>      Parakeet decode threads, 1-8 (default: 4)\n"
               << "  --remote-parakeet-url <url>     Remote Parakeet server URL (ws:// or wss://)\n"
               << "  --remote-parakeet-api-key <key> Bearer token for the remote Parakeet server\n"
               << "  --remote-parakeet-model <id>    Model id to select on the remote server\n"
@@ -57,8 +89,7 @@ int main(int argc, char* argv[]) {
         } else if (std::strcmp(argv[i], "--nemotron-model-dir") == 0 && i + 1 < argc) {
             config.nemotron_model_dir = argv[++i];
         } else if (std::strcmp(argv[i], "--nemotron-threads") == 0 && i + 1 < argc) {
-            int n = std::atoi(argv[++i]);
-            config.nemotron_threads = (n >= 1 && n <= 8) ? n : 2;
+            config.nemotron_threads = read_threads(argv[++i], 2);
         } else if (std::strcmp(argv[i], "--nemotron-min-silence") == 0 && i + 1 < argc) {
             config.nemotron_min_silence = std::stof(argv[++i]);
         } else if (std::strcmp(argv[i], "--nemotron-max-utterance") == 0 && i + 1 < argc) {
@@ -69,6 +100,8 @@ int main(int argc, char* argv[]) {
             config.parakeet_model_type = argv[++i];
         } else if (std::strcmp(argv[i], "--parakeet-vad-model") == 0 && i + 1 < argc) {
             config.parakeet_vad_model = argv[++i];
+        } else if (std::strcmp(argv[i], "--parakeet-threads") == 0 && i + 1 < argc) {
+            config.parakeet_threads = read_threads(argv[++i], 4);
         } else if (std::strcmp(argv[i], "--remote-parakeet-url") == 0 && i + 1 < argc) {
             config.remote_parakeet_url = argv[++i];
         } else if (std::strcmp(argv[i], "--remote-parakeet-api-key") == 0 && i + 1 < argc) {
@@ -126,11 +159,23 @@ int main(int argc, char* argv[]) {
     }
 
     ais::Engine engine(config);
-    g_engine = &engine;
+    g_engine.store(&engine, std::memory_order_release);
 
-    engine.run();
+    // A signal that landed while the engine was being constructed found no
+    // engine to tell; honour it here rather than starting up in order to shut
+    // straight back down.
+    if (g_stop_requested.load(std::memory_order_relaxed)) {
+        LOG_INFO("Stop requested during startup; exiting without starting.");
+    } else {
+        engine.run();
+    }
 
-    g_engine = nullptr;
+    // The engine is about to be destroyed; a late signal must not reach it.
+    g_engine.store(nullptr, std::memory_order_release);
+
     LOG_INFO("Shutdown complete.");
-    return 0;
+    // Non-zero so the supervisor retries: a taken port is somebody else's
+    // backend still letting go, which a second attempt usually resolves. A
+    // clean exit would be taken as "asked to stop" and left alone.
+    return engine.listen_failed() ? 1 : 0;
 }

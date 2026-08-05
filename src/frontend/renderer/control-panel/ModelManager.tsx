@@ -16,7 +16,10 @@ const ENGINES: Array<{ id: SttProvider; labelKey: string; noteKey: string }> = [
   { id: 'remote_parakeet', labelKey: 'provider.remoteParakeet', noteKey: 'provider.remoteParakeet.note' },
 ];
 
-export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttProvider) => void }) {
+export function ModelManager({ onProviderChange, onLanguageChange }: {
+  onProviderChange?: (p: SttProvider) => void;
+  onLanguageChange?: () => void;
+}) {
   const [provider, setProvider] = useState<SttProvider>('parakeet');
   const [switching, setSwitching] = useState(false);
   const [language, setLanguage] = useState('auto');
@@ -32,6 +35,9 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
   const handleLanguageChange = (lang: string) => {
     setLanguage(lang);
     window.electronAPI.setLanguage(lang);
+    // Whether the loaded model covers it is answered by the main process, which
+    // has already taken the line above off the same ordered channel.
+    onLanguageChange?.();
   };
 
   const handleProviderChange = async (next: SttProvider) => {
@@ -69,9 +75,9 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
             </button>
           ))}
         </div>
-        {/* One runs on this machine, the other ships your audio to a host. That is
-            the whole reason to pick one over the other, so it is stated outright
-            instead of being implied by the word "server". */}
+        {/* The label says which model and where it runs; this says what that costs
+            you — when the text appears, and whether the audio leaves the machine.
+            Both are things you would otherwise only find out by trying all three. */}
         <p className="hint">{t(active.noteKey as any)}</p>
       </div>
 
@@ -94,7 +100,7 @@ export function ModelManager({ onProviderChange }: { onProviderChange?: (p: SttP
 
       {provider === 'remote_parakeet' ? <RemoteParakeetSettings />
         : provider === 'nemotron' ? <NemotronSettings />
-        : <ParakeetSettings />}
+        : <ParakeetSettings sourceLanguage={language} />}
     </div>
   );
 }

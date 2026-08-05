@@ -27,7 +27,24 @@ Engine::Engine(const Config& config)
         // Streaming model: it finds its own endpoints from the decoder's
         // trailing blanks. There is no VAD to threshold and nothing to
         // re-decode on an interval — these are its own endpoint settings.
+        // sherpa ORs its three endpoint rules, so the smallest one decides.
+        // rule1 (min_trailing_silence) does not require any decoded text, which
+        // cuts both ways: leaving it at its default silently capped this setting
+        // — a slider above 2.4 did nothing — but lowering it is not safe either.
+        // "Trailing silence" is counted in trailing *blanks*, and speech that
+        // has not yet produced a token counts as blanks, so a small rule1 fires
+        // during the model's own emission delay and resets away the onset it was
+        // still working on. Raising the floor fixes the cap without ever making
+        // the text-less rule more eager than upstream. It does not make a small
+        // setting safe — rule2 can still fire on an emitted language tag, which
+        // sherpa strips from the text, so a short setting reaches the same
+        // empty-text reset by the other rule. That is what the 1.2s default is
+        // for; the floor only stops this from also applying to plain silence.
         NemotronTranscriber::EndpointParams np;
+        const float rule1_floor = NemotronTranscriber::EndpointParams{}.min_trailing_silence;
+        np.min_trailing_silence = config_.nemotron_min_silence > rule1_floor
+            ? config_.nemotron_min_silence
+            : rule1_floor;
         np.min_trailing_silence_after = config_.nemotron_min_silence;
         np.max_utterance = config_.nemotron_max_utterance;
         np.num_threads = config_.nemotron_threads;
@@ -44,7 +61,7 @@ Engine::Engine(const Config& config)
         vp.partial_interval = config_.parakeet_partial_interval;
         transcriber_ = std::make_unique<ParakeetTranscriber>(
             config_.parakeet_model_dir, config_.parakeet_model_type,
-            config_.parakeet_vad_model, vp);
+            config_.parakeet_vad_model, vp, config_.parakeet_threads);
     }
 
     // Forward log messages to WebSocket clients
@@ -72,11 +89,31 @@ void Engine::run() {
     transcriber_->set_language(config_.language);
     transcriber_->load_model("");
 
+    // Loading the model takes seconds, and a stop asked for during it has to be
+    // honoured here rather than by the asker: everything below this line creates
+    // something that would then have to be torn down by whoever is shutting us
+    // down, in a race it cannot win. Leaving early is the only ordering that
+    // cannot end with a listening socket nobody owns.
+    if (stop_requested_.load()) {
+        running_ = false;
+        LOG_INFO("Stop requested during startup; not starting the server.");
+        return;
+    }
+
     setup_command_handlers();
 
     // Monitor audio source changes
     audio_source_->on_source_list_changed([this](auto /*sources*/) {
         send_source_list();
+    });
+
+    // A port we cannot bind is almost always the previous backend still letting
+    // go of it. Exiting hands the problem to the supervisor, which will try
+    // again; staying up would leave a process the app can neither reach nor stop.
+    ws_server_.on_listen_failed([this]() {
+        LOG_ERROR("WebSocket port unavailable; shutting down so it can be retried.");
+        listen_failed_ = true;
+        request_stop();
     });
 
     // Start WebSocket server (non-blocking, runs on its own thread)
@@ -87,9 +124,19 @@ void Engine::run() {
 
     // Block on main thread - could add signal handling here
     LOG_INFO("Engine running. Press Ctrl+C to exit.");
-    while (running_) {
+    while (running_ && !stop_requested_.load()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    // Teardown belongs on this thread, after startup has finished. It used to
+    // run wherever the stop came from, which for a signal meant concurrently
+    // with the lines above.
+    stop();
+}
+
+void Engine::request_stop() {
+    stop_requested_ = true;
+    running_ = false;
 }
 
 void Engine::stop() {

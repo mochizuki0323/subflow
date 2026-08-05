@@ -15,6 +15,11 @@ struct Config {
     std::string parakeet_model_dir;       // directory containing extracted model files
     std::string parakeet_model_type;      // "nemo_ctc" or "nemo_transducer"
     std::string parakeet_vad_model;       // path to silero_vad.onnx
+    // ORT intra-op threads for the offline decode. Unlike the streaming
+    // provider's, this is a burst cost, not an idle one: the recogniser only
+    // runs while VAD has speech open, so lowering it buys nothing while silent
+    // and shows up directly as slower interim text.
+    int parakeet_threads = 4;
 
     // Parakeet VAD tuning (Silero VAD + simulated streaming). Durations in seconds.
     float parakeet_vad_threshold = 0.3f;
@@ -28,8 +33,10 @@ struct Config {
     std::string nemotron_model_dir;       // directory containing encoder/decoder/joiner + tokens
     int nemotron_threads = 2;             // ORT intra-op threads for the streaming encoder
     // Endpoint rules, not VAD: the streaming decoder counts its own trailing
-    // blanks. Defaults match what the shared VAD settings used to feed here.
-    float nemotron_min_silence = 0.5f;    // trailing silence sec that ends an utterance
+    // blanks. The silence default is sherpa's own, not the VAD's: a cut costs
+    // this model its encoder cache (sherpa reinitialises it on every endpoint),
+    // so the 0.5s that is free for the offline Parakeet path is not free here.
+    float nemotron_min_silence = 1.2f;    // trailing silence sec that ends an utterance
     float nemotron_max_utterance = 15.0f; // force-cut a very long utterance, sec
 
     // Remote Parakeet inference server (provider "remote_parakeet")

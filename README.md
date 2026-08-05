@@ -142,7 +142,7 @@ The server is driven by a single JSON config, auto-loaded from `config/config.js
 }
 ```
 
-Each model `id` is what the app shows and selects; `type` is `nemo_ctc` or `nemo_transducer`. In the app, choose the **Remote server** engine under Recognition, enter the address (`ws://host:9090` on a LAN or `wss://...` over the internet), fetch the model list, and pick a model. TLS is terminated by a reverse proxy in front of the server.
+Each model `id` is what the app shows and selects; `type` is `nemo_ctc` or `nemo_transducer`. In the app, choose the **Parakeet (server)** engine under Recognition, enter the address (`ws://host:9090` on a LAN or `wss://...` over the internet), fetch the model list, and pick a model. TLS is terminated by a reverse proxy in front of the server.
 
 ## License
 

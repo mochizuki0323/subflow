@@ -8,13 +8,23 @@ const TARGET_LANG_CODES = ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru']
 // Per-format API endpoint + default model. Switching format auto-fills these
 // unless the user has customized the field to a non-default value.
 const API_FORMAT_DEFAULTS: Record<ApiFormat, { baseUrl: string; model: string }> = {
-  openai: { baseUrl: 'https://openrouter.ai/api', model: 'google/gemma-4-31b-it' },
+  // OpenCode Zen rather than a paid gateway: its free tier needs no card, so the
+  // out-of-the-box path to a working translation is signing up and pasting one
+  // key. Note the URL stops at /zen — httpPost appends /v1/chat/completions.
+  openai: { baseUrl: 'https://opencode.ai/zen', model: 'deepseek-v4-flash-free' },
   anthropic: { baseUrl: 'https://api.anthropic.com', model: 'claude-3-5-haiku-latest' },
   google: { baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemma-4-31b-it' },
 };
 
-const KNOWN_BASE_URLS = new Set(Object.values(API_FORMAT_DEFAULTS).map((d) => d.baseUrl));
-const KNOWN_MODELS = new Set(Object.values(API_FORMAT_DEFAULTS).map((d) => d.model));
+// Defaults this app has ever shipped, not just the current ones. Switching API
+// format only overwrites the URL and model when they are an untouched default;
+// dropping the retired pair would strand anyone still carrying it, leaving an
+// OpenRouter URL sitting under an Anthropic format nobody chose to combine.
+const RETIRED_DEFAULTS = [{ baseUrl: 'https://openrouter.ai/api', model: 'google/gemma-4-31b-it' }];
+const ALL_DEFAULTS = [...Object.values(API_FORMAT_DEFAULTS), ...RETIRED_DEFAULTS];
+
+const KNOWN_BASE_URLS = new Set(ALL_DEFAULTS.map((d) => d.baseUrl));
+const KNOWN_MODELS = new Set(ALL_DEFAULTS.map((d) => d.model));
 
 const API_KEY_PLACEHOLDERS: Record<ApiFormat, string> = {
   openai: 'sk-...',
@@ -33,10 +43,10 @@ export function LanguageSettings({ status }: Props) {
   const [sttProvider, setSttProvider] = useState<SttProvider>('parakeet');
   const [showApiKey, setShowApiKey] = useState(false);
   const [translatorConfig, setTranslatorConfig] = useState<TranslatorConfig>({
-    baseUrl: 'https://openrouter.ai/api',
+    baseUrl: API_FORMAT_DEFAULTS.openai.baseUrl,
     apiKey: '',
     apiKeys: { openai: '', anthropic: '', google: '' },
-    model: 'google/gemma-4-31b-it',
+    model: API_FORMAT_DEFAULTS.openai.model,
     apiFormat: 'openai',
     targetLanguage: 'zh',
     enabled: false,

@@ -158,6 +158,7 @@ if (!gotSingleInstanceLock) {
     parakeetModelDir: pkArgs.modelDir || undefined,
     parakeetModelType: pkArgs.modelType || undefined,
     parakeetVadModel: pkArgs.vadModel || undefined,
+    parakeetThreads: pkConfig.numThreads,
     parakeetVad: provider === 'remote_parakeet' ? configManager.getRemoteParakeet().vad : pkConfig.vad,
     nemotronModelDir: nemotronDir || undefined,
     nemotronThreads: configManager.getNemotron().numThreads,

@@ -19,6 +19,7 @@ import type {
   UiLanguage,
   UiThemePayload,
   TranscriptEntry,
+  LanguageSupport,
 } from '../shared/types';
 
 type Tab = 'sources' | 'denoise' | 'recognition' | 'translation' | 'output' | 'history' | 'logs' | 'about';
@@ -74,6 +75,7 @@ export function App() {
   const [dragMode, setDragMode] = useState(false);
   const [recognizerReady, setRecognizerReady] = useState(false);
   const [sttProvider, setSttProvider] = useState<string>('parakeet');
+  const [languageSupport, setLanguageSupport] = useState<LanguageSupport | null>(null);
   const [history, setHistory] = useState<TranscriptEntry[]>([]);
   const historyRef = useRef<HTMLDivElement>(null);
   const [themeInfo, setThemeInfo] = useState<UiThemePayload | null>(null);
@@ -96,6 +98,15 @@ export function App() {
   useEffect(() => {
     window.electronAPI.getSttProvider().then(setSttProvider);
   }, []);
+
+  // Re-asked whenever any of its three inputs can have moved: the model and the
+  // provider (both via the respawn this triggers, watched on `backend-state`)
+  // and the language (no respawn, so the panel says so itself). Nothing polls —
+  // a mismatch cannot appear on its own.
+  const refreshLanguageSupport = () => {
+    window.electronAPI.getLanguageSupport().then(setLanguageSupport);
+  };
+  useEffect(refreshLanguageSupport, []);
 
   useEffect(() => {
     window.electronAPI.getAppSettings().then((s) => {
@@ -308,6 +319,11 @@ export function App() {
     window.electronAPI.onBackendState(({ state }) => {
       setBackendState(state);
       if (state !== 'connected') setRecognizerReady(false);
+      // Every model and provider change goes through a respawn, so this one
+      // transition covers both. `model_loaded` looks like the natural hook and is
+      // not: the backend only ever reports that as a field of the status frame,
+      // never as a message, so the listener of that name never fires.
+      if (state === 'connected') refreshLanguageSupport();
     });
     return () => window.electronAPI.removeListeners('backend-state');
   }, []);
@@ -342,10 +358,16 @@ export function App() {
           : { mode: 'bypass', state: t('rail.off') };
       case 'recognition': {
         const label = `${sttProvider}${status?.language ? ` · ${status.language}` : ''}`;
-        if (recognizerReady) return { mode: 'active', state: label };
         // A backend that is down is not a misconfigured stage; only accuse the stage
         // once the backend is up and still reports no usable model.
         if (!backendUp) return { mode: 'waiting', state: t('rail.backendDown') };
+        // A model that does not cover the chosen language is loaded, ready, and
+        // useless — it decodes confidently into the wrong script. Checked before
+        // readiness because nothing else about the stage looks wrong.
+        if (languageSupport && !languageSupport.supported) {
+          return { mode: 'fault', state: t('rail.langUnsupported') };
+        }
+        if (recognizerReady) return { mode: 'active', state: label };
         return { mode: 'fault', state: t('rail.modelNotReady') };
       }
       case 'translation': {
@@ -668,7 +690,12 @@ export function App() {
           {tab === 'sources' && (
             <SourceSelector sources={sources} status={status} capturing={capturing} />
           )}
-          {tab === 'recognition' && <ModelManager onProviderChange={setSttProvider} />}
+          {tab === 'recognition' && (
+            <ModelManager
+              onProviderChange={(p) => { setSttProvider(p); refreshLanguageSupport(); }}
+              onLanguageChange={refreshLanguageSupport}
+            />
+          )}
           {tab === 'denoise' && <DenoiserSettings />}
           {tab === 'translation' && <LanguageSettings status={status} />}
           {tab === 'output' && (

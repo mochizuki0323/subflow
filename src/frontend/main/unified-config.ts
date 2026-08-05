@@ -26,6 +26,7 @@ export interface ParakeetVadConfig {
 
 export interface ParakeetConfig {
   modelId: string;
+  numThreads: number;
   vad: ParakeetVadConfig;
 }
 
@@ -68,10 +69,13 @@ export interface UnifiedConfig {
 
 
 const DEFAULT_TRANSLATOR: TranslatorConfig = {
-  baseUrl: 'https://openrouter.ai/api',
+  // Free tier, no card — a fresh install can reach a working translation with
+  // nothing but a pasted key. The URL stops before /v1: the OpenAI-compatible
+  // path appends /v1/chat/completions itself.
+  baseUrl: 'https://opencode.ai/zen',
   apiKey: '',
   apiKeys: { openai: '', anthropic: '', google: '' },
-  model: 'google/gemma-4-31b-it',
+  model: 'deepseek-v4-flash-free',
   apiFormat: 'openai' as ApiFormat,
   targetLanguage: 'zh',
   enabled: false,
@@ -105,6 +109,10 @@ export const DEFAULT_PARAKEET_VAD: ParakeetVadConfig = {
 
 const DEFAULT_PARAKEET: ParakeetConfig = {
   modelId: '',
+  // Higher than the streaming provider's because the cost is shaped differently:
+  // this decoder only runs while VAD holds a segment open, so the threads are
+  // spent on how fast text appears, not on what the machine draws while idle.
+  numThreads: 4,
   vad: { ...DEFAULT_PARAKEET_VAD },
 };
 
@@ -196,6 +204,8 @@ function mergeParakeet(base: ParakeetConfig, partial: Partial<ParakeetConfig>): 
     ...base,
     ...partial,
     modelId: typeof partial.modelId === 'string' ? partial.modelId : base.modelId,
+    // Same ceiling the UI offers and the backend accepts, as with nemotron.
+    numThreads: clampInt(partial.numThreads ?? base.numThreads, 1, 8, base.numThreads),
     vad: mergeParakeetVad(base.vad, partial.vad),
   };
 }
@@ -218,9 +228,11 @@ function mergeRemoteParakeet(
 const DEFAULT_NEMOTRON: NemotronConfig = {
   modelId: 'nemotron-3.5-streaming-560ms',
   numThreads: 2,
-  // Same values the shared VAD settings fed these rules before they became
-  // the provider's own, so an untouched config keeps its behaviour.
-  minSilence: 0.5,
+  // sherpa's own default, not the VAD's. An endpoint costs this model its
+  // encoder cache — sherpa reinitialises it every time — so cutting at the
+  // 0.5s that is free for the offline Parakeet path fragments captions and
+  // hands the translator half sentences for no accuracy gain.
+  minSilence: 1.2,
   maxUtterance: 15,
 };
 

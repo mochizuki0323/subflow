@@ -65,6 +65,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // STT provider
   getSttProvider: () => ipcRenderer.invoke('get-stt-provider'),
   setSttProvider: (provider: string) => ipcRenderer.invoke('set-stt-provider', provider),
+  getLanguageSupport: () => ipcRenderer.invoke('get-language-support'),
 
 
 

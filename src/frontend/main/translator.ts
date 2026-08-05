@@ -55,10 +55,10 @@ const TARGET_LANGUAGES: Record<string, string> = {
 
 export class Translator {
   private config: TranslatorConfig = {
-    baseUrl: 'https://openrouter.ai/api',
+    baseUrl: 'https://opencode.ai/zen',
     apiKey: '',
     apiKeys: { openai: '', anthropic: '', google: '' },
-    model: 'google/gemma-4-31b-it',
+    model: 'deepseek-v4-flash-free',
     apiFormat: 'openai',
     targetLanguage: 'zh',
     enabled: false,

@@ -10,6 +10,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+const THREADS_MIN = 1;
+const THREADS_MAX = 8;
+
+function clampThreads(value: number): number {
+  if (!Number.isFinite(value)) return 4;
+  return Math.max(THREADS_MIN, Math.min(THREADS_MAX, Math.round(value)));
+}
+
 const VAD_DEFAULTS: ParakeetVadConfig = {
   threshold: 0.3,
   minSilence: 0.5,
@@ -35,7 +43,7 @@ const VAD_FIELDS: Array<{
 // t() with a dynamically-built key (every VAD field has matching i18n entries)
 const tk = (key: string): string => t(key as Parameters<typeof t>[0]);
 
-export function ParakeetSettings() {
+export function ParakeetSettings({ sourceLanguage }: { sourceLanguage: string }) {
   const [saved, setSaved] = useState<ParakeetConfig | null>(null);
   const { draft: config, edit, commit, discard, changed, dirty } = usePending<ParakeetConfig>('parakeet', saved);
   const [models, setModels] = useState<ParakeetModelInfo[]>([]);
@@ -46,6 +54,13 @@ export function ParakeetSettings() {
   const [vadSaving, setVadSaving] = useState(false);
   const [downloadError, setDownloadError] = useState<{ modelId: string; message: string } | null>(null);
   const downloadingRef = useRef<string | null>(null);
+  // The box holds text, not the number: mid-edit states ("", "1.") must survive
+  // in the field without ever being handed to the draft, same as the nemotron
+  // panel's. Re-synced from the draft so Discard also resets what is displayed.
+  const [threadText, setThreadText] = useState('4');
+  useEffect(() => {
+    if (typeof config?.numThreads === 'number') setThreadText(String(config.numThreads));
+  }, [config?.numThreads]);
 
   const loadData = async () => {
     const [cfg, mdls, dlStatus] = await Promise.all([
@@ -120,16 +135,24 @@ export function ParakeetSettings() {
 
   const handleResetVad = () => edit({ vad: { ...VAD_DEFAULTS } });
 
-  // The model respawns the backend; the VAD is a live command. Applying them
-  // together means the panel's one button can never leave half the page behind.
-  const cost = changed.includes('modelId') ? 'restart' : 'reconnect';
+  // The model and the thread count are both baked into the recogniser at
+  // creation, so either respawns the backend; the VAD is a live command.
+  // Applying them together means the panel's one button can never leave half the
+  // page behind.
+  const respawns = changed.includes('modelId') || changed.includes('numThreads');
+  const cost = respawns ? 'restart' : 'reconnect';
 
   const handleApply = async () => {
     setApplying(true);
     try {
-      if (changed.includes('modelId')) await window.electronAPI.setParakeetConfig({ modelId: config.modelId });
+      const threads = clampThreads(config.numThreads);
+      // Sent as one call even when only one of them moved: the handler restarts
+      // on the pair, so splitting it would spend two respawns on one Apply.
+      if (respawns) {
+        await window.electronAPI.setParakeetConfig({ modelId: config.modelId, numThreads: threads });
+      }
       if (changed.includes('vad')) await window.electronAPI.setParakeetVadConfig(config.vad);
-      commit(config);
+      commit({ ...config, numThreads: threads });
     } finally {
       setApplying(false);
     }
@@ -138,6 +161,14 @@ export function ParakeetSettings() {
   const lang = getLang();
   const selectedModel = models.find(m => m.id === config.modelId);
   const isDownloaded = selectedModel?.downloaded ?? false;
+  // Against the draft, not the saved config: the warning has to appear while the
+  // picker is still open on the model that would cause it.
+  // Unset reads as auto here exactly as it does in the main process, or a
+  // hand-edited config would paint this red while the rail stayed green.
+  const covers = !sourceLanguage
+    || sourceLanguage === 'auto'
+    || !selectedModel
+    || selectedModel.languages.includes(sourceLanguage);
 
   return (
     <>
@@ -176,8 +207,42 @@ export function ParakeetSettings() {
             {t('parakeet.languages')}: {selectedModel.languages.join(', ')}
           </p>
         )}
+        {/* The list above is only useful if someone reads it against the language
+            they picked. This model still loads and still reports ready — the only
+            symptom is captions in the wrong script — so say it outright. */}
+        {selectedModel && !covers && (
+          <p className="hint" style={{ color: 'var(--error)', marginTop: 4 }}>
+            {t('parakeet.langMismatch')}
+          </p>
+        )}
       </div>
 
+
+      <div className="form-row" style={{ marginTop: 16 }}>
+        <label>{t('parakeet.threads')}</label>
+        <input
+          type="number"
+          className="input"
+          min={THREADS_MIN}
+          max={THREADS_MAX}
+          step={1}
+          value={threadText}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setThreadText(raw);
+            const n = Number(raw);
+            if (raw !== '' && Number.isInteger(n) && n >= THREADS_MIN && n <= THREADS_MAX) {
+              edit({ numThreads: n });
+            }
+          }}
+          onBlur={() => {
+            const n = clampThreads(Number(threadText));
+            setThreadText(String(n));
+            edit({ numThreads: n });
+          }}
+        />
+        <p className="hint">{t('parakeet.threads.hint')}</p>
+      </div>
 
       <div className="divider" />
 

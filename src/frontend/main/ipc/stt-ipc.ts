@@ -98,6 +98,7 @@ export function registerSttIpc(ctx: IpcContext): void {
         ? toNemotronLanguage(ctx.appSettings().sourceLanguage)
         : ctx.appSettings().sourceLanguage,
       parakeetModelDir: pkArgs.modelDir, parakeetModelType: pkArgs.modelType, parakeetVadModel: pkArgs.vadModel,
+      parakeetThreads: pk.numThreads,
       parakeetVad: provider === 'remote_parakeet' ? ctx.config.getRemoteParakeet().vad : pk.vad,
       remoteParakeetUrl: ctx.config.getRemoteParakeet().serverUrl,
       remoteParakeetApiKey: ctx.config.getRemoteParakeet().apiKey,
@@ -108,6 +109,40 @@ export function registerSttIpc(ctx: IpcContext): void {
       nemotronMaxUtterance: ctx.config.getNemotron().maxUtterance,
     });
     return { success: true };
+  });
+
+  /**
+   * Whether the running recogniser can actually be asked for the configured
+   * source language. Each Parakeet model covers a fixed list, and asking the
+   * 25-language European one for Japanese produces confident nonsense with
+   * nothing anywhere saying why — the model loads, the backend reports ready,
+   * and only the captions are wrong. Answered here rather than in the panel
+   * because it resolves by the same rule the spawn does, so a stale config that
+   * makes the picker and the backend name different models cannot make this
+   * answer follow the picker. It reads config and disk rather than the running
+   * process, so it describes the model a respawn would load — the two differ
+   * only in the window after deleting the model that is still resident.
+   */
+  ipcMain.handle('get-language-support', () => {
+    const language = ctx.appSettings().sourceLanguage || 'auto';
+    const none = { language, supported: true, modelLanguages: [] as string[] };
+    if (language === 'auto') return none;
+    const provider = ctx.config.getProvider();
+    if (provider === 'parakeet') {
+      const { modelId } = resolveParakeetModelArgs(ctx.configDir, ctx.config.getParakeet().modelId);
+      const model = modelId ? findParakeetModel(modelId) : undefined;
+      // No usable model is already its own fault on the rail; do not accuse twice.
+      if (!model) return none;
+      return { language, supported: model.languages.includes(language), modelLanguages: model.languages };
+    }
+    if (provider === 'nemotron') {
+      // An unlisted language is not an error to this model — it quietly falls
+      // back to auto-detect — so the mapping refusing to resolve is the only
+      // signal that the prompt dictionary has no entry for it.
+      return { ...none, supported: toNemotronLanguage(language) !== 'auto' };
+    }
+    // The remote server owns its model list; the app cannot know it.
+    return none;
   });
 
   // ---- Nemotron (local, streaming) config ----
@@ -141,7 +176,7 @@ export function registerSttIpc(ctx: IpcContext): void {
   // ---- Parakeet (local) config ----
   ipcMain.handle('get-parakeet-config', () => ctx.config.getParakeet());
 
-  ipcMain.handle('set-parakeet-config', (_event, config: { modelId?: string }) => {
+  ipcMain.handle('set-parakeet-config', (_event, config: { modelId?: string; numThreads?: number }) => {
     ctx.config.updateParakeet(config);
     const updated = ctx.config.getParakeet();
     if (ctx.config.getProvider() === 'parakeet' && updated.modelId) {
@@ -155,6 +190,7 @@ export function registerSttIpc(ctx: IpcContext): void {
           parakeetModelDir: pkArgs.modelDir,
           parakeetModelType: pkArgs.modelType,
           parakeetVadModel: pkArgs.vadModel,
+          parakeetThreads: updated.numThreads,
           language: ctx.appSettings().sourceLanguage,
         });
       }
