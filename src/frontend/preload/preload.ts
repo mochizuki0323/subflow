@@ -17,8 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startWindowDrag: () => ipcRenderer.send('start-window-drag'),
   dragWindowBy: (dx: number, dy: number) => ipcRenderer.send('window-drag-move', { dx, dy }),
   stopWindowDrag: () => ipcRenderer.send('stop-window-drag'),
-  startWindowResize: (direction: string, startX: number, startY: number) =>
-    ipcRenderer.send('start-window-resize', { direction, startX, startY }),
+  startWindowResize: (direction: string) => ipcRenderer.send('start-window-resize', { direction }),
+  resizeWindowBy: (dx: number, dy: number) => ipcRenderer.send('window-resize-move', { dx, dy }),
   stopWindowResize: () => ipcRenderer.send('stop-window-resize'),
   testTranslator: () => ipcRenderer.invoke('test-translator'),
   testTranslatorWithConfig: (config: any) => ipcRenderer.invoke('test-translator-with-config', config),

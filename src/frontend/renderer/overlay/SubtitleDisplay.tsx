@@ -4,7 +4,7 @@ import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';
 import type { SubtitleMode } from '../shared/types';
 import { ResizeHandles } from './ResizeHandles';
-import { useDragBarPointerDown } from './useWindowDrag';
+import { useDragBarPointerDown } from './useWindowGesture';
 import { setLang, t } from '../shared/i18n';
 
 // Distinct hues for up to 8 speakers; cycles beyond that.

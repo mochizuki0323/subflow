@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useDragBarPointerDown } from './useWindowDrag';
+import { useDragBarPointerDown } from './useWindowGesture';
 import { createRoot } from 'react-dom/client';
 import '../shared/styles/overlay.css';
 import { applyUiThemePayload } from '../shared/apply-ui-theme';

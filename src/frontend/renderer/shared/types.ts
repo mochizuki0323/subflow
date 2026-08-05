@@ -177,7 +177,8 @@ export interface ElectronAPI {
   startWindowDrag: () => void;
   dragWindowBy: (dx: number, dy: number) => void;
   stopWindowDrag: () => void;
-  startWindowResize: (direction: string, startX: number, startY: number) => void;
+  startWindowResize: (direction: string) => void;
+  resizeWindowBy: (dx: number, dy: number) => void;
   stopWindowResize: () => void;
   testTranslator: () => Promise<{ success: boolean; error?: string }>;
 

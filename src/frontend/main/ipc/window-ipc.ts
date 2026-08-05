@@ -1,5 +1,16 @@
-import { BrowserWindow, ipcMain, screen } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import type { IpcContext } from './context';
+
+// setPosition/setBounds take int32 in native code and throw a TypeError that
+// takes the whole main process down with it when handed anything else. The
+// numbers reaching them are a renderer's pointer deltas added to bounds a
+// window manager reported, so neither end is trustworthy: everything is
+// checked here, and an unusable value cancels the gesture instead of crashing.
+function asInt(v: unknown): number | null {
+  if (typeof v !== 'number') return null;
+  const n = Math.round(v);
+  return Number.isFinite(n) && Math.abs(n) <= 2147483647 ? n : null;
+}
 
 export interface WindowIpc {
   saveWindowPositions(): void;
@@ -89,20 +100,44 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
   // setPosition. getCursorScreenPoint() is stale on GNOME (XWayland) and
   // compositor app-region drags are ignored for these unfocusable toolbar
   // windows — neither can be used here.
+  //
+  // Moving is done with setBounds carrying the size captured when the drag
+  // began, never setPosition. setPosition reads the window's current size back
+  // out and re-applies it, and on a Windows display scaled past 100% that
+  // physical -> DIP -> physical round trip can land a pixel high; at one call
+  // per pointer event the window visibly swells as it is dragged. Restating the
+  // size every move pins it instead of letting it compound.
   let dragWin: BrowserWindow | null = null;
   let dragStartWin = { x: 0, y: 0 };
+  let dragSize = { width: 0, height: 0 };
+  let dragApplied = { x: 0, y: 0 };
 
   ipcMain.on('start-window-drag', (event) => {
-    dragWin = BrowserWindow.fromWebContents(event.sender);
-    if (!dragWin) return;
-    const [wx, wy] = dragWin.getPosition();
-    dragStartWin = { x: wx, y: wy };
+    dragWin = null; // never let a stale anchor survive into the next drag
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    const b = win.getBounds();
+    const x = asInt(b.x), y = asInt(b.y);
+    const width = asInt(b.width), height = asInt(b.height);
+    if (x === null || y === null || width === null || height === null) return; // no anchor, no drag
+    dragStartWin = { x, y };
+    dragSize = { width, height };
+    dragApplied = { x, y };
+    dragWin = win;
   });
 
-  ipcMain.on('window-drag-move', (event, { dx, dy }: { dx: number; dy: number }) => {
+  ipcMain.on('window-drag-move', (event, payload: { dx?: unknown; dy?: unknown }) => {
     if (!dragWin || dragWin.isDestroyed()) return;
     if (BrowserWindow.fromWebContents(event.sender) !== dragWin) return;
-    dragWin.setPosition(Math.round(dragStartWin.x + dx), Math.round(dragStartWin.y + dy));
+    const dx = asInt(payload?.dx), dy = asInt(payload?.dy);
+    if (dx === null || dy === null) return;
+    const x = asInt(dragStartWin.x + dx), y = asInt(dragStartWin.y + dy);
+    if (x === null || y === null) return;
+    // Compare against what we last applied, not getPosition(): the window
+    // manager's answer lags mid-drag and would make us re-send every move.
+    if (x === dragApplied.x && y === dragApplied.y) return;
+    dragApplied = { x, y };
+    dragWin.setBounds({ x, y, width: dragSize.width, height: dragSize.height });
   });
 
   ipcMain.on('stop-window-drag', () => {
@@ -111,37 +146,48 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
   });
 
   // ---- Window resizing ----
+  // Resizing is renderer-driven for the same reasons dragging is, and it is
+  // strictly event-driven: geometry is written only when a pointer actually
+  // moved and only when the result differs from what we last wrote. The
+  // earlier version polled getCursorScreenPoint() on a 16ms timer and pushed
+  // setBounds 60x a second for as long as the button was down — which resized
+  // the window on a mere press-and-hold, and left the timer running whenever
+  // the matching release went missing.
   const MIN_W = 200, MIN_H = 80;
-  let resizeInterval: ReturnType<typeof setInterval> | null = null;
   let resizeWin: BrowserWindow | null = null;
   let resizeDir = '';
-  let rsStartCursor = { x: 0, y: 0 };
   let rsStartBounds = { x: 0, y: 0, width: 0, height: 0 };
+  let rsApplied = { x: 0, y: 0, width: 0, height: 0 };
 
-  ipcMain.on('start-window-resize', (event, { direction }: { direction: string }) => {
-    if (resizeInterval) clearInterval(resizeInterval);
-    resizeWin = BrowserWindow.fromWebContents(event.sender);
-    if (!resizeWin) return;
-    rsStartBounds = resizeWin.getBounds();
-    const cur = screen.getCursorScreenPoint();
-    rsStartCursor = { x: cur.x, y: cur.y };
-    resizeDir = direction;
-    resizeInterval = setInterval(() => {
-      if (!resizeWin) return;
-      const cur = screen.getCursorScreenPoint();
-      const dx = cur.x - rsStartCursor.x;
-      const dy = cur.y - rsStartCursor.y;
-      let { x, y, width, height } = rsStartBounds;
-      if (resizeDir.includes('e')) width = Math.max(MIN_W, width + dx);
-      if (resizeDir.includes('s')) height = Math.max(MIN_H, height + dy);
-      if (resizeDir.includes('w')) { const nw = Math.max(MIN_W, width - dx); x += width - nw; width = nw; }
-      if (resizeDir.includes('n')) { const nh = Math.max(MIN_H, height - dy); y += height - nh; height = nh; }
-      resizeWin.setBounds({ x, y, width, height });
-    }, 16);
+  ipcMain.on('start-window-resize', (event, payload: { direction?: unknown }) => {
+    resizeWin = null;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    const b = win.getBounds();
+    const x = asInt(b.x), y = asInt(b.y), width = asInt(b.width), height = asInt(b.height);
+    if (x === null || y === null || width === null || height === null) return;
+    rsStartBounds = { x, y, width, height };
+    rsApplied = { x, y, width, height };
+    resizeDir = typeof payload?.direction === 'string' ? payload.direction : '';
+    resizeWin = win;
+  });
+
+  ipcMain.on('window-resize-move', (event, payload: { dx?: unknown; dy?: unknown }) => {
+    if (!resizeWin || resizeWin.isDestroyed()) return;
+    if (BrowserWindow.fromWebContents(event.sender) !== resizeWin) return;
+    const dx = asInt(payload?.dx), dy = asInt(payload?.dy);
+    if (dx === null || dy === null) return;
+    let { x, y, width, height } = rsStartBounds;
+    if (resizeDir.includes('e')) width = Math.max(MIN_W, width + dx);
+    if (resizeDir.includes('s')) height = Math.max(MIN_H, height + dy);
+    if (resizeDir.includes('w')) { const nw = Math.max(MIN_W, width - dx); x += width - nw; width = nw; }
+    if (resizeDir.includes('n')) { const nh = Math.max(MIN_H, height - dy); y += height - nh; height = nh; }
+    if (x === rsApplied.x && y === rsApplied.y && width === rsApplied.width && height === rsApplied.height) return;
+    rsApplied = { x, y, width, height };
+    resizeWin.setBounds({ x, y, width, height });
   });
 
   ipcMain.on('stop-window-resize', () => {
-    if (resizeInterval) { clearInterval(resizeInterval); resizeInterval = null; }
     resizeWin = null;
     saveWindowPositions();
   });

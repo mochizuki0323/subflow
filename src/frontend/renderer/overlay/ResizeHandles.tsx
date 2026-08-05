@@ -1,4 +1,5 @@
 import React from 'react';
+import { useResizeHandlePointerDown } from './useWindowGesture';
 
 const HANDLES = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'] as const;
 type HandleDir = typeof HANDLES[number];
@@ -10,16 +11,7 @@ const CURSORS: Record<HandleDir, string> = {
 };
 
 export function ResizeHandles() {
-  const makeMouseDown = (dir: HandleDir) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.electronAPI.startWindowResize(dir, e.screenX, e.screenY);
-    const onMouseUp = () => {
-      window.electronAPI.stopWindowResize();
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-    window.addEventListener('mouseup', onMouseUp);
-  };
+  const makePointerDown = useResizeHandlePointerDown();
 
   return (
     <>
@@ -28,7 +20,7 @@ export function ResizeHandles() {
           key={dir}
           className={`resize-handle resize-handle-${dir}`}
           style={{ cursor: CURSORS[dir] }}
-          onMouseDown={makeMouseDown(dir)}
+          onPointerDown={makePointerDown(dir)}
         />
       ))}
     </>
