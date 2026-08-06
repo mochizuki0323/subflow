@@ -91,9 +91,20 @@ function SubtitleDisplay() {
         const partial = !!segment.partial;
         const line: SubtitleLine = { text, translatedText, speaker, partial };
 
-        // Avoid duplicating the same line from the same speaker
+        // Avoid duplicating the same line from the same speaker — but a final that
+        // repeats the last partial word-for-word is not a duplicate: it is that
+        // line arriving settled, and it is the only frame carrying a translation,
+        // since partials are not translated unless explicitly asked for. Dropping
+        // it cost the streaming provider its translations almost every utterance:
+        // Nemotron only emits a partial when the text changed and only endpoints
+        // after ~1.2s of trailing blanks, so nothing new is decoded in between and
+        // its final is byte-identical to the last partial by construction. Parakeet
+        // survived this because its final is a separate full-segment re-decode,
+        // which usually differs — usually, not always.
         const last = prev[prev.length - 1];
-        if (last && last.text === text && last.speaker === speaker) return prev;
+        if (last && last.text === text && last.speaker === speaker && last.partial === partial) {
+          return prev;
+        }
 
         // Replace previous partial with current segment (partial or final)
         if (last?.partial) return [...prev.slice(0, -1), line].slice(-3);
