@@ -53,6 +53,13 @@ export function registerAppIpc(ctx: IpcContext): void {
     if (url.startsWith('https://')) shell.openExternal(url);
   });
 
+  // ---- Updates ----
+  // Pushed *and* queryable for the reason `backend-state` is: the startup check
+  // can finish before the control panel exists, and a result nobody is listening
+  // for yet must not be lost.
+  ipcMain.handle('get-update-status', () => ctx.updates.status());
+  ipcMain.handle('check-for-updates', () => ctx.updates.check());
+
   // ---- App settings ----
   ipcMain.handle('get-app-settings', () => ctx.appSettings());
 
@@ -62,6 +69,11 @@ export function registerAppIpc(ctx: IpcContext): void {
     ctx.safeSend(ctx.mainWindow(), 'ui-language', lang);
     ctx.safeSend(ctx.overlayWindow(), 'ui-language', lang);
     ctx.safeSend(ctx.historyWindow(), 'ui-language', lang);
+    return ctx.appSettings();
+  });
+
+  ipcMain.handle('set-check-updates-on-startup', (_event, on: boolean) => {
+    ctx.updateAppSettings({ checkUpdatesOnStartup: !!on });
     return ctx.appSettings();
   });
 

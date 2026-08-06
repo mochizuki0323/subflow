@@ -20,6 +20,7 @@ import type {
   UiThemePayload,
   TranscriptEntry,
   LanguageSupport,
+  UpdateStatus,
 } from '../shared/types';
 
 type Tab = 'sources' | 'denoise' | 'recognition' | 'translation' | 'output' | 'history' | 'logs' | 'about';
@@ -94,6 +95,8 @@ export function App() {
   const [localAccentSource, setLocalAccentSource] = useState<AccentSource>('default');
   const [localUiLang, setLocalUiLang] = useState<UiLanguage>('zh');
   const [showPartials, setShowPartials] = useState(false);
+  const [update, setUpdate] = useState<UpdateStatus | null>(null);
+  const [autoCheckUpdates, setAutoCheckUpdates] = useState(true);
 
   useEffect(() => {
     window.electronAPI.getSttProvider().then(setSttProvider);
@@ -115,6 +118,7 @@ export function App() {
       setUiLang(lang);
       setLocalUiLang(lang);
       setShowPartials(!!s.showPartials);
+      setAutoCheckUpdates(s.checkUpdatesOnStartup !== false);
       if (s.subtitleMode === 'original' || s.subtitleMode === 'translated' || s.subtitleMode === 'bilingual') {
         setSubtitleMode(s.subtitleMode);
       }
@@ -447,7 +451,40 @@ export function App() {
 
   useEffect(() => {
     window.electronAPI.getAppVersion().then(setAppVersion);
+    // Asked once and then listened for: the startup check usually completes
+    // before this window exists, and a later one arrives while it is open.
+    window.electronAPI.getUpdateStatus().then(setUpdate);
+    window.electronAPI.onUpdateStatus(setUpdate);
+    return () => window.electronAPI.removeListeners('update-status');
   }, []);
+
+  const checkForUpdates = () => {
+    void window.electronAPI.checkForUpdates().then(setUpdate);
+  };
+
+  const toggleAutoCheckUpdates = () => {
+    const next = !autoCheckUpdates;
+    setAutoCheckUpdates(next);
+    void window.electronAPI.setCheckUpdatesOnStartup(next);
+  };
+
+  const updateLine = ((): string => {
+    switch (update?.state) {
+      case 'checking':
+        return t('about.update.checking');
+      case 'available':
+        return `${t('about.update.available')} v${update.latestVersion}`;
+      case 'current':
+        return t('about.update.current');
+      case 'error': {
+        const reason = t(`about.update.err.${update.error ?? 'offline'}` as any);
+        const code = update.httpStatus ? ` (${update.httpStatus})` : '';
+        return `${t('about.update.failed')} · ${reason}${code}`;
+      }
+      default:
+        return t('about.update.never');
+    }
+  })();
 
   return (
     <div className="app-shell">
@@ -508,6 +545,12 @@ export function App() {
                   <span className="nav-name">{t(TAB_META[id].navKey as any)}</span>
                   {id === 'history' && finalCount > 0 && <span className="nav-num">{finalCount}</span>}
                   {id === 'logs' && errorCount > 0 && <span className="error-count">{errorCount}</span>}
+                  {/* A newer version is not a fault and not signal, so it gets no
+                      colour — the version number itself, sitting where a count
+                      sits, is the whole notification. */}
+                  {id === 'about' && update?.state === 'available' && (
+                    <span className="nav-num">{update.latestVersion}</span>
+                  )}
                 </span>
               </span>
             </button>
@@ -787,6 +830,83 @@ export function App() {
                 >
                   github.com/mochizuki0323/subflow
                 </a>
+              </div>
+
+              {/* Checking is all this does. Neither the Windows portable exe nor a
+                  deb/rpm can be replaced from inside the running process, so the
+                  app names the new version and opens the page rather than
+                  pretending to install it on the three targets where it cannot. */}
+              <div className="section">
+                <div className="block-key">{t('about.updates')}</div>
+                <div className="form-row">
+                  <label>{t('about.update.status')}</label>
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: update?.state === 'available' ? 600 : 400,
+                      color: update?.state === 'available' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {updateLine}
+                  </span>
+                </div>
+                {update?.state === 'available' && update.publishedAt && (
+                  <div className="form-row">
+                    <label>{t('about.update.released')}</label>
+                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                      {new Date(update.publishedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={checkForUpdates}
+                    disabled={update?.state === 'checking'}
+                  >
+                    {update?.state === 'checking' ? t('about.update.checking') : t('about.update.check')}
+                  </button>
+                  {update?.state === 'available' && update.releaseUrl && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => window.electronAPI.openExternal(update.releaseUrl!)}
+                    >
+                      {t('about.update.open')}
+                    </button>
+                  )}
+                </div>
+                {update?.state === 'available' && (
+                  <p className="hint" style={{ marginTop: 8 }}>{t('about.update.manual')}</p>
+                )}
+                {update?.state === 'available' && update.releaseNotes && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="block-key">{t('about.update.notes')}</div>
+                    <div
+                      style={{
+                        maxHeight: 200,
+                        overflowY: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: 12,
+                        lineHeight: 1.6,
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      {update.releaseNotes}
+                    </div>
+                  </div>
+                )}
+                <div className="toggle-row" onClick={toggleAutoCheckUpdates} style={{ marginTop: 12 }}>
+                  <div>
+                    <div className="toggle-label">{t('about.update.autoCheck')}</div>
+                    <div className="toggle-desc">{t('about.update.autoCheck.desc')}</div>
+                  </div>
+                  <label className="switch" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={autoCheckUpdates} onChange={toggleAutoCheckUpdates} />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
               </div>
             </div>
           )}

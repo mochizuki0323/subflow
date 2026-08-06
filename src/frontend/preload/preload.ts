@@ -27,6 +27,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
+  // Updates (check + tell; nothing is downloaded or installed)
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  setCheckUpdatesOnStartup: (on: boolean) => ipcRenderer.invoke('set-check-updates-on-startup', on),
+  onUpdateStatus: (callback: (status: any) => void) => {
+    ipcRenderer.on('update-status', (_event, status) => callback(status));
+  },
+
   // Denoiser
   getDenoiserConfig: () => ipcRenderer.invoke('get-denoiser-config'),
   setDenoiserConfig: (config: { enabled?: boolean; modelId?: string }) =>

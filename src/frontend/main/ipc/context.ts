@@ -4,6 +4,7 @@ import type { WsClient } from '../ws-client';
 import type { Translator } from '../translator';
 import type { UnifiedConfigManager } from '../unified-config';
 import type { AppSettings } from '../app-settings';
+import type { UpdateChecker } from '../updater';
 
 export type BackendRestartOptions = Parameters<BackendManager['restart']>[0];
 
@@ -14,6 +15,7 @@ export interface IpcContext {
   backend: BackendManager;
   ws: WsClient;
   translator: Translator;
+  updates: UpdateChecker;
   mainWindow(): BrowserWindow | null;
   overlayWindow(): BrowserWindow | null;
   historyWindow(): BrowserWindow | null;

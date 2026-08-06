@@ -194,6 +194,24 @@ export interface AppSettings {
   uiLanguage: UiLanguage;
   subtitleMode: SubtitleMode;
   showPartials: boolean;
+  checkUpdatesOnStartup: boolean;
+}
+
+/**
+ * Result of asking GitHub for the newest release. The app never installs an
+ * update — the portable exe and the distro packages have no in-place path — so
+ * this carries exactly what the About page needs to say and link to.
+ */
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'current' | 'error';
+  currentVersion: string;
+  latestVersion?: string;
+  releaseUrl?: string;
+  releaseNotes?: string;
+  publishedAt?: string;
+  checkedAt?: number;
+  error?: 'offline' | 'rate_limited' | 'no_release' | 'unreadable' | 'http';
+  httpStatus?: number;
 }
 
 export interface ElectronAPI {
@@ -219,6 +237,11 @@ export interface ElectronAPI {
 
   getAppVersion: () => Promise<string>;
   openExternal: (url: string) => Promise<void>;
+
+  getUpdateStatus: () => Promise<UpdateStatus>;
+  checkForUpdates: () => Promise<UpdateStatus>;
+  setCheckUpdatesOnStartup: (on: boolean) => Promise<AppSettings>;
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => void;
 
   getDenoiserConfig: () => Promise<DenoiserConfig>;
   setDenoiserConfig: (config: Partial<DenoiserConfig>) => Promise<{ success: boolean; applied?: boolean }>;

@@ -10,6 +10,8 @@ export interface AppSettings {
   uiLanguage: UiLanguage;
   subtitleMode: SubtitleMode;
   showPartials: boolean;
+  /** Ask GitHub for the newest release once, shortly after launch. */
+  checkUpdatesOnStartup: boolean;
 }
 
 const DEFAULTS: AppSettings = {
@@ -17,6 +19,7 @@ const DEFAULTS: AppSettings = {
   uiLanguage: 'zh',
   subtitleMode: 'original',
   showPartials: false,
+  checkUpdatesOnStartup: true,
 };
 
 function normalizeSubtitleMode(value: unknown): SubtitleMode {
@@ -45,6 +48,10 @@ export function loadAppSettings(configDir: string): AppSettings {
         typeof parsed.sourceLanguage === 'string' ? parsed.sourceLanguage : DEFAULTS.sourceLanguage,
       uiLanguage,
       subtitleMode: normalizeSubtitleMode(parsed.subtitleMode),
+      checkUpdatesOnStartup:
+        typeof parsed.checkUpdatesOnStartup === 'boolean'
+          ? parsed.checkUpdatesOnStartup
+          : DEFAULTS.checkUpdatesOnStartup,
     };
   } catch {
     return { ...DEFAULTS };

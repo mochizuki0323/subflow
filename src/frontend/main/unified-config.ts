@@ -92,6 +92,7 @@ const DEFAULT_APP: AppSettings = {
   uiLanguage: 'zh',
   subtitleMode: 'original',
   showPartials: false,
+  checkUpdatesOnStartup: true,
 };
 
 const DEFAULT_UI: UiPreferences = {
@@ -299,6 +300,10 @@ function mergeApp(base: AppSettings, partial: Partial<AppSettings>): AppSettings
     uiLanguage: normalizeUiLanguage(partial.uiLanguage ?? base.uiLanguage),
     subtitleMode: normalizeSubtitleMode(partial.subtitleMode ?? base.subtitleMode),
     showPartials: typeof partial.showPartials === 'boolean' ? partial.showPartials : base.showPartials,
+    checkUpdatesOnStartup:
+      typeof partial.checkUpdatesOnStartup === 'boolean'
+        ? partial.checkUpdatesOnStartup
+        : base.checkUpdatesOnStartup,
   };
 }
 

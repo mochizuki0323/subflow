@@ -15,6 +15,7 @@ import {
 } from './app-config-dir';
 import type { AppSettings } from './app-settings';
 import { UnifiedConfigManager } from './unified-config';
+import { UpdateChecker } from './updater';
 import { TranscriptLog, toSrt, toText } from './transcript-log';
 import { findDenoiseModel, getModelPath, getModelsDir, isModelDownloaded } from './denoiser-manager';
 import type { BackendRestartOptions, IpcContext } from './ipc/context';
@@ -73,7 +74,13 @@ let overlayWindow: BrowserWindow | null = null;
 let historyWindow: BrowserWindow | null = null;
 let windowIpc: WindowIpc | null = null;
 
-let appSettings: AppSettings = { sourceLanguage: 'auto', uiLanguage: 'zh', subtitleMode: 'original', showPartials: false };
+let appSettings: AppSettings = {
+  sourceLanguage: 'auto',
+  uiLanguage: 'zh',
+  subtitleMode: 'original',
+  showPartials: false,
+  checkUpdatesOnStartup: true,
+};
 let lastCaptureSourceId = 0;
 let backendState: { state: string; code?: number | null } = { state: 'connecting' };
 const transcriptLog = new TranscriptLog();
@@ -82,6 +89,11 @@ function safeSend(win: BrowserWindow | null, channel: string, ...args: unknown[]
   if (!win || win.isDestroyed()) return;
   (win.webContents as { send: (ch: string, ...a: unknown[]) => void }).send(channel, ...args);
 }
+
+// Only the control panel has anywhere to put this; the overlay is for speech.
+const updateChecker = new UpdateChecker(app.getVersion(), (status) => {
+  safeSend(mainWindow, 'update-status', status);
+});
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -188,6 +200,7 @@ if (!gotSingleInstanceLock) {
     backend: backendManager,
     ws: wsClient,
     translator,
+    updates: updateChecker,
     mainWindow: () => mainWindow,
     overlayWindow: () => overlayWindow,
     historyWindow: () => historyWindow,
@@ -383,6 +396,13 @@ if (!gotSingleInstanceLock) {
       safeSend(mainWindow, 'audio_level', data);
       safeSend(overlayWindow, 'audio_level', data);
     });
+
+    // Late and unattended: startup is already spawning a backend and loading a
+    // model, and this check has no deadline — its only consumer is a line on a
+    // page the user is not looking at yet. A failure stays in the status object.
+    if (appSettings.checkUpdatesOnStartup) {
+      setTimeout(() => { void updateChecker.check(); }, 6000);
+    }
 
     registerAppIpc(ctx);
     registerSttIpc(ctx);
