@@ -74,6 +74,12 @@ const translations = {
   'out.placement': { en: 'Placement', zh: '位置与大小' },
   'out.placement.enter': { en: 'Unlock windows', zh: '解锁窗口' },
   'out.placement.exit': { en: 'Lock windows', zh: '锁定窗口' },
+  'out.placement.resetOverlay': { en: 'Reset overlay', zh: '复原叠层' },
+  'out.placement.resetHistory': { en: 'Reset history window', zh: '复原历史窗口' },
+  'out.placement.reset.hint': {
+    en: 'Puts a window back to the position and size it starts with — for one dragged off-screen or shrunk past grabbing.',
+    zh: '把窗口放回初始的位置和大小 —— 拖出屏幕外或缩得抓不住时用。',
+  },
   'out.needsTranslator': { en: 'This mode needs translation, which is off — enable it under Translation.', zh: '该模式需要翻译，但翻译未启用 — 请在「翻译」中开启。' },
   'out.overlay': { en: 'Subtitle overlay', zh: '字幕叠层' },
   'out.overlay.desc': { en: 'Float captions above other windows', zh: '悬浮在其他窗口之上显示字幕' },
@@ -255,6 +261,14 @@ const translations = {
   'nemotron.download': { en: 'Download', zh: '下载' },
   'nemotron.delete': { en: 'Delete', zh: '删除' },
   'nemotron.threads': { en: 'Decode threads', zh: '解码线程数' },
+  'nemotron.endpoint.title': { en: 'Advanced Endpoint Settings', zh: '高级断句设置' },
+  'nemotron.endpoint.hint': {
+    en: 'Tune where the streaming model cuts a caption. Nemotron only.',
+    zh: '调整流式模型在哪里切断一句字幕。仅 Nemotron 生效。',
+  },
+  'nemotron.endpoint.show': { en: 'Show', zh: '展开' },
+  'nemotron.endpoint.hide': { en: 'Hide', zh: '收起' },
+  'nemotron.endpoint.reset': { en: 'Reset to defaults', zh: '恢复默认' },
   'nemotron.minSilence': { en: 'Silence to end sentence (s)', zh: '断句静音(秒)' },
   'nemotron.minSilence.hint': {
     en: 'How long a pause ends a sentence. The streaming model detects this itself — no VAD involved. Lower = faster but choppier; higher = more complete but higher latency.',

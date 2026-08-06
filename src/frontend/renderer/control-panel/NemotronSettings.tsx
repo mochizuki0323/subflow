@@ -19,6 +19,14 @@ function clampThreads(value: number): number {
   return Math.max(THREADS_MIN, Math.min(THREADS_MAX, Math.round(value)));
 }
 
+// What the config layer starts from, repeated here for the reset button. The
+// silence default is sherpa's 1.2s rather than the VAD's 0.5s on purpose: an
+// endpoint costs this model its encoder cache.
+const ENDPOINT_DEFAULTS: Pick<NemotronConfig, 'minSilence' | 'maxUtterance'> = {
+  minSilence: 1.2,
+  maxUtterance: 15,
+};
+
 // Endpoint rules, not VAD: the streaming decoder counts its own trailing
 // blanks, these set how much of that silence closes a caption. Same ranges the
 // config layer clamps to.
@@ -43,6 +51,7 @@ export function NemotronSettings() {
   const [models, setModels] = useState<NemotronModelInfo[]>([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [applying, setApplying] = useState(false);
+  const [showEndpoint, setShowEndpoint] = useState(false);
   const [downloadError, setDownloadError] = useState<{ modelId: string; message: string } | null>(null);
   // The field keeps its own text so a half-typed value is not forced through
   // Number() on every keystroke.
@@ -200,31 +209,67 @@ export function NemotronSettings() {
         />
       </div>
 
-      {ENDPOINT_FIELDS.map((f) => {
-        const value = config[f.key];
-        const pct = ((value - f.min) / (f.max - f.min)) * 100;
-        return (
-          <div key={f.key} className="vad-field" style={{ marginTop: 16 }}>
-            <div className="vad-field-head">
-              <label>{tk(`nemotron.${f.key}`)}</label>
-              <span className="vad-value">{value.toFixed(f.decimals)}</span>
-            </div>
-            <input
-              type="range"
-              className="vad-slider"
-              min={f.min}
-              max={f.max}
-              step={f.step}
-              value={value}
-              onChange={(e) => edit({ [f.key]: parseFloat(e.target.value) })}
-              style={{
-                background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--bg-hover) ${pct}%, var(--bg-hover) 100%)`,
-              }}
-            />
-            <p className="hint">{tk(`nemotron.${f.key}.hint`)}</p>
+      <div className="divider" />
+
+      {/* Folded away behind the same header the Parakeet page puts its VAD
+          behind — these are the equivalent knobs for this provider, and like
+          those they are the ones a first-time user should not have to meet. The
+          difference is only in what they are: rules over the decoder's own
+          trailing blanks, not a VAD's, which is why they are named that way and
+          why there are two of them instead of five. */}
+      <div className="vad-header">
+        <h3 style={{ margin: 0 }}>{t('nemotron.endpoint.title')}</h3>
+        <button
+          className="btn-secondary btn-sm"
+          onClick={() => setShowEndpoint((v) => !v)}
+        >
+          {showEndpoint ? t('nemotron.endpoint.hide') : t('nemotron.endpoint.show')}
+        </button>
+      </div>
+      <p className="hint" style={{ marginTop: 8 }}>{t('nemotron.endpoint.hint')}</p>
+
+      {showEndpoint && (
+        <div className="vad-section">
+          {ENDPOINT_FIELDS.map((f) => {
+            const value = config[f.key];
+            const pct = ((value - f.min) / (f.max - f.min)) * 100;
+            return (
+              <div key={f.key} className="vad-field">
+                <div className="vad-field-head">
+                  <label>{tk(`nemotron.${f.key}`)}</label>
+                  <span className="vad-value">{value.toFixed(f.decimals)}</span>
+                </div>
+                <input
+                  type="range"
+                  className="vad-slider"
+                  min={f.min}
+                  max={f.max}
+                  step={f.step}
+                  value={value}
+                  onChange={(e) => edit({ [f.key]: parseFloat(e.target.value) })}
+                  style={{
+                    background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--bg-hover) ${pct}%, var(--bg-hover) 100%)`,
+                  }}
+                />
+                <p className="hint">{tk(`nemotron.${f.key}.hint`)}</p>
+              </div>
+            );
+          })}
+
+          {/* Only the two rules reset; the model and the thread count are not
+              part of this block, exactly as the Parakeet page's reset leaves
+              its own model and threads alone. */}
+          <div className="vad-actions">
+            <button
+              className="btn-secondary"
+              onClick={() => edit({ ...ENDPOINT_DEFAULTS })}
+              disabled={applying}
+            >
+              {t('nemotron.endpoint.reset')}
+            </button>
           </div>
-        );
-      })}
+        </div>
+      )}
 
       <div className="divider" />
 

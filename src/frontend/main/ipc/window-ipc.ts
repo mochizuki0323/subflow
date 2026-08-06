@@ -1,5 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import type { IpcContext } from './context';
+import { defaultOverlayBounds } from '../windows/overlay-window';
+import { defaultHistoryBounds } from '../windows/history-window';
 
 // setPosition/setBounds take int32 in native code and throw a TypeError that
 // takes the whole main process down with it when handed anything else. The
@@ -82,6 +84,19 @@ export function registerWindowIpc(ctx: IpcContext): WindowIpc {
     history.show();
     assertOnTop(history);
     return true;
+  });
+
+  // A window dragged off the screen, or shrunk to nothing, cannot be recovered
+  // by dragging it — there is nothing left to grab. The saved rect is rewritten
+  // as well as the live one, or the next launch would restore the mess.
+  ipcMain.handle('reset-window-position', (_event, target: unknown) => {
+    const which = target === 'overlay' || target === 'history' ? target : null;
+    if (!which) return { success: false };
+    const win = which === 'overlay' ? ctx.overlayWindow() : ctx.historyWindow();
+    if (!win || win.isDestroyed()) return { success: false };
+    win.setBounds(which === 'overlay' ? defaultOverlayBounds() : defaultHistoryBounds());
+    saveWindowPositions();
+    return { success: true };
   });
 
   ipcMain.handle('toggle-drag-mode', () => {

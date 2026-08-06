@@ -226,6 +226,7 @@ export interface ElectronAPI {
   toggleOverlay: () => Promise<boolean>;
   toggleHistory: () => Promise<boolean>;
   toggleDragMode: () => Promise<boolean>;
+  resetWindowPosition: (target: 'overlay' | 'history') => Promise<{ success: boolean }>;
   exitDragMode: () => void;
   startWindowDrag: () => void;
   dragWindowBy: (dx: number, dy: number) => void;

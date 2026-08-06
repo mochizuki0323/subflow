@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleOverlay: () => ipcRenderer.invoke('toggle-overlay'),
   toggleHistory: () => ipcRenderer.invoke('toggle-history'),
   toggleDragMode: () => ipcRenderer.invoke('toggle-drag-mode'),
+  resetWindowPosition: (target: 'overlay' | 'history') =>
+    ipcRenderer.invoke('reset-window-position', target),
   exitDragMode: () => ipcRenderer.send('exit-drag-mode'),
   startWindowDrag: () => ipcRenderer.send('start-window-drag'),
   dragWindowBy: (dx: number, dy: number) => ipcRenderer.send('window-drag-move', { dx, dy }),

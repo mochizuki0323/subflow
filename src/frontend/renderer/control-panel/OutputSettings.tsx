@@ -114,6 +114,29 @@ export function OutputSettings({
         >
           {dragMode ? t('out.placement.exit') : t('out.placement.enter')}
         </button>
+
+        {/* Disabled while the window is off, because the click would be
+            invisible: it does move the hidden window, but the user has no way to
+            see that it worked. The switches that turn it on are on this page. */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!overlayVisible}
+            onClick={() => window.electronAPI.resetWindowPosition('overlay')}
+          >
+            {t('out.placement.resetOverlay')}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!historyVisible}
+            onClick={() => window.electronAPI.resetWindowPosition('history')}
+          >
+            {t('out.placement.resetHistory')}
+          </button>
+        </div>
+        <p className="hint" style={{ marginTop: 8 }}>{t('out.placement.reset.hint')}</p>
       </div>
     </div>
   );

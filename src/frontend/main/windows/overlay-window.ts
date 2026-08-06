@@ -2,17 +2,26 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'path';
 import { getRendererPage } from '../paths';
 
-export function createOverlayWindow(): BrowserWindow {
-  const display = screen.getPrimaryDisplay();
-  const { width, height } = display.workAreaSize;
-
+/**
+ * Where this window starts: a full-width strip along the bottom of the primary
+ * display. Exported because "reset position" has to mean exactly this and
+ * nothing else — a second copy of these numbers would be a reset that drifts
+ * away from the real default one edit at a time.
+ */
+export function defaultOverlayBounds(): { x: number; y: number; width: number; height: number } {
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
   const overlayHeight = 200;
+  return { x: 0, y: height - overlayHeight, width, height: overlayHeight };
+}
+
+export function createOverlayWindow(): BrowserWindow {
+  const bounds = defaultOverlayBounds();
 
   const win = new BrowserWindow({
-    width: width,
-    height: overlayHeight,
-    x: 0,
-    y: height - overlayHeight,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     show: false,       // start hidden; user toggles via the control panel button
     transparent: true,
     frame: false,

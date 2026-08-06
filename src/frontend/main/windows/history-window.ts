@@ -2,15 +2,21 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'path';
 import { getRendererPage } from '../paths';
 
+/** Where this window starts: top-right of the primary display. See
+ *  defaultOverlayBounds for why the reset path reads it from here. */
+export function defaultHistoryBounds(): { x: number; y: number; width: number; height: number } {
+  const { width } = screen.getPrimaryDisplay().workAreaSize;
+  return { x: width - 400, y: 20, width: 380, height: 480 };
+}
+
 export function createHistoryWindow(): BrowserWindow {
-  const display = screen.getPrimaryDisplay();
-  const { width } = display.workAreaSize;
+  const bounds = defaultHistoryBounds();
 
   const win = new BrowserWindow({
-    width: 380,
-    height: 480,
-    x: width - 400,
-    y: 20,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     show: false,
     transparent: true,
     frame: false,
