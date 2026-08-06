@@ -898,10 +898,7 @@ export function App() {
                   </div>
                 )}
                 <div className="toggle-row" onClick={toggleAutoCheckUpdates} style={{ marginTop: 12 }}>
-                  <div>
-                    <div className="toggle-label">{t('about.update.autoCheck')}</div>
-                    <div className="toggle-desc">{t('about.update.autoCheck.desc')}</div>
-                  </div>
+                  <div className="toggle-label">{t('about.update.autoCheck')}</div>
                   <label className="switch" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={autoCheckUpdates} onChange={toggleAutoCheckUpdates} />
                     <span className="switch-slider" />

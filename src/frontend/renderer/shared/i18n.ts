@@ -206,10 +206,6 @@ const translations = {
   'about.update.err.unreadable': { en: 'unexpected response from GitHub', zh: 'GitHub 返回内容无法解析' },
   'about.update.err.http': { en: 'GitHub returned an error', zh: 'GitHub 返回错误' },
   'about.update.autoCheck': { en: 'Check on startup', zh: '启动时检查更新' },
-  'about.update.autoCheck.desc': {
-    en: 'Ask GitHub for the newest release a few seconds after launch. Nothing else is sent.',
-    zh: '启动几秒后向 GitHub 查询最新发布版本，不会上传任何数据。',
-  },
 
   // ---- DenoiserSettings.tsx ----
   'denoise.title': { en: 'Speech Enhancement', zh: '语音增强' },
